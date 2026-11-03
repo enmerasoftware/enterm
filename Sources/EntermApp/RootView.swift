@@ -15,6 +15,7 @@ final class RootView: NSView {
     private var bags = Set<AnyCancellable>()
     private var keyMonitor: Any?
     private var flagsMonitor: Any?
+    private var mouseMonitor: Any?
 
     init() {
         canvas = CanvasView(model: model)
@@ -32,9 +33,9 @@ final class RootView: NSView {
         wantsLayer = true
         layer?.backgroundColor = Theme.palette.bg.cgColor
         addSubview(canvas)
-        addSubview(side)
         addSubview(top)
         addSubview(bottom)
+        addSubview(side)
         addSubview(cards)
         model.onLayoutChange = { [weak self] in
             self?.needsLayout = true
@@ -59,6 +60,10 @@ final class RootView: NSView {
             .store(in: &bags)
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.handleKey(event) ?? event
+        }
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            self?.noteClick(event)
+            return event
         }
         flagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
             VoiceInput.shared.flagsChanged(event)
@@ -109,6 +114,15 @@ final class RootView: NSView {
         super.layout()
         layoutBars()
         cover?.frame = bounds
+    }
+
+    /// A click anywhere in a box makes it the focused session, terminal area included.
+    private func noteClick(_ event: NSEvent) {
+        guard event.window === window, cover == nil else { return }
+        let point = canvas.convert(event.locationInWindow, from: nil)
+        if let box = canvas.boxes.values.first(where: { !$0.isHidden && $0.frame.contains(point) }), box.number != model.focused {
+            model.setFocus(box.number)
+        }
     }
 
     // MARK: Keys

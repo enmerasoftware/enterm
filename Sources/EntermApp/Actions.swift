@@ -25,6 +25,8 @@ enum Commands {
         Command(id: "board", title: "Pano", key: "⌘⇧B"),
         Command(id: "toggleCanvas", title: "Tuval Ve Sekmeler Arasında Geç", key: ""),
         Command(id: "sessionList", title: "Tüm Oturumlar", key: ""),
+        Command(id: "link", title: "Kutuları Bağla", key: ""),
+        Command(id: "messages", title: "Ajanlar Arası Mesaj Geçmişi", key: ""),
         Command(id: "fit", title: "Sığdır", key: "0"),
         Command(id: "zoomIn", title: "Yakınlaştır", key: "⌘="),
         Command(id: "zoomOut", title: "Uzaklaştır", key: "⌘-"),
@@ -81,6 +83,14 @@ enum Commands {
         case "voice": model.page = .settings(.voice)
         case "escape":
             if model.overlay != nil { model.overlay = nil } else if model.page != nil { model.page = nil } else { model.notFound = nil }
+        case "link":
+            model.detailTab = 1
+            model.detailsOpen = true
+        case "messages": model.page = .messages
+        case "approveFirst":
+            if let request = model.sessions.compactMap(\.pendingApproval).first { Approvals.decide(id: request.id, decision: "allow") }
+        case "denyFirst":
+            if let request = model.sessions.compactMap(\.pendingApproval).first { Approvals.decide(id: request.id, decision: "deny") }
         case "changes": model.page = .changes
         case "browser": model.page = .browser
         default: break
@@ -108,7 +118,7 @@ enum ToolLauncher {
         env["ENTERM_STARTUP"] = extraArguments.isEmpty ? command : "\(command) \(extraArguments)"
         spec.env = env
         if let reason = PowerCenter.shared.blockReason() {
-            PowerCenter.shared.enqueue(spec, reason: reason)
+            PowerCenter.shared.enqueue(spec, reason: reason, then: then)
             AppModel.shared.hint = "Sırada: \(reason). Çalışan İş Durmadı."
             return
         }

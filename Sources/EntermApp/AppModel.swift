@@ -27,6 +27,7 @@ enum Page: Equatable {
     case note
     case messages
     case cost
+    case restore
     case notYet(String)
 }
 
@@ -79,7 +80,14 @@ final class AppModel: ObservableObject {
     @Published var zoom: CGFloat = 1
     @Published var notFound: NotFoundCard?
     @Published var serviceLost = false
-    @Published var hint: String?
+    @Published var hint: String? {
+        didSet {
+            hintTimer?.invalidate()
+            hintTimer = nil
+            guard hint != nil, hint?.hasPrefix("●") != true else { return }
+            hintTimer = Timer.scheduledTimer(withTimeInterval: 8, repeats: false) { [weak self] _ in self?.hint = nil }
+        }
+    }
     @Published var titles: [UInt32: String] = [:]
 
     var hosts: [UInt32: TerminalHost] = [:]
@@ -91,6 +99,8 @@ final class AppModel: ObservableObject {
     var sparseTimer: Timer?
     var fitCanvas: (() -> Void)?
     var onReload: (() -> Void)?
+    var restorable: [SessionInfo] = []
+    private var hintTimer: Timer?
 
     var visibleSessions: [SessionInfo] { sessions }
     var focusedInfo: SessionInfo? { sessions.first { $0.number == focused } }
@@ -137,8 +147,16 @@ final class AppModel: ObservableObject {
             sessions = list
             list.forEach { ensureHost($0) }
             if list.isEmpty {
-                newTerminal()
+                let saved = JSONStore.load([SessionInfo].self, from: EntermPaths.sessionsFile)?.filter { $0.status != .exited } ?? []
+                if saved.isEmpty {
+                    newTerminal()
+                } else {
+                    restorable = saved
+                    newTerminal()
+                    page = .restore
+                }
             } else {
+                hint = "Enterm Yeniden Açıldı · Oturumlar Hiç Durmadı"
                 mode = list.count > 1 ? (state.mode == .single ? .canvas : state.mode) : .single
                 setFocus(list.first?.number)
                 onLayoutChange?()
@@ -288,7 +306,9 @@ final class AppModel: ObservableObject {
                 self.ensureHost(info)
                 if self.sessions.count > 1, self.mode == .single {
                     self.mode = SettingsStore.shared.settings.newTerminalAsTab ? .tabs : .canvas
+                    self.hint = "İki Terminal Yan Yana · ⌘⏎ Tam Ekran · ⌘W Kapat"
                 }
+                if self.sessions.count == 7 { self.hint = "Kutular Küçülmez, Sürükleyerek Gezin · ⌥⌘0 Sığdır" }
                 self.maximized = nil
                 self.setFocus(info.number)
                 self.onLayoutChange?()

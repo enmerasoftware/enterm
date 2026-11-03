@@ -458,3 +458,78 @@ struct BrowserPage: View {
         }
     }
 }
+
+// MARK: Restore after a restart
+
+enum Restore {
+    static func start(_ info: SessionInfo) {
+        let model = AppModel.shared
+        guard FileManager.default.fileExists(atPath: info.cwd) else {
+            model.hint = "Klasör Bulunamadı: \(info.cwd)"
+            return
+        }
+        guard info.tool != .terminal else {
+            model.create(SessionSpec(name: info.name.isEmpty ? nil : info.name, tool: .terminal, cwd: info.cwd, rows: 30, cols: 100)) { created in
+                let log = EntermPaths.scrollbackDir.appendingPathComponent("\(info.id).log")
+                guard let data = try? Data(contentsOf: log), !data.isEmpty else { return }
+                let stamp = Date().formatted(date: .omitted, time: .shortened)
+                let banner = "\r\n\u{1B}[2mBilgisayar Yeniden Başladı · Yukarısı Eski Döküm · \(stamp)\u{1B}[0m\r\n"
+                model.hosts[created.number]?.feedOutput(data + Data(banner.utf8), replay: true)
+                try? FileManager.default.removeItem(at: log)
+            }
+            return
+        }
+        var arguments = ""
+        if let id = info.toolSessionID {
+            switch info.tool {
+            case .claude: arguments = "--resume \(NotFoundActions.shellQuote(info.transcriptPath ?? id))"
+            case .codex: arguments = "resume \(NotFoundActions.shellQuote(id))"
+            case .antigravity: arguments = "--conversation=\(NotFoundActions.shellQuote(id))"
+            case .terminal: break
+            }
+        }
+        ToolLauncher.start(info.tool, cwd: info.cwd, name: info.name.isEmpty ? nil : info.name, accountID: info.accountID, extraArguments: arguments)
+    }
+}
+
+struct RestorePage: View {
+    @ObservedObject var model = AppModel.shared
+    @State private var pending: [SessionInfo] = []
+    var body: some View {
+        PageFrame(title: "Oturumlar Geri Gelsin Mi") {
+            Dim("Bilgisayar Yeniden Başladı. Dökümler yerinde. Ajanlar kendiliğinden başlamaz, açtığınızda konuşma kaldığı yerden sürer, ilk mesajda limitten yer.")
+            Panel {
+                ForEach(pending) { info in
+                    let exists = FileManager.default.fileExists(atPath: info.cwd)
+                    Row {
+                        VStack(alignment: .leading) {
+                            T(info.name.isEmpty ? model.displayPath(info.cwd) : info.name, bold: true)
+                            Dim("\(info.tool.title) · \(model.displayPath(info.cwd))")
+                        }
+                        Spacer()
+                        if exists {
+                            Btn(info.tool == .terminal ? "Dökümle Aç" : "Sürdür") {
+                                Restore.start(info)
+                                pending.removeAll { $0.id == info.id }
+                                if pending.isEmpty { model.page = nil }
+                            }
+                        } else {
+                            T("✕ Klasör Bulunamadı", color: Theme.palette.err)
+                        }
+                    }
+                    Line()
+                }
+            }
+            HStack {
+                Btn("Boş Başla", kind: .plain) { model.page = nil }
+                Btn("Şimdi Değil", kind: .plain, key: "Esc") { model.page = nil }
+                Btn("Hepsini Sürdür", kind: .primary, key: "⏎") {
+                    pending.forEach { Restore.start($0) }
+                    model.page = nil
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .onAppear { pending = model.restorable }
+    }
+}

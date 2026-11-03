@@ -25,6 +25,7 @@ struct PageRouter: View {
         case .remote: RemotePage()
         case .messages: MessagesPage()
         case .cost: CostPage()
+        case .restore: RestorePage()
         case .phone: NotYet(name: "Telefonu Bağla")
         case .notYet(let name): NotYet(name: name)
         }

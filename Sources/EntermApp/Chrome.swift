@@ -5,6 +5,7 @@ import SwiftUI
 struct TopBar: View {
     @ObservedObject var model = AppModel.shared
     @ObservedObject var inbox = Inbox.shared
+    @ObservedObject var power = PowerCenter.shared
     var body: some View {
         let palette = Theme.palette
         HStack(spacing: 16) {
@@ -30,6 +31,12 @@ struct TopBar: View {
             }
             if model.serviceLost {
                 T("■ Koptu", color: palette.limit, bold: true)
+            }
+            if power.settings.lowPower {
+                Btn("Düşük Güçlü Açık", kind: .plain) { Commands.perform("power") }
+            }
+            if !power.queue.isEmpty {
+                Btn("◷ Sırada \(power.queue.count)", kind: .outline) { Commands.perform("inbox") }
             }
             let waiting = model.sessions.filter { $0.pendingApproval != nil }.count
             if waiting > 0 {
@@ -71,6 +78,7 @@ struct BottomBars: View {
                 .cornerRadius(6)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(Theme.palette.line2)))
                 .frame(maxHeight: .infinity)
+                .padding(.trailing, model.detailsOpen ? 400 : 0)
             }
             if model.footVisible {
                 HStack(spacing: 16) {

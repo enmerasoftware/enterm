@@ -463,6 +463,7 @@ final class Service {
     func remove(_ session: Session) {
         if let pid = session.info.pid { kill(pid, SIGHUP) }
         sessions[session.info.number] = nil
+        try? FileManager.default.removeItem(at: EntermPaths.scrollbackDir.appendingPathComponent("\(session.info.id).log"))
         var message = WireMessage(op: "removed")
         message.number = session.info.number
         broadcast(message)
@@ -640,6 +641,9 @@ final class Service {
     func persistNow() {
         let infos = sessions.values.map(\.info).sorted { $0.number < $1.number }
         JSONStore.save(infos, to: EntermPaths.sessionsFile)
+        // The transcript setting is read here, at most once per flush.
+        let keep = JSONStore.load(AppSettings.self, from: EntermPaths.settingsFile)?.keepTranscript ?? true
+        guard keep else { return }
         let tailLimit = 256 * 1024
         for session in sessions.values where session.dirty {
             session.dirty = false

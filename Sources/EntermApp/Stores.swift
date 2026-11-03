@@ -149,6 +149,7 @@ final class PowerCenter: ObservableObject {
         let id = UUID()
         let spec: SessionSpec
         let reason: String
+        let then: ((SessionInfo) -> Void)?
     }
 
     init() {
@@ -179,20 +180,20 @@ final class PowerCenter: ObservableObject {
         return nil
     }
 
-    func enqueue(_ spec: SessionSpec, reason: String) {
-        queue.append(QueuedSession(spec: spec, reason: reason))
+    func enqueue(_ spec: SessionSpec, reason: String, then: ((SessionInfo) -> Void)? = nil) {
+        queue.append(QueuedSession(spec: spec, reason: reason, then: then))
         updateSampling()
     }
 
     func startQueued(force: QueuedSession? = nil) {
         if let force {
             queue.removeAll { $0.id == force.id }
-            AppModel.shared.create(force.spec)
+            AppModel.shared.create(force.spec, then: force.then)
             return
         }
         while let first = queue.first, blockReason() == nil {
             queue.removeFirst()
-            AppModel.shared.create(first.spec)
+            AppModel.shared.create(first.spec, then: first.then)
         }
     }
 
