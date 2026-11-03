@@ -137,7 +137,7 @@ final class PowerCenter: ObservableObject {
         }
     }
     @Published var cpuUsed: Double = 0
-    @Published var memoryPressure = false
+    @Published var pressure = MemoryPressureLevel.current()
     @Published var queue: [QueuedSession] = []
     @Published var enterm: (cpu: Double, memoryMB: Double) = (0, 0)
     @Published var agents: (cpu: Double, memoryMB: Double) = (0, 0)
@@ -157,7 +157,7 @@ final class PowerCenter: ObservableObject {
         let source = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical, .normal], queue: .main)
         source.setEventHandler { [weak self] in
             guard let self else { return }
-            self.memoryPressure = source.data != .normal
+            self.pressure = MemoryPressureLevel.current()
             self.startQueued()
         }
         source.resume()
@@ -174,10 +174,8 @@ final class PowerCenter: ObservableObject {
 
     /// True when a new agent must wait. Plain terminals are never queued.
     func blockReason() -> String? {
-        if runningAgents >= effectiveMaxSessions { return "Aynı Anda En Çok \(effectiveMaxSessions) Oturum" }
-        if settings.cpuLimit < 100, cpuUsed >= Double(settings.cpuLimit) { return "İşlemci En Çok %\(settings.cpuLimit)" }
-        if memoryPressure { return "Bellek Baskısı" }
-        return nil
+        pressure = MemoryPressureLevel.current()
+        return PowerRules.blockReason(running: runningAgents, maxSessions: effectiveMaxSessions, cpuLimit: settings.cpuLimit, cpuUsed: cpuUsed, pressure: pressure)
     }
 
     func enqueue(_ spec: SessionSpec, reason: String, then: ((SessionInfo) -> Void)? = nil) {
@@ -230,6 +228,7 @@ final class PowerCenter: ObservableObject {
             if total > 0 { cpuUsed = busy / total * 100 }
         }
         lastTicks = (user, system, idle)
+        pressure = MemoryPressureLevel.current()
         applyPriorities()
         startQueued()
     }
@@ -247,6 +246,7 @@ final class PowerCenter: ObservableObject {
 
     /// Reads the app's and agents' load for the settings screen, only when that screen asks.
     func measureUsage() {
+        pressure = MemoryPressureLevel.current()
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/ps")
         process.arguments = ["-axo", "pid=,%cpu=,rss=,comm="]

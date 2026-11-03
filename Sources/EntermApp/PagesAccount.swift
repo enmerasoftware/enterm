@@ -367,7 +367,7 @@ struct SettingsPage: View {
             HStack { T("Enterm"); Spacer(); Dim(String(format: "%%%.1f · %.0f MB", power.enterm.cpu, power.enterm.memoryMB)) }
             HStack { T("Claude Code, Codex Ve Antigravity"); Spacer(); Dim(String(format: "%%%.1f · %.0f MB", power.agents.cpu, power.agents.memoryMB)) }
             Dim("Ajanların yükü Enterm'in elinde değildir. Aynı anda çalışan oturum sayısıyla azalır.")
-            HStack { T("Bellek Baskısı"); Spacer(); Dim(power.memoryPressure ? "Var" : "Yok") }
+            HStack { T("Bellek Baskısı"); Spacer(); Dim(power.pressure.title) }
             Btn("Yeniden Ölç", kind: .plain) { power.measureUsage() }
         }
         .onAppear { power.measureUsage() }

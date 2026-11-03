@@ -23,14 +23,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.setFrameAutosaveName("EntermMain")
         if !window.setFrameUsingName("EntermMain") { window.center() }
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
         AppModel.shared.start()
         Scheduler.shared.start()
+#if ENTERM_TEST_DRIVER
         DebugDriver.shared.perform = { Commands.perform($0) }
         DebugDriver.shared.typeText = { AppModel.shared.focusedHost?.type($0) }
         DebugDriver.shared.start()
+#endif
         NotificationCenter.default.addObserver(forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main) { [weak self] _ in
-            AppModel.shared.setWindowVisible(self?.window.occlusionState.contains(.visible) ?? true)
+            let visible = self?.window.occlusionState.contains(.visible) ?? true
+            AppModel.shared.setWindowVisible(visible)
+            // A covered window skips its drawing. Whatever arrived meanwhile shows as soon as it is seen.
+            if visible { AppModel.shared.hosts.values.forEach { $0.needsDisplay = true } }
         }
     }
 
@@ -41,12 +45,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         default: Theme.isLight = false
         }
         NSApp.appearance = NSAppearance(named: Theme.isLight ? .aqua : .darkAqua)
-    }
-
-    func applicationWillTerminate(_ notification: Notification) {
-        if let dir = ProcessInfo.processInfo.environment["ENTERM_DEBUG_DIR"] {
-            try? Thread.callStackSymbols.joined(separator: "\n").write(toFile: dir + "/term.log", atomically: true, encoding: .utf8)
-        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }

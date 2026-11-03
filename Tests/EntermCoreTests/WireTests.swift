@@ -91,3 +91,35 @@ final class StoreTests: XCTestCase {
         XCTAssertLessThanOrEqual(next.timeIntervalSince(start.addingTimeInterval(90000)), 86400)
     }
 }
+
+final class PowerTests: XCTestCase {
+    func testKernelValuesMap() {
+        XCTAssertEqual(MemoryPressureLevel(kernelValue: 1), .normal)
+        XCTAssertEqual(MemoryPressureLevel(kernelValue: 2), .warning)
+        XCTAssertEqual(MemoryPressureLevel(kernelValue: 4), .critical)
+    }
+
+    func testCurrentLevelMatchesKernel() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/sysctl")
+        process.arguments = ["-n", "kern.memorystatus_vm_pressure_level"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        try? process.run()
+        process.waitUntilExit()
+        let text = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        XCTAssertEqual(MemoryPressureLevel.current(), MemoryPressureLevel(kernelValue: Int(text) ?? 0))
+    }
+
+    func testPressureBlocksSecondAgentOnly() {
+        func reason(_ running: Int, _ pressure: MemoryPressureLevel, limit: Int = 75) -> String? {
+            PowerRules.blockReason(running: running, maxSessions: 4, cpuLimit: limit, cpuUsed: 10, pressure: pressure)
+        }
+        XCTAssertNil(reason(0, .warning))
+        XCTAssertNotNil(reason(1, .warning))
+        XCTAssertNotNil(reason(0, .critical))
+        XCTAssertNil(reason(3, .normal))
+        XCTAssertNotNil(reason(4, .normal))
+        XCTAssertNil(reason(3, .critical, limit: 100))
+    }
+}

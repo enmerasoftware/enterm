@@ -1,3 +1,4 @@
+#if ENTERM_TEST_DRIVER
 import AppKit
 import CoreGraphics
 import EntermCore
@@ -30,6 +31,30 @@ final class DebugDriver {
             let rest = parts.count > 1 ? parts[1] : ""
             switch verb {
             case "do": perform?(rest)
+            case "front":
+                NSApp.windows.first?.setFrame(NSRect(x: 40, y: 40, width: 760, height: 480), display: true)
+                NSApp.windows.first?.orderFrontRegardless()
+            case "tail":
+                var message = WireMessage(op: "tail")
+                message.number = AppModel.shared.focused
+                AppModel.shared.connection.request(message) { reply in
+                    try? (reply.text ?? "").write(toFile: rest, atomically: true, encoding: .utf8)
+                }
+            case "key":
+                sendKey(rest)
+            case "click":
+                let numbers = rest.split(separator: " ").compactMap { Double($0) }
+                if numbers.count == 2 { mouse([(.leftMouseDown, numbers[0], numbers[1]), (.leftMouseUp, numbers[0], numbers[1])]) }
+            case "drag":
+                let n = rest.split(separator: " ").compactMap { Double($0) }
+                if n.count == 4 {
+                    mouse([(.leftMouseDown, n[0], n[1]), (.leftMouseDragged, (n[0] + n[2]) / 2, (n[1] + n[3]) / 2),
+                           (.leftMouseDragged, n[2], n[3]), (.leftMouseUp, n[2], n[3])])
+                }
+            case "state":
+                let model = AppModel.shared
+                let text = "overlay=\(String(describing: model.overlay)) page=\(String(describing: model.page)) focused=\(String(describing: model.focused)) maximized=\(String(describing: model.maximized)) mode=\(model.mode) sessions=\(model.sessions.count) details=\(model.detailsOpen) links=\(LinkStore.shared.links.count) pressure=\(PowerCenter.shared.pressure.title) visible=\(NSApp.windows.first?.occlusionState.contains(.visible) ?? false)\n"
+                try? text.write(toFile: rest, atomically: true, encoding: .utf8)
             case "theme":
                 SettingsStore.shared.settings.theme = rest
             case "flow":
@@ -49,6 +74,36 @@ final class DebugDriver {
             }
         }
         try? "done\n".write(toFile: directory + "/done", atomically: true, encoding: .utf8)
+    }
+
+    /// Synthetic input through the app's own event path. It reaches only this app, never another window.
+    private func sendKey(_ spec: String) {
+        var flags: NSEvent.ModifierFlags = []
+        var key = spec
+        for (prefix, flag) in [("cmd+", NSEvent.ModifierFlags.command), ("shift+", .shift), ("ctrl+", .control), ("opt+", .option)] {
+            while key.hasPrefix(prefix) {
+                flags.insert(flag)
+                key.removeFirst(prefix.count)
+            }
+        }
+        let codes: [String: UInt16] = ["esc": 53, "enter": 36, "down": 125, "up": 126]
+        let characters = key == "enter" ? "\r" : key == "esc" ? "\u{1b}" : key
+        guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
+                                           windowNumber: NSApp.windows.first?.windowNumber ?? 0, context: nil, characters: characters,
+                                           charactersIgnoringModifiers: characters, isARepeat: false, keyCode: codes[key] ?? 0) else { return }
+        if flags.contains(.command), NSApp.mainMenu?.performKeyEquivalent(with: event) == true { return }
+        NSApp.sendEvent(event)
+    }
+
+    /// Coordinates are from the window's top left corner.
+    private func mouse(_ steps: [(NSEvent.EventType, Double, Double)]) {
+        guard let window = NSApp.windows.first else { return }
+        let height = window.contentView?.bounds.height ?? 0
+        for (type, x, y) in steps {
+            guard let event = NSEvent.mouseEvent(with: type, location: NSPoint(x: x, y: height - y), modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                                 windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) else { continue }
+            NSApp.postEvent(event, atStart: false)
+        }
     }
 
     func capture(to path: String) {
@@ -117,3 +172,4 @@ final class DebugDriver {
         return found
     }
 }
+#endif

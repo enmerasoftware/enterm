@@ -1,5 +1,11 @@
 // swift-tools-version:5.10
+import Foundation
 import PackageDescription
+
+// The test driver exists only in debug builds, or when a measurement build asks for it explicitly.
+let driverSettings: [SwiftSetting] = ProcessInfo.processInfo.environment["ENTERM_DRIVER_RELEASE"] != nil
+    ? [.define("ENTERM_TEST_DRIVER")]
+    : [.define("ENTERM_TEST_DRIVER", .when(configuration: .debug))]
 
 let package = Package(
     name: "Enterm",
@@ -22,7 +28,7 @@ let package = Package(
         .executableTarget(name: "EntermApp", dependencies: [
             "EntermCore",
             .product(name: "SwiftTerm", package: "SwiftTerm"),
-        ]),
+        ], swiftSettings: driverSettings),
         .testTarget(name: "EntermCoreTests", dependencies: ["EntermCore"]),
     ],
     swiftLanguageVersions: [.v5]
