@@ -43,9 +43,15 @@ final class TerminalHost: TerminalView, TerminalViewDelegate {
     }
 
     func feedOutput(_ data: Data, replay: Bool) {
-        replaying = replay
-        feed(byteArray: ArraySlice(data))
-        replaying = false
+        if replay {
+            // The terminal answers queries found in old output, sometimes a moment later.
+            // Those answers must never reach the shell as if they were typed.
+            replaying = true
+            feed(byteArray: ArraySlice(data))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.replaying = false }
+        } else {
+            feed(byteArray: ArraySlice(data))
+        }
     }
 
     /// Display Terminal input as if the user typed it.

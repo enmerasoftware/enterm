@@ -179,7 +179,10 @@ enum NotFoundActions {
         var text: String
         switch card.kind {
         case .notInstalled(let install): text = install
-        case .notInPath(let path), .inApp(let path): text = shellQuote(path)
+        case .notInPath(let path), .inApp(let path):
+            // Only this one command sees the folder. The shell's PATH does not change.
+            let folder = (path as NSString).deletingLastPathComponent
+            text = "PATH=\(shellQuote(folder)):\"$PATH\" \(card.command)"
         case .geminiRejected: text = "agy"
         }
         text += "\r"

@@ -1,5 +1,6 @@
 import AppKit
 import CoreGraphics
+import EntermCore
 import QuartzCore
 
 /// A test hook, active only when `ENTERM_DEBUG_DIR` is set. On SIGUSR1 it runs the lines of `<dir>/cmd`.
@@ -29,6 +30,15 @@ final class DebugDriver {
             let rest = parts.count > 1 ? parts[1] : ""
             switch verb {
             case "do": perform?(rest)
+            case "team":
+                TeamBuilder.build(brief: "Test Ekibi", folder: rest, members: Team.template("software"))
+            case "card":
+                BoardStore.shared.change { board in
+                    var card = BoardCard(title: rest)
+                    card.members = ["Arda"]
+                    card.comments = [CardComment(author: "Siz", isAgent: false, text: "Öncelikle bitirelim")]
+                    board.cards.append(card)
+                }
             case "type": typeText?(rest.replacingOccurrences(of: "\\r", with: "\r"))
             case "shot": capture(to: rest)
             default: break

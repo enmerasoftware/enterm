@@ -354,7 +354,8 @@ final class Service {
         env["LANG"] = env["LANG"] ?? "tr_TR.UTF-8"
         env["LC_CTYPE"] = env["LC_CTYPE"] ?? "UTF-8"
         env["PWD"] = cwd
-        env.removeValue(forKey: "CLAUDECODE")
+        // A session must not look like a child of another program's session.
+        for key in env.keys where key == "CLAUDECODE" || key.hasPrefix("CLAUDE_CODE_") { env[key] = nil }
         for (key, value) in spec.env ?? [:] { env[key] = value }
         let shell = hostEnvironment["ENTERM_SHELL"] ?? loginShell()
         var path: String

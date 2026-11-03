@@ -259,15 +259,15 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Hidden windows draw nothing. In low power mode only the focused box is live.
+    /// A covered window draws nothing by itself, but the terminal must keep reading: programs wait for its answers.
+    /// In low power mode only the focused box is live.
     private func shouldFeedNow(_ number: UInt32) -> Bool {
-        if !windowVisible { return false }
         if PowerCenter.shared.settings.lowPower && number != focused { return false }
         return true
     }
 
     private func scheduleSparseFlush() {
-        guard sparseTimer == nil, windowVisible else { return }
+        guard sparseTimer == nil else { return }
         sparseTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
             self?.sparseTimer = nil
             self?.flushPending()

@@ -356,7 +356,31 @@ final class CanvasView: NSView {
 
     // MARK: Empty surface
 
-    override func mouseDown(with event: NSEvent) { panStart = event.locationInWindow }
+    override func mouseDown(with event: NSEvent) {
+        if let link = link(at: convert(event.locationInWindow, from: nil)) {
+            model.overlay = .linkDetail(link.id)
+            return
+        }
+        panStart = event.locationInWindow
+    }
+
+    /// A click near a line opens its details. Curves are close enough to their chord for this.
+    private func link(at point: NSPoint) -> SessionLink? {
+        guard allowsDrag else { return nil }
+        for link in LinkStore.shared.links {
+            guard let from = model.sessions.first(where: { $0.id == link.from }), let to = model.sessions.first(where: { $0.id == link.to }),
+                  let a = boxes[from.number], let b = boxes[to.number] else { continue }
+            let start = NSPoint(x: a.frame.maxX, y: a.frame.midY)
+            let end = NSPoint(x: b.frame.minX, y: b.frame.midY)
+            let dx = end.x - start.x
+            let dy = end.y - start.y
+            let lengthSquared = dx * dx + dy * dy
+            guard lengthSquared > 1 else { continue }
+            let t = max(0, min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared))
+            if hypot(point.x - (start.x + t * dx), point.y - (start.y + t * dy)) < 24 { return link }
+        }
+        return nil
+    }
 
     override func mouseDragged(with event: NSEvent) {
         guard let start = panStart, allowsDrag else { return }
