@@ -39,6 +39,8 @@ enum Commands {
         Command(id: "remote", title: "Uzak Sunucu", key: ""),
         Command(id: "phone", title: "Telefonu Bağla", key: ""),
         Command(id: "stop", title: "Durdur", key: "⌘."),
+        Command(id: "changes", title: "Değişiklikler Ve Git", key: ""),
+        Command(id: "browser", title: "Tarayıcı", key: "⌘⇧D"),
     ]
 
     static func perform(_ id: String) {
@@ -78,7 +80,9 @@ enum Commands {
         case "phone": model.page = .phone
         case "voice": model.page = .settings(.voice)
         case "escape":
-            if model.overlay != nil { model.overlay = nil } else if model.page != nil { model.page = nil }
+            if model.overlay != nil { model.overlay = nil } else if model.page != nil { model.page = nil } else { model.notFound = nil }
+        case "changes": model.page = .changes
+        case "browser": model.page = .browser
         default: break
         }
         model.refocusTerminal()

@@ -156,10 +156,20 @@ enum SessionText {
         var parts: [String] = []
         if let account = info.accountID, let name = AccountStore.shared.account(id: account)?.name { parts.append(name) }
         if let model = info.model { parts.append(model) }
-        if let effort = info.effort { parts.append(effort.capitalized) }
+        if let effort = info.effort { parts.append(effortTitle(effort)) }
         if let tokens = info.contextTokens { parts.append(shortTokens(tokens) + " Token") }
         if parts.isEmpty { return info.status == .unknown ? "Durum Bilinmiyor" : info.tool.title }
         return parts.joined(separator: " · ")
+    }
+
+    static func effortTitle(_ effort: String) -> String {
+        switch effort {
+        case "low": return "Düşük"
+        case "medium": return "Orta"
+        case "high": return "Yüksek"
+        case "xhigh", "max": return "En Fazla"
+        default: return effort
+        }
     }
 
     static func shortTokens(_ value: Int) -> String {

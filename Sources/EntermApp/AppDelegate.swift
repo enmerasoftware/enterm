@@ -108,6 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             add(menu, "Onay Kutusu", "inbox", "o", [.command, .shift])
             add(menu, "Pano", "board", "b", [.command, .shift])
             add(menu, "Yönetici Görünümü", "manager", "y", [.command, .shift])
+            add(menu, "Tarayıcı", "browser", "d", [.command, .shift])
             add(menu, "Yakınlaştır", "zoomIn", "=")
             add(menu, "Uzaklaştır", "zoomOut", "-")
             add(menu, "Sığdır", "fit", "0", [.command, .option])

@@ -20,6 +20,13 @@ enum Page: Equatable {
     case remote
     case newView
     case sessionList
+    case changes
+    case browser
+    case files
+    case editor(String)
+    case note
+    case messages
+    case cost
     case notYet(String)
 }
 

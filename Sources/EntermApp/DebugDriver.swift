@@ -40,6 +40,7 @@ final class DebugDriver {
     func capture(to path: String) {
         guard let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible }),
               let view = window.contentView, let layer = view.layer else { return }
+        AppModel.shared.flushPending()
         let size = view.bounds.size
         let terminals = Self.terminals(in: view).filter { !$0.isHiddenOrHasHiddenAncestor }
         terminals.forEach { $0.isHidden = true }

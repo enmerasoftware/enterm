@@ -147,9 +147,13 @@ final class RootView: NSView {
             LimitActions.perform(index: digit - 1)
             return nil
         }
-        if model.notFound != nil, event.keyCode == 36, flags.isEmpty {
-            NotFoundActions.primary()
-            return nil
+        if model.notFound != nil {
+            // The card must never take a command the user is typing: any other key dismisses it.
+            if event.keyCode == 36, flags.isEmpty {
+                NotFoundActions.primary()
+                return nil
+            }
+            if flags.intersection([.command, .control]).isEmpty { model.notFound = nil }
         }
         return event
     }
