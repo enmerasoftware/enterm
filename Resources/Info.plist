@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key><string>Enterm</string>
+    <key>CFBundleDisplayName</key><string>Enterm</string>
+    <key>CFBundleIdentifier</key><string>tr.com.enmera.enterm</string>
+    <key>CFBundleExecutable</key><string>EntermApp</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>0.1.0</string>
+    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleIconFile</key><string>Enterm</string>
+    <key>LSMinimumSystemVersion</key><string>13.0</string>
+    <key>NSHighResolutionCapable</key><true/>
+    <key>NSPrincipalClass</key><string>NSApplication</string>
+    <key>NSMicrophoneUsageDescription</key><string>Konuşarak yazmak için mikrofon gerekir. Ses, seçtiğiniz yerel modelle işlenir.</string>
+    <key>NSSpeechRecognitionUsageDescription</key><string>Sistem Diktesi seçildiğinde konuşmanız yazıya çevrilir.</string>
+</dict>
+</plist>
