@@ -57,7 +57,7 @@ struct Btn: View {
         let palette = Theme.palette
         Button(action: action) {
             HStack(spacing: 8) {
-                T(title, color: foreground, bold: kind == .primary || kind == .selected)
+                T(title, color: foreground, bold: kind == .primary || kind == .selected).lineLimit(1)
                 if let key { T(key, color: kind == .primary ? palette.btnfg : palette.dim) }
             }
             .padding(.horizontal, 8)

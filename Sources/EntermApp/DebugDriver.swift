@@ -30,6 +30,10 @@ final class DebugDriver {
             let rest = parts.count > 1 ? parts[1] : ""
             switch verb {
             case "do": perform?(rest)
+            case "theme":
+                SettingsStore.shared.settings.theme = rest
+            case "flow":
+                SettingsStore.shared.settings.flowStartsOpen = rest == "on"
             case "team":
                 TeamBuilder.build(brief: "Test Ekibi", folder: rest, members: Team.template("software"))
             case "card":

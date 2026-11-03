@@ -27,7 +27,7 @@ struct TopBar: View {
             }
             Spacer(minLength: 0)
             if let hint = model.hint {
-                Btn(hint, kind: .plain) { model.hint = nil }
+                Btn(hint, kind: .plain) { model.hint = nil }.lineLimit(1)
             }
             if model.serviceLost {
                 T("■ Koptu", color: palette.limit, bold: true)
