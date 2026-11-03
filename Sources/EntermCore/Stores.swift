@@ -11,6 +11,7 @@ public struct AppSettings: Codable, Equatable {
     public var localUsageData = true
     public var keepAwakeWhileAgents = true
     public var keepAwakeBatteryFloor = 20
+    public var systemNotifications = true
     public var defaultTemplate = PermissionTemplate.development
     public var voiceEnabled = true
     public var voiceEngine = "system"
@@ -18,6 +19,29 @@ public struct AppSettings: Codable, Equatable {
     public var manualModels: [String: ModelPlan] = [:]
     public var defaultPlan = ModelPlan()
     public init() {}
+
+    // Settings written by an older version keep working: a missing key takes its default.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = AppSettings()
+        theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? d.theme
+        newTerminalAsTab = try c.decodeIfPresent(Bool.self, forKey: .newTerminalAsTab) ?? d.newTerminalAsTab
+        openWithLastView = try c.decodeIfPresent(Bool.self, forKey: .openWithLastView) ?? d.openWithLastView
+        fontSize = try c.decodeIfPresent(Double.self, forKey: .fontSize) ?? d.fontSize
+        canvasDots = try c.decodeIfPresent(Bool.self, forKey: .canvasDots) ?? d.canvasDots
+        flowStartsOpen = try c.decodeIfPresent(Bool.self, forKey: .flowStartsOpen) ?? d.flowStartsOpen
+        keepTranscript = try c.decodeIfPresent(Bool.self, forKey: .keepTranscript) ?? d.keepTranscript
+        localUsageData = try c.decodeIfPresent(Bool.self, forKey: .localUsageData) ?? d.localUsageData
+        keepAwakeWhileAgents = try c.decodeIfPresent(Bool.self, forKey: .keepAwakeWhileAgents) ?? d.keepAwakeWhileAgents
+        keepAwakeBatteryFloor = try c.decodeIfPresent(Int.self, forKey: .keepAwakeBatteryFloor) ?? d.keepAwakeBatteryFloor
+        systemNotifications = try c.decodeIfPresent(Bool.self, forKey: .systemNotifications) ?? d.systemNotifications
+        defaultTemplate = try c.decodeIfPresent(PermissionTemplate.self, forKey: .defaultTemplate) ?? d.defaultTemplate
+        voiceEnabled = try c.decodeIfPresent(Bool.self, forKey: .voiceEnabled) ?? d.voiceEnabled
+        voiceEngine = try c.decodeIfPresent(String.self, forKey: .voiceEngine) ?? d.voiceEngine
+        voiceLanguage = try c.decodeIfPresent(String.self, forKey: .voiceLanguage) ?? d.voiceLanguage
+        manualModels = try c.decodeIfPresent([String: ModelPlan].self, forKey: .manualModels) ?? d.manualModels
+        defaultPlan = try c.decodeIfPresent(ModelPlan.self, forKey: .defaultPlan) ?? d.defaultPlan
+    }
 }
 
 /// Which model does which job. Only Claude Code has an advisor.

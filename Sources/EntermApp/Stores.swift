@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import EntermCore
+import UserNotifications
 
 final class SettingsStore: ObservableObject {
     static let shared = SettingsStore()
@@ -46,6 +47,16 @@ final class AccountStore: ObservableObject {
         ]
     }
     func account(id: String) -> Account? { accounts.first { $0.id == id } }
+
+    /// Codex limits are asked for when they are looked at, never on a timer.
+    func refreshCodex() {
+        for account in accounts where account.tool == .codex && account.kind != .apiKey {
+            CodexLimits.read(account: account) { [weak self] snapshot in
+                guard let self, let snapshot else { return }
+                self.recordLimit(snapshot, accountID: account.id, tool: .codex)
+            }
+        }
+    }
     func save() { JSONStore.save(accounts, to: EntermPaths.accountsFile) }
 
     func recordLimit(_ limit: LimitSnapshot, accountID: String?, tool: ToolKind) {
@@ -303,6 +314,7 @@ final class ExtensionsHub {
         if current.pendingApproval != nil, previous.pendingApproval == nil, let id = current.pendingApproval?.id {
             let model = AppModel.shared
             if model.overlay == nil { model.overlay = .approval(id) }
+            Notifier.shared.post(title: "\(model.title(for: current)) İzin İstiyor", body: current.pendingApproval?.summary ?? "", onlyWhenInactive: true)
         }
     }
 
@@ -339,6 +351,7 @@ final class Inbox: ObservableObject {
         let name = AppModel.shared.title(for: current)
         switch current.status {
         case .idle where previous.status == .running:
+            Notifier.shared.post(title: "\(name): İş Bitti", body: current.lastActivity ?? "", onlyWhenInactive: true)
             finished.insert(InboxItem(symbol: "✓", title: name, detail: current.lastActivity ?? "İş Bitti", at: Date(), sessionNumber: current.number), at: 0)
         case .failed:
             finished.insert(InboxItem(symbol: "✕", title: name, detail: "Hata", at: Date(), sessionNumber: current.number), at: 0)
@@ -346,6 +359,7 @@ final class Inbox: ObservableObject {
             limits.removeAll { $0.sessionNumber == current.number }
             limits.insert(InboxItem(symbol: "■", title: name, detail: "Limit Doldu, İş Korundu", at: Date(), sessionNumber: current.number), at: 0)
             AppModel.shared.overlay = .limit(current.number)
+            Notifier.shared.post(title: "\(name): Limit Doldu", body: "İş Korundu, Seçenekler Enterm'de", onlyWhenInactive: true)
         default:
             if previous.status == .limitReached { limits.removeAll { $0.sessionNumber == current.number } }
         }
@@ -397,6 +411,33 @@ struct NotFoundCard: Equatable {
             return NotFoundCard(number: number, command: command, kind: .notInstalled(install: "curl -fsSL https://antigravity.google/cli/install.sh | bash"))
         default:
             return nil
+        }
+    }
+}
+
+/// System notifications: only for events, by default only when the window is in the background.
+/// A permission is asked the first time there is something to say.
+final class Notifier {
+    static let shared = Notifier()
+    private var asked = false
+
+    func post(title: String, body: String, onlyWhenInactive: Bool) {
+        guard SettingsStore.shared.settings.systemNotifications else { return }
+        if onlyWhenInactive, NSApp.isActive { return }
+        let center = UNUserNotificationCenter.current()
+        let send = {
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = String(body.prefix(160))
+            center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+        }
+        if asked {
+            send()
+        } else {
+            asked = true
+            center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+                if granted { send() }
+            }
         }
     }
 }

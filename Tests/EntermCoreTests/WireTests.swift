@@ -123,3 +123,40 @@ final class PowerTests: XCTestCase {
         XCTAssertNil(reason(3, .critical, limit: 100))
     }
 }
+
+final class ListTests: XCTestCase {
+    func testSSHHostParsing() {
+        XCTAssertEqual(SSHCommand.host(in: "ssh deploy@staging.example.com uptime"), "staging.example.com")
+        XCTAssertEqual(SSHCommand.host(in: "ssh -p 2222 -i key prod \\"ls\\""), "prod")
+        XCTAssertEqual(SSHCommand.host(in: "cd x && scp a.txt deploy@db:/tmp/"), "db")
+        XCTAssertNil(SSHCommand.host(in: "ls -la"))
+        XCTAssertEqual(SSHCommand.hosts(fromConfig: "Host a b\n  User x\nHost *\nHost c*\nhost d"), ["a", "b", "d"])
+    }
+
+    func testSSHListRules() {
+        var book = PermissionBook()
+        XCTAssertEqual(book.decision(sessionID: "s", category: .ssh, host: "a"), .deny)
+        var card = PermissionTemplate.serverCare.card
+        book.cards["s"] = card
+        XCTAssertEqual(book.decision(sessionID: "s", category: .ssh, host: "a"), .ask)
+        card.sshRules = [SSHHostRule(host: "a", mode: .allow), SSHHostRule(host: "b", mode: .deny)]
+        book.cards["s"] = card
+        XCTAssertEqual(book.decision(sessionID: "s", category: .ssh, host: "a"), .allow)
+        XCTAssertEqual(book.decision(sessionID: "s", category: .ssh, host: "b"), .deny)
+        XCTAssertEqual(book.decision(sessionID: "s", category: .ssh, host: "listede-yok"), .deny)
+        XCTAssertEqual(book.decision(sessionID: "s", category: .ssh, host: nil), .deny)
+    }
+
+    func testShortcutConflicts() {
+        var book = ShortcutBook()
+        XCTAssertEqual(book.conflict(for: KeyCombo("t"), assigningTo: "details"), "Yeni Terminal")
+        XCTAssertNil(book.conflict(for: KeyCombo("t"), assigningTo: "newTerminal"))
+        XCTAssertEqual(book.conflict(for: KeyCombo("q"), assigningTo: "details"), "Sistem Kısayolu")
+        XCTAssertNil(book.conflict(for: KeyCombo("j"), assigningTo: "details"))
+        book.overrides["details"] = KeyCombo("j")
+        XCTAssertEqual(book.combo(for: "details"), KeyCombo("j"))
+        XCTAssertEqual(book.conflict(for: KeyCombo("j"), assigningTo: "close"), "Ayrıntılar")
+        XCTAssertFalse(KeyCombo("a", command: false).isUsable)
+        XCTAssertEqual(KeyCombo("\r", shift: true).display, "⇧⌘⏎")
+    }
+}

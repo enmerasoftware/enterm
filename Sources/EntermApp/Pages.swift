@@ -318,8 +318,17 @@ struct ModelTab: View {
             if let effort = info.effort { row("Efor", SessionText.effortTitle(effort)) }
             if let tokens = info.contextTokens { row("Bağlam", SessionText.shortTokens(tokens) + " Token") }
             if let cost = info.costUSD { row("Liste Fiyatıyla", String(format: "$%.2f", cost)) }
-            if info.tool == .codex {
-                Dim("Codex'te durum yalnız tur sonunda gelir. Token ve efor bu sürümde okunmuyor.")
+            if info.tool == .codex, info.hooksTrusted != true {
+                Panel {
+                    VStack(alignment: .leading, spacing: 8) {
+                        T("Codex Durumu İçin Onayınız Gerekiyor", bold: true)
+                        Dim("Bu onay olmadan \"onay istiyor\" durumu görünmez, \"bitti\" yalnız tur sonunda gelir. Codex yine çalışır. Bu terminalde /hooks yazıp Enterm kancalarına güvenin. Tanım değişirse yeniden sorulur.")
+                        Btn("/hooks Yaz", kind: .primary) {
+                            AppModel.shared.connection.sendInput(number: info.number, bytes: Data("/hooks\r".utf8))
+                        }
+                    }
+                    .padding(12)
+                }
             }
         }
         if info.tool == .claude {
@@ -339,7 +348,9 @@ struct ModelTab: View {
         }
         if info.tool == .codex {
             Line()
-            Dim("Limit bilgisi Codex'te app-server ile gelir, bu sürümde okunmuyor.")
+            T("Hesap Kullanımı", bold: true)
+            LimitBars(snapshot: AccountStore.shared.account(id: info.accountID ?? "system-codex")?.lastLimit)
+            Dim("Codex'in deneysel app-server arayüzünden okunur, model çalıştırmaz.")
         }
         Btn("Maliyet Görünümü", kind: .plain) { AppModel.shared.page = .cost }
     }
@@ -503,6 +514,7 @@ struct PermissionsTab: View {
                     }))
             }
         }
+        Btn("SSH Sunucu Listesi: \(book.card(for: info.id).sshRules.count)", kind: .plain) { AppModel.shared.overlay = .sshList(info.id) }
         if !book.rememberedHosts.isEmpty {
             T("Hatırlanan Adresler", bold: true)
             ForEach(book.rememberedHosts, id: \.self) { host in
@@ -730,5 +742,67 @@ struct LimitDialog: View {
         })
         actions.append(Action(title: "Sıfırlanmayı Bekle", note: "Beklerken Limitten Yemez") { AppModel.shared.overlay = nil })
         return actions
+    }
+}
+
+// MARK: SSH list
+
+struct SSHListDialog: View {
+    let sessionID: String
+    @ObservedObject var model = AppModel.shared
+    @State private var book = PermissionBook.load()
+    @State private var newHost = ""
+    private var card: PermissionCard { book.card(for: sessionID) }
+    var body: some View {
+        Panel {
+            PanelHeader(title: "SSH: \(model.sessions.first { $0.id == sessionID }.map { model.title(for: $0) } ?? "")") { Dim("Listede Olmayana Bağlanamaz") }
+            VStack(alignment: .leading, spacing: 12) {
+                if card.sshRules.isEmpty { Dim("Liste boş. Boşken yalnız kartın genel SSH ayarı geçerlidir.") }
+                ForEach(card.sshRules) { rule in
+                    HStack {
+                        T(rule.host)
+                        Spacer()
+                        Seg(options: PermissionMode.allCases.map { ($0, $0.title) }, value: Binding(
+                            get: { rule.mode },
+                            set: { value in update { rules in
+                                if let index = rules.firstIndex(where: { $0.host == rule.host }) { rules[index].mode = value }
+                            } }))
+                        Btn("Sil", kind: .plain) { update { $0.removeAll { $0.host == rule.host } } }
+                    }
+                }
+                HStack {
+                    EntermField(placeholder: "Sunucu Ekle: staging.example.com", text: $newHost)
+                    Btn("Ekle") {
+                        guard !newHost.isEmpty else { return }
+                        let host = newHost
+                        update { rules in if !rules.contains(where: { $0.host == host }) { rules.append(SSHHostRule(host: host)) } }
+                        newHost = ""
+                    }
+                    Btn("~/.ssh/config", kind: .plain) { importConfig() }
+                }
+                if card.mode(.ssh) == .deny { T("Bu kartta SSH kapalı. Liste, kart açılınca geçerli olur.", color: Theme.palette.limit) }
+                Dim("Anahtarlar ~/.ssh içinde kalır, Enterm okumaz.")
+                HStack {
+                    Spacer()
+                    Btn("Kapat", kind: .plain, key: "Esc") { model.overlay = nil }
+                }
+            }
+            .padding(12)
+        }
+        .frame(width: 640)
+    }
+    private func update(_ change: (inout [SSHHostRule]) -> Void) {
+        var current = book.card(for: sessionID)
+        change(&current.sshRules)
+        book.cards[sessionID] = current
+        book.save()
+        model.connection.send(WireMessage(op: "reloadPermissions"))
+    }
+    private func importConfig() {
+        let text = (try? String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8)) ?? ""
+        let hosts = SSHCommand.hosts(fromConfig: text)
+        update { rules in
+            for host in hosts where !rules.contains(where: { $0.host == host }) { rules.append(SSHHostRule(host: host)) }
+        }
     }
 }

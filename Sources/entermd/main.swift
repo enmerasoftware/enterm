@@ -295,6 +295,7 @@ final class Service {
         case "tail":
             guard let number = message.number, let session = sessions[number] else { return }
             var reply = WireMessage(op: "tail")
+            reply.id = message.id
             reply.text = Service.plainText(session.ring.suffix(16 * 1024), lines: 40)
             send(reply.frame(), to: client)
         case "lock":
@@ -307,6 +308,28 @@ final class Service {
                 reply.decision = "allow"
             }
             send(reply.frame(), to: client)
+        case "browser":
+            // From an agent's bridge to the window that owns the browser, and back.
+            let id = UUID().uuidString
+            browserWaiting[id] = client
+            var forward = WireMessage(op: "browserCmd")
+            forward.id = id
+            forward.text = message.text
+            forward.event = message.event
+            guard clients.values.contains(where: { $0.subscribed }) else {
+                browserWaiting[id] = nil
+                var reply = WireMessage(op: "browserResult")
+                reply.error = "Enterm penceresi açık değil."
+                send(reply.frame(), to: client)
+                return
+            }
+            broadcast(forward)
+        case "browserReply":
+            guard let id = message.id, let target = browserWaiting.removeValue(forKey: id), clients[target.fd] === target else { return }
+            var reply = WireMessage(op: "browserResult")
+            reply.text = message.text
+            reply.error = message.error
+            send(reply.frame(), to: target)
         case "reload":
             var note = WireMessage(op: "reload")
             note.text = message.text
@@ -584,6 +607,7 @@ final class Service {
 
     var approvalHosts: [String: String] = [:]
     var fileLocks: [String: String] = [:]
+    var browserWaiting: [String: Client] = [:]
     var recentAllowed: [String: Date] = [:]
 
     func releaseLocks(_ sessionID: String) {

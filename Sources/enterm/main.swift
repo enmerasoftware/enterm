@@ -104,6 +104,11 @@ func wrap(_ tool: String, _ rest: [String]) -> Never {
         case "codex":
             argv += ["-c", "notify=[\"\(selfPath)\",\"notify-codex\"]"]
             argv += ["-c", "mcp_servers.enterm.command=\"\(selfPath)\"", "-c", "mcp_servers.enterm.args=[\"mcp\"]"]
+            // Codex asks the user to trust hooks in its own /hooks screen. Until then they simply do not run.
+            let hook = "[{hooks=[{type=\"command\",command=\"'\(selfPath)' hook codex\"}]}]"
+            for name in ["SessionStart", "UserPromptSubmit", "PreToolUse", "PermissionRequest", "Stop", "SubagentStart", "SubagentStop"] {
+                argv += ["-c", "hooks.\(name)=\(hook)"]
+            }
         case "agy":
             confirmAntigravityOnce()
         default:
@@ -331,7 +336,7 @@ case "wrap":
     wrap(arguments[1], Array(arguments.dropFirst(2)))
 case "hook":
     switch arguments.dropFirst().first {
-    case "claude": handleClaudeHook()
+    case "claude", "codex": handleClaudeHook()
     case "agy": handleAntigravityHook()
     default: break
     }

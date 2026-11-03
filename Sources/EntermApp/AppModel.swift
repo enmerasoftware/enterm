@@ -57,6 +57,7 @@ enum Overlay: Equatable {
     case approval(String)
     case limit(UInt32)
     case limitOpened
+    case sshList(String)
     case resumeFailed(UInt32)
     case codexLimit(UInt32)
 }
@@ -177,6 +178,9 @@ final class AppModel: ObservableObject {
             notFound = NotFoundCard.make(number: number, command: name)
         case "notice":
             hint = message.text
+            Notifier.shared.post(title: "Enterm", body: message.text ?? "", onlyWhenInactive: false)
+        case "browserCmd":
+            BrowserCenter.shared.handle(message: message)
         case "reload":
             if let text = message.text { hint = text }
             BoardStore.shared.reload()

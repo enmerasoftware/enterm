@@ -41,19 +41,19 @@ public enum PermissionMode: String, Codable, CaseIterable, Identifiable {
 public struct PermissionCard: Codable, Equatable {
     public var modes: [PermissionCategory: PermissionMode]
     public var rememberedHosts: [String]
-    public var sshHosts: [String]
+    public var sshRules: [SSHHostRule]
 
-    public init(modes: [PermissionCategory: PermissionMode], rememberedHosts: [String] = [], sshHosts: [String] = []) {
+    public init(modes: [PermissionCategory: PermissionMode], rememberedHosts: [String] = [], sshRules: [SSHHostRule] = []) {
         self.modes = modes
         self.rememberedHosts = rememberedHosts
-        self.sshHosts = sshHosts
+        self.sshRules = sshRules
     }
 
     public func mode(_ category: PermissionCategory) -> PermissionMode {
         modes[category] ?? .ask
     }
 
-    enum CodingKeys: String, CodingKey { case modes, rememberedHosts, sshHosts }
+    enum CodingKeys: String, CodingKey { case modes, rememberedHosts, sshRules }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -64,7 +64,7 @@ public struct PermissionCard: Codable, Equatable {
         }
         self.modes = modes
         rememberedHosts = try container.decodeIfPresent([String].self, forKey: .rememberedHosts) ?? []
-        sshHosts = try container.decodeIfPresent([String].self, forKey: .sshHosts) ?? []
+        sshRules = try container.decodeIfPresent([SSHHostRule].self, forKey: .sshRules) ?? []
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -73,7 +73,7 @@ public struct PermissionCard: Codable, Equatable {
         for (key, value) in modes { raw[key.rawValue] = value }
         try container.encode(raw, forKey: .modes)
         try container.encode(rememberedHosts, forKey: .rememberedHosts)
-        try container.encode(sshHosts, forKey: .sshHosts)
+        try container.encode(sshRules, forKey: .sshRules)
     }
 }
 
@@ -137,7 +137,7 @@ public enum PermissionClassifier {
     public static func classifyCommand(_ command: String) -> (category: PermissionCategory, summary: String, host: String?) {
         let words = command.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == ";" || $0 == "|" || $0 == "&" }).map(String.init)
         if words.contains("ssh") || words.contains("scp") || words.contains("rsync") {
-            return (.ssh, command, nil)
+            return (.ssh, command, SSHCommand.host(in: command))
         }
         let joined = " " + words.joined(separator: " ") + " "
         if joined.contains(" git push ") || joined.contains(" deploy") || joined.contains(" gh release ")
@@ -179,6 +179,7 @@ public struct PermissionBook: Codable {
     /// The decision for one request. A remembered internet host is allowed for all sessions.
     public func decision(sessionID: String, category: PermissionCategory, host: String?) -> PermissionMode {
         if category == .internet, let host, rememberedHosts.contains(host) { return .allow }
+        if category == .ssh { return sshDecision(sessionID: sessionID, host: host) }
         return card(for: sessionID).mode(category)
     }
 
@@ -207,5 +208,65 @@ public enum JSONStore {
                                                  attributes: [.posixPermissions: 0o700])
         try? data.write(to: url, options: .atomic)
         try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    }
+}
+
+/// One server on a session's SSH list. A server not on the list cannot be reached.
+public struct SSHHostRule: Codable, Equatable, Identifiable {
+    public var host: String
+    public var label: String
+    public var mode: PermissionMode
+    public var id: String { host }
+    public init(host: String, label: String = "", mode: PermissionMode = .ask) {
+        self.host = host
+        self.label = label
+        self.mode = mode
+    }
+}
+
+public enum SSHCommand {
+    /// The destination of an `ssh`, `scp` or `rsync` command, without the user name.
+    public static func host(in command: String) -> String? {
+        let words = command.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == ";" || $0 == "|" || $0 == "&" }).map(String.init)
+        guard let start = words.firstIndex(where: { ["ssh", "scp", "rsync"].contains($0) }) else { return nil }
+        let tool = words[start]
+        var index = start + 1
+        let valueFlags: Set<String> = ["-p", "-P", "-i", "-l", "-o", "-F", "-J", "-L", "-R", "-D", "-e", "-b", "-c", "-m"]
+        while index < words.count {
+            let word = words[index]
+            if word.hasPrefix("-") {
+                index += valueFlags.contains(word) ? 2 : 1
+                continue
+            }
+            if tool == "ssh" { return strip(word) }
+            if word.contains(":") { return strip(String(word.split(separator: ":")[0])) }
+            index += 1
+        }
+        return nil
+    }
+
+    private static func strip(_ text: String) -> String {
+        let cleaned = text.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+        return cleaned.split(separator: "@").last.map(String.init) ?? cleaned
+    }
+
+    /// Hosts named in an OpenSSH config file. Patterns are skipped, keys are never read.
+    public static func hosts(fromConfig text: String) -> [String] {
+        text.split(separator: "\n").flatMap { line -> [String] in
+            let parts = line.trimmingCharacters(in: .whitespaces).split(separator: " ").map(String.init)
+            guard parts.count >= 2, parts[0].lowercased() == "host" else { return [] }
+            return parts.dropFirst().filter { !$0.contains("*") && !$0.contains("?") }
+        }
+    }
+}
+
+extension PermissionBook {
+    /// SSH follows the card first, then the list. An empty list keeps the card's general mode.
+    public func sshDecision(sessionID: String, host: String?) -> PermissionMode {
+        let card = self.card(for: sessionID)
+        if card.mode(.ssh) == .deny { return .deny }
+        guard !card.sshRules.isEmpty else { return card.mode(.ssh) }
+        guard let host, let rule = card.sshRules.first(where: { $0.host == host }) else { return .deny }
+        return rule.mode
     }
 }

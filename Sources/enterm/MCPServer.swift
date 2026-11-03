@@ -63,6 +63,14 @@ final class MCPServer {
              required: ["ne_degisti", "ne_denendi", "ne_denenmedi", "ne_bekliyor"]),
         tool("yorum_yaz", "Bu oturumun pano kartına yorum yazar. Ajan yorumu onay sayılmaz.",
              ["metin": "Yorum"], required: ["metin"]),
+        tool("tarayici_ac", "Enterm'in dahili tarayıcısında adresi açar. İnternet yetkisine bağlıdır.",
+             ["adres": "http ya da https adresi"], required: ["adres"]),
+        tool("tarayici_oku", "Açık sayfanın adresini, başlığını ve metnini döndürür.", [:], required: []),
+        tool("tarayici_tikla", "Sayfada görünen metni ya da CSS seçicisi verilen öğeye tıklar.",
+             ["hedef": "Düğme metni ya da CSS seçici"], required: ["hedef"]),
+        tool("tarayici_yaz", "Alana metin yazar. Alan, CSS seçici, ad ya da yer tutucu ile bulunur.",
+             ["hedef": "Alan", "metin": "Yazılacak metin"], required: ["hedef", "metin"]),
+        tool("tarayici_goruntu", "Sayfanın ekran görüntüsünü PNG dosyasına kaydeder, yolunu döndürür.", [:], required: []),
     ]
 
     private func sessions() -> [SessionInfo] {
@@ -78,6 +86,8 @@ final class MCPServer {
             list.first { displayName($0).lowercased() == text.lowercased() || $0.id == text }
         }
         switch name {
+        case "tarayici_ac", "tarayici_oku", "tarayici_tikla", "tarayici_yaz", "tarayici_goruntu":
+            return browser(name, args)
         case "ajan_listesi":
             let visible = list.filter { other in
                 other.id != me && links.contains { $0.allows(from: me, to: other.id, need: .summary) }
@@ -129,6 +139,33 @@ final class MCPServer {
         default:
             return ("Bilinmeyen araç.", true)
         }
+    }
+
+    private func browser(_ name: String, _ args: [String: Any]) -> (String, Bool) {
+        if name == "tarayici_ac" {
+            let address = args["adres"] as? String ?? ""
+            let host = PermissionClassifier.hostOf(address) ?? ""
+            let local = ["localhost", "127.0.0.1", "::1"].contains(host) || host.hasSuffix(".localhost") || host.hasSuffix(".test")
+            if !local {
+                var event = AgentEvent(sessionID: me, kind: "approval")
+                event.tool = "Tarayıcı"
+                event.text = address
+                event.errorKind = PermissionCategory.internet.rawValue
+                event.model = host
+                var request = WireMessage(op: "approval")
+                request.event = event
+                guard WireSocket.send(request, waitForReply: true, timeout: 590)?.decision == "allow" else {
+                    return ("İnternet yetkisi verilmedi: \(host)", true)
+                }
+            }
+        }
+        var message = WireMessage(op: "browser")
+        let payload: [String: Any] = ["name": name, "args": args]
+        message.text = (try? JSONSerialization.data(withJSONObject: payload)).map { String(decoding: $0, as: UTF8.self) }
+        message.event = AgentEvent(sessionID: me, kind: "browser")
+        guard let reply = WireSocket.send(message, waitForReply: true, timeout: 40) else { return ("Tarayıcı yanıt vermedi.", true) }
+        if let error = reply.error { return (error, true) }
+        return (reply.text ?? "", false)
     }
 
     private func writeReport(_ report: AgentReport, session: SessionInfo) -> (String, Bool) {

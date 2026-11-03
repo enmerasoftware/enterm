@@ -21,6 +21,7 @@ struct AccountsPage: View {
             }
             Dim("Limit dolunca oturum durur, iş kaybolmaz. Hesap değişimini her seferinde siz seçersiniz.")
         }
+        .onAppear { store.refreshCodex() }
     }
 }
 
@@ -39,8 +40,6 @@ struct AccountRow: View {
                 Dim("Abonelik Limiti Yok · Kullanıma Göre")
             case (.antigravity, _):
                 Dim("Limit Bilinmiyor")
-            case (.codex, _):
-                Dim("Bu Sürümde Okunmuyor")
             default:
                 if let snapshot = account.lastLimit {
                     VStack(alignment: .leading, spacing: 8) { LimitBars(snapshot: snapshot) }
@@ -307,18 +306,7 @@ struct SettingsPage: View {
         AppModel.shared.onLayoutChange?()
     }
 
-    private var shortcuts: some View {
-        let rows: [(String, String)] = [("Yeni Terminal", "⌘T"), ("Yeni Oturum", "⌘N"), ("Kutuyu Kapat", "⌘W"), ("Tam Ekran, Tümünü Gör", "⌘⏎"),
-                                        ("Ayrıntılar", "⌘I"), ("Durdur", "⌘."), ("Komut Paleti", "⌘K"), ("Onay Kutusu", "⌘⇧O"), ("Pano", "⌘⇧B"),
-                                        ("Yönetici Görünümü", "⌘⇧Y"), ("Tarayıcı", "⌘⇧D"), ("Sonraki, Önceki Oturum", "⌘] ⌘["), ("Oturum 1 İla 9", "⌘1 - ⌘9"),
-                                        ("Yakınlaştır, Uzaklaştır", "⌘= ⌘-"), ("Konuşarak Yaz", "⌃⌘ Basılı"), ("İzin Ver, Reddet", "y n")]
-        return VStack(alignment: .leading, spacing: 8) {
-            ForEach(rows, id: \.0) { row in
-                HStack { T(row.0); Spacer(); Key(row.1) }
-            }
-            Dim("Terminal odaktayken tuşlar terminale gider, Esc çalışmayı keser. Kısayolları yeniden atama henüz yok.")
-        }
-    }
+    private var shortcuts: some View { ShortcutEditor() }
 
     private var security: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -401,5 +389,72 @@ struct SettingsPage: View {
             HStack { T("Şu An"); Spacer(); Dim(ExtensionsHub.shared.isHoldingAwake ? "Uyku Engelleniyor" : "Engel Yok") }
             Dim("Kapak kapanırsa macOS yine uyuyabilir.")
         }
+    }
+}
+
+struct ShortcutEditor: View {
+    @State private var book = ShortcutBook.load()
+    @State private var capturing: String?
+    @State private var message = ""
+    @State private var monitor: Any?
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(ShortcutBook.defaults, id: \.id) { item in
+                HStack {
+                    T(item.title)
+                    Spacer()
+                    if book.overrides[item.id] != nil {
+                        Btn("Varsayılan", kind: .plain) {
+                            book.overrides[item.id] = nil
+                            commit()
+                        }
+                    }
+                    Btn(capturing == item.id ? "Tuşa Basın" : (book.combo(for: item.id)?.display ?? ""), kind: capturing == item.id ? .selected : .outline) {
+                        startCapture(item.id)
+                    }
+                }
+            }
+            if !message.isEmpty { T(message, color: Theme.palette.limit) }
+            HStack { T("Oturum 1 İla 9"); Spacer(); Key("⌘1 - ⌘9") }
+            HStack { T("Konuşarak Yaz"); Spacer(); Key("⌃⌘ Basılı") }
+            HStack { T("İzin Ver, Reddet"); Spacer(); Key("y n") }
+            Dim("Terminal odaktayken tuşlar terminale gider, Esc çalışmayı keser. Kısayol ⌘ ya da ⌃ içermelidir, tek tuş terminale aittir.")
+        }
+        .onDisappear(perform: stopCapture)
+    }
+    private func startCapture(_ id: String) {
+        stopCapture()
+        capturing = id
+        message = ""
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            if event.keyCode == 53 {
+                stopCapture()
+                return nil
+            }
+            let key = event.keyCode == 36 ? "\r" : (event.charactersIgnoringModifiers ?? "")
+            let combo = KeyCombo(key, command: flags.contains(.command), shift: flags.contains(.shift), option: flags.contains(.option), control: flags.contains(.control))
+            guard combo.isUsable else {
+                message = "Kısayol ⌘ ya da ⌃ içermeli."
+                return nil
+            }
+            if let conflict = book.conflict(for: combo, assigningTo: id) {
+                message = "\(combo.display) Kullanılıyor: \(conflict)"
+                return nil
+            }
+            book.overrides[id] = combo
+            commit()
+            stopCapture()
+            return nil
+        }
+    }
+    private func stopCapture() {
+        capturing = nil
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+    }
+    private func commit() {
+        book.save()
+        (NSApp.delegate as? AppDelegate)?.buildMenu()
     }
 }

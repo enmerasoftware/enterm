@@ -94,7 +94,12 @@ enum Commands {
         case "denyFirst":
             if let request = model.sessions.compactMap(\.pendingApproval).first { Approvals.decide(id: request.id, decision: "deny") }
         case "changes": model.page = .changes
-        case "browser": model.page = .browser
+        case "browser":
+            if model.page == .browser, BrowserCenter.shared.agentName != nil {
+                BrowserCenter.shared.userHasControl.toggle()
+            } else {
+                model.page = .browser
+            }
         default: break
         }
         model.refocusTerminal()

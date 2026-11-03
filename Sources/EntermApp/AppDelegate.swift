@@ -58,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func buildMenu() {
+        let book = ShortcutBook.load()
         let main = NSMenu()
         func submenu(_ title: String, _ build: (NSMenu) -> Void) {
             let item = NSMenuItem()
@@ -66,29 +67,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             item.submenu = menu
             main.addItem(item)
         }
-        func add(_ menu: NSMenu, _ title: String, _ id: String, _ key: String = "", _ flags: NSEvent.ModifierFlags = [.command]) {
-            let item = NSMenuItem(title: title, action: #selector(runCommand(_:)), keyEquivalent: key)
+        func add(_ menu: NSMenu, _ title: String, _ id: String) {
+            let combo = book.combo(for: id)
+            let item = NSMenuItem(title: title, action: #selector(runCommand(_:)), keyEquivalent: combo?.key ?? "")
+            var flags: NSEvent.ModifierFlags = []
+            if combo?.command == true { flags.insert(.command) }
+            if combo?.shift == true { flags.insert(.shift) }
+            if combo?.option == true { flags.insert(.option) }
+            if combo?.control == true { flags.insert(.control) }
             item.keyEquivalentModifierMask = flags
             item.representedObject = id
             item.target = self
             menu.addItem(item)
         }
         submenu("Enterm") { menu in
-            add(menu, "Ayarlar", "settings", ",")
+            add(menu, "Ayarlar", "settings")
             menu.addItem(.separator())
             menu.addItem(withTitle: "Enterm'i Gizle", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
             menu.addItem(withTitle: "Enterm'den Çık", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         }
         submenu("Oturum") { menu in
-            add(menu, "Yeni Terminal", "newTerminal", "t")
-            add(menu, "Yeni Oturum", "newSession", "n")
-            add(menu, "Kutuyu Kapat", "close", "w")
+            add(menu, "Yeni Terminal", "newTerminal")
+            add(menu, "Yeni Oturum", "newSession")
+            add(menu, "Kutuyu Kapat", "close")
             menu.addItem(.separator())
-            add(menu, "Tam Ekran", "maximize", "\r")
-            add(menu, "Ayrıntılar", "details", "i")
-            add(menu, "Durdur", "stop", ".")
-            add(menu, "Sonraki Oturum", "next", "]")
-            add(menu, "Önceki Oturum", "previous", "[")
+            add(menu, "Tam Ekran", "maximize")
+            add(menu, "Ayrıntılar", "details")
+            add(menu, "Durdur", "stop")
+            add(menu, "Sonraki Oturum", "next")
+            add(menu, "Önceki Oturum", "previous")
             for index in 0..<9 {
                 let item = NSMenuItem(title: "Oturum \(index + 1)", action: #selector(selectSession(_:)), keyEquivalent: "\(index + 1)")
                 item.tag = index
@@ -103,14 +110,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             edit.addItem(withTitle: "Tümünü Seç", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         }
         submenu("Görünüm") { menu in
-            add(menu, "Komutlar", "palette", "k")
-            add(menu, "Onay Kutusu", "inbox", "o", [.command, .shift])
-            add(menu, "Pano", "board", "b", [.command, .shift])
-            add(menu, "Yönetici Görünümü", "manager", "y", [.command, .shift])
-            add(menu, "Tarayıcı", "browser", "d", [.command, .shift])
-            add(menu, "Yakınlaştır", "zoomIn", "=")
-            add(menu, "Uzaklaştır", "zoomOut", "-")
-            add(menu, "Sığdır", "fit", "0", [.command, .option])
+            add(menu, "Komutlar", "palette")
+            add(menu, "Onay Kutusu", "inbox")
+            add(menu, "Pano", "board")
+            add(menu, "Yönetici Görünümü", "manager")
+            add(menu, "Tarayıcı", "browser")
+            add(menu, "Yakınlaştır", "zoomIn")
+            add(menu, "Uzaklaştır", "zoomOut")
+            add(menu, "Sığdır", "fit")
         }
         submenu("Pencere") { menu in
             menu.addItem(withTitle: "Küçült", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m")

@@ -1,7 +1,6 @@
 import AppKit
 import EntermCore
 import SwiftUI
-import WebKit
 
 // MARK: Session list
 
@@ -394,67 +393,6 @@ struct ChangesPage: View {
             model.newTerminal(cwd: path)
         } else {
             notice = result.output.split(separator: "\n").last.map(String.init) ?? "Olmadı."
-        }
-    }
-}
-
-// MARK: Browser
-
-/// A system web view. It starts when the page opens and is released when it closes.
-final class BrowserState: ObservableObject {
-    @Published var address = "http://localhost:3000"
-    @Published var failure: String?
-}
-
-struct WebView: NSViewRepresentable {
-    @ObservedObject var state: BrowserState
-    let reload: Int
-    func makeCoordinator() -> Coordinator { Coordinator(state: state) }
-    func makeNSView(context: Context) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
-        let view = WKWebView(frame: .zero, configuration: configuration)
-        view.navigationDelegate = context.coordinator
-        if let url = URL(string: state.address) { view.load(URLRequest(url: url)) }
-        return view
-    }
-    func updateNSView(_ view: WKWebView, context: Context) {
-        if context.coordinator.lastReload != reload {
-            context.coordinator.lastReload = reload
-            if let url = URL(string: state.address) {
-                state.failure = nil
-                view.load(URLRequest(url: url))
-            }
-        }
-    }
-    final class Coordinator: NSObject, WKNavigationDelegate {
-        let state: BrowserState
-        var lastReload = 0
-        init(state: BrowserState) { self.state = state }
-        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            state.failure = "Bağlanamadı: \(state.address)"
-        }
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            if let url = webView.url?.absoluteString { state.address = url }
-        }
-    }
-}
-
-struct BrowserPage: View {
-    @StateObject private var state = BrowserState()
-    @State private var reload = 0
-    @ObservedObject var power = PowerCenter.shared
-    var body: some View {
-        PageFrame(title: nil, wide: true) {
-            HStack {
-                EntermField(placeholder: "Adres", text: $state.address).onSubmit { reload += 1 }
-                Btn("Git", kind: .primary) { reload += 1 }
-            }
-            if let failure = state.failure {
-                T("✕ \(failure)", color: Theme.palette.err)
-            }
-            WebView(state: state, reload: reload).frame(minHeight: 520)
-            Dim("Tarayıcı bilgisayarda çalışır, yalnız bu sayfa açıkken yük bindirir. Oturum açma bilgileri saklanmaz. Ajanın bu tarayıcıyı kullanması ve devralma Henüz Yok.")
         }
     }
 }
