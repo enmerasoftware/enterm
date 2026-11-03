@@ -68,11 +68,14 @@ public enum ShellIntegration {
         eval "$tool() { if builtin whence -p $tool >/dev/null; then \"\$ENTERM_CLI\" event launch $tool; \"\$ENTERM_CLI\" wrap $tool \"\$@\"; local code=\$?; \"\$ENTERM_CLI\" event launchEnd $tool; return \$code; else command_not_found_handler $tool \"\$@\"; fi }"
       done
       if [[ -n "${ENTERM_STARTUP-}" ]]; then
+        (( ${+widgets[zle-line-init]} )) && zle -A zle-line-init _enterm_prior_line_init
         _enterm_startup_widget() {
-          zle -D zle-line-init 2>/dev/null
-          BUFFER="$ENTERM_STARTUP"
-          unset ENTERM_STARTUP
-          zle accept-line
+          (( ${+widgets[_enterm_prior_line_init]} )) && zle _enterm_prior_line_init
+          if [[ -n "${ENTERM_STARTUP-}" ]]; then
+            BUFFER="$ENTERM_STARTUP"
+            unset ENTERM_STARTUP
+            zle accept-line
+          fi
         }
         zle -N zle-line-init _enterm_startup_widget
       fi

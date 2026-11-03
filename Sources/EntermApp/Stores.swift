@@ -292,6 +292,9 @@ final class ExtensionsHub {
 
     func sessionUpdated(previous: SessionInfo, current: SessionInfo) {
         if let limit = current.limit { AccountStore.shared.recordLimit(limit, accountID: current.accountID, tool: current.tool) }
+        if previous.tool != .terminal, current.tool == .terminal, LimitWatch.shared.resumeFailed(current.number) {
+            AppModel.shared.overlay = .resumeFailed(current.number)
+        }
         if previous.status != current.status {
             Inbox.shared.statusChanged(previous: previous, current: current)
             updateAwake()

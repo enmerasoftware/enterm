@@ -14,6 +14,9 @@ struct OverlayRouter: View {
         case .linkDetail(let id): Scrim(alignment: .top) { LinkDetailDialog(id: id) }
         case .approval(let id): Scrim(alignment: .top) { ApprovalDialog(id: id) }
         case .limit(let number): Scrim(alignment: .top) { LimitDialog(number: number) }
+        case .limitOpened: Scrim(alignment: .top) { LimitOpenedDialog() }
+        case .resumeFailed(let number): Scrim(alignment: .top) { ResumeFailedDialog(number: number) }
+        case .codexLimit(let number): Scrim(alignment: .top) { CodexLimitDialog(number: number) }
         }
     }
 }

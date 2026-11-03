@@ -26,6 +26,7 @@ struct PageRouter: View {
         case .messages: MessagesPage()
         case .cost: CostPage()
         case .restore: RestorePage()
+        case .scheduler: SchedulerPage()
         case .phone: NotYet(name: "Telefonu Bağla")
         case .notYet(let name): NotYet(name: name)
         }
@@ -298,6 +299,7 @@ enum TimeText {
 struct ModelTab: View {
     let info: SessionInfo
     @ObservedObject var settings = SettingsStore.shared
+    @State private var flowOpen = SettingsStore.shared.settings.flowStartsOpen
     var body: some View {
         if info.tool == .terminal {
             Dim("Bu oturum düz terminal. Model bilgisi yok.")
@@ -320,15 +322,13 @@ struct ModelTab: View {
                 Dim("Codex'te durum yalnız tur sonunda gelir. Token ve efor bu sürümde okunmuyor.")
             }
         }
-        if let subagents = info.subagents, !subagents.isEmpty {
-            T("Alt Ajanlar", bold: true)
-            ForEach(subagents) { agent in
-                HStack {
-                    T("\(agent.running ? "●" : "○") \(agent.type ?? "Alt Ajan")")
-                    Spacer()
-                    Dim(agent.running ? "Çalışıyor" : "Bitti")
-                }
+        if info.tool == .claude {
+            HStack {
+                T("Akış", bold: true)
+                Spacer()
+                Btn(flowOpen ? "Akışı Kapat" : "Akışı Aç", kind: .plain) { flowOpen.toggle() }
             }
+            if flowOpen { FlowView(info: info) }
         }
         if info.tool == .claude {
             Line()
@@ -630,7 +630,9 @@ enum LimitActions {
         let target = info.transcriptPath ?? info.toolSessionID
         let arguments = target.map { "--resume \(NotFoundActions.shellQuote($0))" } ?? "--continue"
         let old = info.number
-        ToolLauncher.start(.claude, cwd: info.cwd, name: info.name.isEmpty ? nil : info.name, accountID: accountID, extraArguments: arguments) { _ in
+        LimitWatch.shared.noteSwitch(from: info)
+        ToolLauncher.start(.claude, cwd: info.cwd, name: info.name.isEmpty ? nil : info.name, accountID: accountID, extraArguments: arguments) { created in
+            LimitWatch.shared.noteResume(created.number)
             AppModel.shared.close(old)
         }
     }

@@ -302,3 +302,80 @@ public enum MailBox {
         return text.split(separator: "\n").compactMap { try? decoder.decode(AgentMail.self, from: Data($0.utf8)) }
     }
 }
+
+public enum ScheduleKind: String, Codable, CaseIterable, Identifiable {
+    case once, interval, daily, weekly
+    public var id: String { rawValue }
+    public var title: String {
+        switch self {
+        case .once: return "Tek Sefer"
+        case .interval: return "Aralık"
+        case .daily: return "Her Gün"
+        case .weekly: return "Her Hafta"
+        }
+    }
+}
+
+/// A job the canvas owns. It runs only while Enterm is open; missed runs are asked, never run silently.
+public struct ScheduledJob: Codable, Equatable, Identifiable {
+    public var id = UUID().uuidString
+    public var name: String
+    public var command: String
+    public var tool: ToolKind
+    public var cwd: String
+    public var kind: ScheduleKind
+    public var first: Date
+    public var intervalMinutes: Int
+    public var enabled = true
+    public var lastRun: Date?
+    public init(name: String, command: String, tool: ToolKind, cwd: String, kind: ScheduleKind, first: Date, intervalMinutes: Int = 60) {
+        self.name = name
+        self.command = command
+        self.tool = tool
+        self.cwd = cwd
+        self.kind = kind
+        self.first = first
+        self.intervalMinutes = intervalMinutes
+    }
+
+    /// The first run time after `date`, or nil when the job is finished.
+    public func nextRun(after date: Date, calendar: Calendar = .current) -> Date? {
+        guard enabled else { return nil }
+        if first > date { return first }
+        switch kind {
+        case .once:
+            return nil
+        case .interval:
+            let step = TimeInterval(max(intervalMinutes, 1) * 60)
+            let passed = (date.timeIntervalSince(first) / step).rounded(.down) + 1
+            return first.addingTimeInterval(passed * step)
+        case .daily, .weekly:
+            let days = kind == .daily ? 1 : 7
+            var candidate = first
+            let total = calendar.dateComponents([.day], from: first, to: date).day ?? 0
+            let jumps = total / days
+            candidate = calendar.date(byAdding: .day, value: jumps * days, to: first) ?? first
+            while candidate <= date {
+                candidate = calendar.date(byAdding: .day, value: days, to: candidate) ?? date.addingTimeInterval(86400)
+            }
+            return candidate
+        }
+    }
+
+    /// True when a run fell between the last run and now.
+    public func missedRun(now: Date) -> Bool {
+        guard enabled else { return false }
+        if kind == .once { return first <= now && lastRun == nil }
+        let start = lastRun ?? first
+        guard start <= now else { return false }
+        if lastRun == nil { return first <= now }
+        guard let due = nextRun(after: start) else { return false }
+        return due <= now
+    }
+}
+
+public enum ScheduleBook {
+    public static var file: URL { EntermPaths.support.appendingPathComponent("schedule.json") }
+    public static func load() -> [ScheduledJob] { JSONStore.load([ScheduledJob].self, from: file) ?? [] }
+    public static func save(_ jobs: [ScheduledJob]) { JSONStore.save(jobs, to: file) }
+}

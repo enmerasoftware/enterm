@@ -275,11 +275,12 @@ struct BoardPage: View {
                         .onDrop(of: [.text], isTargeted: nil) { providers in
                             providers.first?.loadObject(ofClass: NSString.self) { item, _ in
                                 guard let id = item as? String else { return }
-                                DispatchQueue.main.async { store.change { board in
-                                    board.cards.first { $0.id == id }.map { _ in
+                                DispatchQueue.main.async {
+                                    store.change { board in
                                         if let index = board.cards.firstIndex(where: { $0.id == id }) { board.cards[index].column = column }
                                     }
-                                } }
+                                    BoardDispatch.cardMoved(id: id, to: column)
+                                }
                             }
                             return true
                         }
@@ -396,6 +397,7 @@ struct CardDrawer: View {
                         }
                     }
                     Dim("Ajan yorumu onay sayılmaz. Karar düğmesine yalnız siz basarsınız.")
+                    EntermField(placeholder: "Kart Metni: Ajana Verilecek Ayrıntı", text: Binding(get: { card.details }, set: { value in edit { $0.details = value } }))
                     Btn("Kartı Sil", kind: .danger) {
                         store.change { $0.cards.removeAll { $0.id == cardID } }
                         close()
@@ -430,5 +432,19 @@ struct CardDrawer: View {
                 }
             }
         }
+    }
+}
+
+/// A card dropped on "Sürüyor" starts work: its agent gets the text, an unassigned card asks who.
+enum BoardDispatch {
+    static func cardMoved(id: String, to column: BoardColumn) {
+        guard column == .doing, let card = BoardStore.shared.board.cards.first(where: { $0.id == id }) else { return }
+        let model = AppModel.shared
+        guard let session = model.sessions.first(where: { $0.id == card.sessionID }), session.tool != .terminal else {
+            model.hint = "Kartı Bir Ajana Atayın: Karta Tıklayın"
+            return
+        }
+        let text = "Pano Kartı: \(card.title). \(card.details) Bitince rapor_yaz aracıyla raporla.\r"
+        model.connection.sendInput(number: session.number, bytes: Data(text.utf8))
     }
 }

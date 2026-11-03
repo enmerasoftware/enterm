@@ -28,6 +28,7 @@ enum Page: Equatable {
     case messages
     case cost
     case restore
+    case scheduler
     case notYet(String)
 }
 
@@ -55,6 +56,9 @@ enum Overlay: Equatable {
     case linkDetail(String)
     case approval(String)
     case limit(UInt32)
+    case limitOpened
+    case resumeFailed(UInt32)
+    case codexLimit(UInt32)
 }
 
 /// What the app remembers between launches. Everything else lives in the session service.
@@ -100,6 +104,7 @@ final class AppModel: ObservableObject {
     var fitCanvas: (() -> Void)?
     var onReload: (() -> Void)?
     var restorable: [SessionInfo] = []
+    var codexWarned = Set<UInt32>()
     private var hintTimer: Timer?
 
     var visibleSessions: [SessionInfo] { sessions }
@@ -251,6 +256,12 @@ final class AppModel: ObservableObject {
 
     func output(_ number: UInt32, _ data: Data, _ replay: Bool) {
         guard let host = hosts[number] else { return }
+        if !replay, overlay == nil, !codexWarned.contains(number),
+           sessions.first(where: { $0.number == number })?.tool == .codex,
+           data.range(of: Data("usage limit".utf8)) != nil || data.range(of: Data("rate limit".utf8)) != nil {
+            codexWarned.insert(number)
+            overlay = .codexLimit(number)
+        }
         if replay || shouldFeedNow(number) {
             host.feedOutput(data, replay: replay)
         } else {

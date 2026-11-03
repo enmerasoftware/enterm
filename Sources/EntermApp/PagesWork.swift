@@ -111,7 +111,7 @@ struct NewViewPage: View {
                 MenuRow(title: "Dosya Gezgini", note: "Bu Klasörün Dosyaları") { model.page = .files }
                 MenuRow(title: "Düzenleyici", note: "Dosyayı Burada Açıp Düzeltin") { model.page = .files }
                 MenuRow(title: "Not", note: "Bu Klasöre Bağlı Kısa Not") { model.page = .note }
-                MenuRow(title: "Zamanlayıcı", note: "Henüz Yok") { model.page = .notYet("Zamanlayıcı") }
+                MenuRow(title: "Zamanlayıcı", note: "Bir Komut Ya Da İş, Belli Saatte") { model.page = .scheduler }
                 MenuRow(title: "Beyaz Tahta", note: "Henüz Yok") { model.page = .notYet("Beyaz Tahta") }
                 MenuRow(title: "Çalıştır", note: "Henüz Yok") { model.page = .notYet("Çalıştır") }
                 MenuRow(title: "iOS Simülatörü", note: "Henüz Yok") { model.page = .notYet("iOS Simülatörü") }

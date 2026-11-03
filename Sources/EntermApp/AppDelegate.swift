@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         AppModel.shared.start()
+        Scheduler.shared.start()
         DebugDriver.shared.perform = { Commands.perform($0) }
         DebugDriver.shared.typeText = { AppModel.shared.focusedHost?.type($0) }
         DebugDriver.shared.start()

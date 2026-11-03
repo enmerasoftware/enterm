@@ -36,6 +36,7 @@ enum Commands {
         Command(id: "power", title: "Güç Sınırı", key: ""),
         Command(id: "lowPower", title: "Düşük Güçlü Bilgisayar Aç Ya Da Kapat", key: ""),
         Command(id: "history", title: "Geçmiş Konuşmalar", key: ""),
+        Command(id: "scheduler", title: "Zamanlayıcı", key: ""),
         Command(id: "newView", title: "Yeni Görünüm", key: ""),
         Command(id: "voice", title: "Konuşarak Yaz", key: "⌃⌘ Basılı"),
         Command(id: "remote", title: "Uzak Sunucu", key: ""),
@@ -87,6 +88,7 @@ enum Commands {
             model.detailTab = 1
             model.detailsOpen = true
         case "messages": model.page = .messages
+        case "scheduler": model.page = .scheduler
         case "approveFirst":
             if let request = model.sessions.compactMap(\.pendingApproval).first { Approvals.decide(id: request.id, decision: "allow") }
         case "denyFirst":
