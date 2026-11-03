@@ -194,6 +194,11 @@ final class Service {
         case .input:
             guard let (number, bytes) = frame.splitSession(), let session = sessions[number] else { return }
             bytes.withUnsafeBytes { _ = write(session.master, $0.baseAddress, $0.count) }
+            // Codex only reports the end of a turn. Enter starts the next one.
+            if session.info.tool == .codex, session.info.status == .idle || session.info.status == .unknown, bytes.contains(13) {
+                session.info.status = .running
+                publish(session)
+            }
         case .json:
             guard let message = WireMessage.decode(frame.payload) else { return }
             handleMessage(message, from: client)
@@ -287,6 +292,25 @@ final class Service {
             var reply = WireMessage(op: "state")
             reply.sessions = sessions.values.map(\.info).sorted { $0.number < $1.number }
             send(reply.frame(), to: client)
+        case "tail":
+            guard let number = message.number, let session = sessions[number] else { return }
+            var reply = WireMessage(op: "tail")
+            reply.text = Service.plainText(session.ring.suffix(16 * 1024), lines: 40)
+            send(reply.frame(), to: client)
+        case "lock":
+            guard let event = message.event, let path = event.text else { return }
+            var reply = WireMessage(op: "decision")
+            if let owner = fileLocks[path], owner != event.sessionID, sessionByID(owner) != nil {
+                reply.decision = "deny"
+            } else {
+                fileLocks[path] = event.sessionID
+                reply.decision = "allow"
+            }
+            send(reply.frame(), to: client)
+        case "reload":
+            var note = WireMessage(op: "reload")
+            note.text = message.text
+            broadcast(note)
         case "input":
             guard let number = message.number, let session = sessions[number], let text = message.text else { return }
             let bytes = Array(text.utf8)
@@ -478,18 +502,24 @@ final class Service {
             if info.status == .starting || info.status == .exited { info.status = .idle }
             info.hooksTrusted = true
         case "launch":
-            info.status = .starting
+            if let tool = ToolKind.fromCommand(event.text ?? "") { info.tool = tool }
+            info.status = info.tool == .claude ? .starting : .unknown
         case "launchEnd":
+            releaseLocks(info.id)
             info.tool = .terminal
+            info.model = nil
+            info.effort = nil
             info.status = .running
             info.pendingApproval = nil
             info.subagents = nil
         case "prompt", "working":
             info.status = .running
-            info.pendingApproval = nil
+            if let text = event.text { info.lastActivity = String(text.prefix(300)) }
         case "stop":
             info.status = .idle
             info.pendingApproval = nil
+            if let text = event.text, !text.isEmpty { info.lastActivity = String(text.prefix(300)) }
+            releaseLocks(info.id)
         case "wait":
             if info.status != .needsApproval { info.status = .idle }
         case "ask":
@@ -532,6 +562,12 @@ final class Service {
         case .deny:
             send(decisionReply(event: event.agentID, decision: "deny"), to: client)
         case .ask:
+            // The same request can pass both the tool hook and the permission hook.
+            let key = session.info.id + (event.text ?? "")
+            if let when = recentAllowed[key], Date().timeIntervalSince(when) < 30 {
+                send(decisionReply(event: event.agentID, decision: "allow"), to: client)
+                return
+            }
             let id = UUID().uuidString.lowercased()
             let request = ApprovalRequest(id: id, sessionID: session.info.id, tool: event.tool ?? "",
                                           summary: event.text ?? "", category: category, requestedAt: Date())
@@ -545,6 +581,20 @@ final class Service {
     }
 
     var approvalHosts: [String: String] = [:]
+    var fileLocks: [String: String] = [:]
+    var recentAllowed: [String: Date] = [:]
+
+    func releaseLocks(_ sessionID: String) {
+        fileLocks = fileLocks.filter { $0.value != sessionID }
+    }
+
+    /// Output as plain text: escape sequences removed, last lines only.
+    static func plainText(_ data: Data, lines: Int) -> String {
+        let text = String(decoding: data, as: UTF8.self)
+        let cleaned = text.replacingOccurrences(of: "\u{1B}\\[[0-9;?]*[ -/]*[@-~]|\u{1B}\\][^\u{07}\u{1B}]*(\u{07}|\u{1B}\\\\)|\u{1B}[@-Z\\\\-_]", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "\r", with: "")
+        return cleaned.split(separator: "\n", omittingEmptySubsequences: false).suffix(lines).joined(separator: "\n")
+    }
 
     func decisionReply(event: String?, decision: String) -> WireFrame {
         var reply = WireMessage(op: "decision")
@@ -555,6 +605,7 @@ final class Service {
     func finishApproval(id: String, decision: String, remember: Bool) {
         guard let request = approvals.removeValue(forKey: id) else { return }
         let host = approvalHosts.removeValue(forKey: id)
+        if decision == "allow" { recentAllowed[request.sessionID + request.summary] = Date() }
         if remember, decision == "allow", let host {
             if !permissions.rememberedHosts.contains(host) { permissions.rememberedHosts.append(host) }
             permissions.save()

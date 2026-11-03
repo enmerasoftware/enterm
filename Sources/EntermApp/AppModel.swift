@@ -83,6 +83,7 @@ final class AppModel: ObservableObject {
     var windowVisible = true
     var sparseTimer: Timer?
     var fitCanvas: (() -> Void)?
+    var onReload: (() -> Void)?
 
     var visibleSessions: [SessionInfo] { sessions }
     var focusedInfo: SessionInfo? { sessions.first { $0.number == focused } }
@@ -146,6 +147,11 @@ final class AppModel: ObservableObject {
             notFound = NotFoundCard.make(number: number, command: name)
         case "notice":
             hint = message.text
+        case "reload":
+            if let text = message.text { hint = text }
+            BoardStore.shared.reload()
+            TeamStore.shared.reload()
+            onReload?()
         default:
             break
         }

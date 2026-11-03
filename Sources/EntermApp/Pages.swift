@@ -30,3 +30,14 @@ final class VoiceInput {
     static let shared = VoiceInput()
     func flagsChanged(_ event: NSEvent) {}
 }
+
+final class BoardStore: ObservableObject {
+    static let shared = BoardStore()
+    @Published var board = Board.load()
+    func reload() { board = Board.load() }
+}
+final class TeamStore: ObservableObject {
+    static let shared = TeamStore()
+    @Published var team = Team.load()
+    func reload() { team = Team.load() }
+}
