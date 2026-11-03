@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Enterm",
-    platforms: [.macOS(.v13), .iOS(.v16)],
+    platforms: [.macOS(.v14), .iOS(.v16)],
     products: [
         .library(name: "EntermCore", targets: ["EntermCore"]),
         .executable(name: "entermd", targets: ["entermd"]),

@@ -79,42 +79,34 @@ public struct PermissionCard: Codable, Equatable {
 
 /// Four ready-made templates. Internet is `ask` in all of them, the rule is single.
 public enum PermissionTemplate: String, Codable, CaseIterable, Identifiable {
-    case development
     case readOnly
-    case autonomous
-    case locked
+    case development
+    case manager
+    case serverCare
 
     public var id: String { rawValue }
     public var title: String {
         switch self {
-        case .development: return "Geliştirme"
         case .readOnly: return "Salt Okuma"
-        case .autonomous: return "Özerk"
-        case .locked: return "Kapalı Kasa"
-        }
-    }
-    public var note: String {
-        switch self {
-        case .development: return "Dosya Düzenler, Silmeyi Sorar, SSH Ve Push Kapalı"
-        case .readOnly: return "Okur Ve Raporlar, Hiçbir Şeyi Değiştirmez"
-        case .autonomous: return "Dosya Ve Komutta Sormaz, Push Ve SSH Sorar"
-        case .locked: return "Her Değişiklik Sorulur"
+        case .development: return "Geliştirme"
+        case .manager: return "Yönetici"
+        case .serverCare: return "Sunucu Bakımı"
         }
     }
     public var card: PermissionCard {
         switch self {
-        case .development:
-            return PermissionCard(modes: [.editFiles: .allow, .deleteFiles: .ask, .ssh: .deny, .internet: .ask,
-                                          .delegate: .ask, .pushDeploy: .deny, .command: .ask])
         case .readOnly:
             return PermissionCard(modes: [.editFiles: .deny, .deleteFiles: .deny, .ssh: .deny, .internet: .ask,
                                           .delegate: .deny, .pushDeploy: .deny, .command: .ask])
-        case .autonomous:
-            return PermissionCard(modes: [.editFiles: .allow, .deleteFiles: .ask, .ssh: .ask, .internet: .ask,
-                                          .delegate: .allow, .pushDeploy: .ask, .command: .allow])
-        case .locked:
+        case .development:
+            return PermissionCard(modes: [.editFiles: .allow, .deleteFiles: .ask, .ssh: .deny, .internet: .ask,
+                                          .delegate: .allow, .pushDeploy: .deny, .command: .ask])
+        case .manager:
+            return PermissionCard(modes: [.editFiles: .deny, .deleteFiles: .deny, .ssh: .deny, .internet: .ask,
+                                          .delegate: .allow, .pushDeploy: .deny, .command: .ask])
+        case .serverCare:
             return PermissionCard(modes: [.editFiles: .ask, .deleteFiles: .ask, .ssh: .ask, .internet: .ask,
-                                          .delegate: .ask, .pushDeploy: .ask, .command: .ask])
+                                          .delegate: .deny, .pushDeploy: .ask, .command: .ask])
         }
     }
 }

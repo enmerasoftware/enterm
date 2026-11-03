@@ -40,36 +40,58 @@ final class DebugDriver {
     func capture(to path: String) {
         guard let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible }),
               let view = window.contentView, let layer = view.layer else { return }
-        window.displayIfNeeded()
-        let scale: CGFloat = 1
         let size = view.bounds.size
-        guard let context = CGContext(data: nil, width: Int(size.width * scale), height: Int(size.height * scale),
-                                      bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+        let terminals = Self.terminals(in: view).filter { !$0.isHiddenOrHasHiddenAncestor }
+        terminals.forEach { $0.isHidden = true }
+        window.displayIfNeeded()
+        guard let context = Self.context(size) else { return }
         context.translateBy(x: 0, y: size.height)
         context.scaleBy(x: 1, y: -1)
         layer.render(in: context)
-        // Terminal views draw through draw(_:), so they are composed on top of the layer picture.
         context.scaleBy(x: 1, y: -1)
         context.translateBy(x: 0, y: -size.height)
-        let graphics = NSGraphicsContext(cgContext: context, flipped: false)
-        NSGraphicsContext.current = graphics
-        for host in Self.terminals(in: view) where !host.isHiddenOrHasHiddenAncestor {
-            let rect = host.convert(host.bounds, to: view)
-            let y = view.isFlipped ? size.height - rect.maxY : rect.minY
-            let target = NSRect(x: rect.minX, y: y, width: rect.width, height: rect.height)
-            context.setFillColor(host.nativeBackgroundColor.cgColor)
-            context.fill(target)
-            context.saveGState()
-            context.translateBy(x: target.minX, y: target.minY)
-            context.clip(to: CGRect(origin: .zero, size: target.size))
-            host.displayIgnoringOpacity(host.bounds, in: graphics)
-            context.restoreGState()
+        terminals.forEach { $0.isHidden = false }
+        window.displayIfNeeded()
+        // Terminal views draw through draw(_:). Dialogs cover them, so they are only added without a cover.
+        if AppModel.shared.overlay == nil, AppModel.shared.page == nil {
+            for host in terminals {
+                guard let picture = Self.picture(of: host) else { continue }
+                let rect = host.convert(host.bounds, to: view)
+                let y = view.isFlipped ? size.height - rect.maxY : rect.minY
+                context.draw(picture, in: CGRect(x: rect.minX, y: y, width: rect.width, height: rect.height))
+            }
         }
-        NSGraphicsContext.current = nil
         guard let image = context.makeImage() else { return }
         let rep = NSBitmapImageRep(cgImage: image)
         try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+    }
+
+    private static func context(_ size: CGSize) -> CGContext? {
+        CGContext(data: nil, width: Int(size.width), height: Int(size.height), bitsPerComponent: 8, bytesPerRow: 0,
+                  space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+    }
+
+    /// The cached picture has a white base where the real view shows its layer colour.
+    private static func picture(of host: TerminalHost) -> CGImage? {
+        guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return nil }
+        host.cacheDisplay(in: host.bounds, to: rep)
+        guard let source = rep.cgImage, let context = context(CGSize(width: source.width, height: source.height)),
+              let data = context.data else { return nil }
+        context.draw(source, in: CGRect(x: 0, y: 0, width: source.width, height: source.height))
+        let color = host.nativeBackgroundColor.usingColorSpace(.sRGB) ?? .black
+        let (r, g, b) = (UInt8(color.redComponent * 255), UInt8(color.greenComponent * 255), UInt8(color.blueComponent * 255))
+        let bytes = data.bindMemory(to: UInt8.self, capacity: context.bytesPerRow * source.height)
+        for row in 0..<source.height {
+            for col in 0..<source.width {
+                let p = bytes + row * context.bytesPerRow + col * 4
+                if p[0] >= 250, p[1] >= 250, p[2] >= 250 {
+                    p[0] = r
+                    p[1] = g
+                    p[2] = b
+                }
+            }
+        }
+        return context.makeImage()
     }
 
     private static func terminals(in view: NSView) -> [TerminalHost] {

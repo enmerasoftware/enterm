@@ -25,11 +25,21 @@ final class TerminalHost: TerminalView, TerminalViewDelegate {
 
     func applyTheme() {
         let palette = Theme.palette
-        font = Theme.font()
+        font = Theme.font(size: SettingsStore.shared.settings.fontSize)
+        appliedScale = 0
         nativeBackgroundColor = palette.bg
         nativeForegroundColor = palette.fg
         caretColor = palette.fg
         layer?.backgroundColor = palette.bg.cgColor
+    }
+
+    private var appliedScale: CGFloat = 0
+
+    /// Zooming changes the font with the box, so the terminal keeps its rows and columns.
+    func applyScaledFont(_ scale: CGFloat) {
+        guard scale != appliedScale else { return }
+        appliedScale = scale
+        font = Theme.font(size: SettingsStore.shared.settings.fontSize * scale)
     }
 
     func feedOutput(_ data: Data, replay: Bool) {
