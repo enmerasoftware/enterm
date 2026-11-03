@@ -1,6 +1,11 @@
 import AppKit
 import EntermCore
 
+/// Drawn only: the box under it handles the mouse.
+final class PassThroughView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
 /// One session on the canvas: a header, the live terminal, and for agents a one line footer.
 final class SessionBox: NSView {
     let number: UInt32
@@ -10,7 +15,7 @@ final class SessionBox: NSView {
     let badge = NSTextField(labelWithString: "")
     let footer = NSTextField(labelWithString: "")
     let details = NSTextField(labelWithString: "Ayrıntılar ⌘I")
-    let grip = NSView()
+    let grip = PassThroughView()
     var showsHeader = true
     var showsFooter = false
     var summaryOnly = false
@@ -18,6 +23,7 @@ final class SessionBox: NSView {
     weak var canvas: CanvasView?
     private var dragStart: NSPoint?
     private var dragOrigin: NSPoint?
+    private var linking = false
 
     init(number: UInt32) {
         self.number = number
@@ -49,6 +55,7 @@ final class SessionBox: NSView {
     required init?(coder: NSCoder) { fatalError("not used") }
 
     override var isFlipped: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     func apply(info: SessionInfo, focused: Bool, model: AppModel) {
         let palette = Theme.palette
@@ -119,13 +126,17 @@ final class SessionBox: NSView {
             details.frame.origin = NSPoint(x: width - details.frame.width - 12, y: bounds.height - 22)
             footer.frame = NSRect(x: 12, y: bounds.height - 22, width: max(0, details.frame.minX - 20), height: 20)
         }
-        host?.frame = NSRect(x: 8, y: headerHeight + 4, width: width - 16, height: bounds.height - headerHeight - footerHeight - 8)
-        grip.frame = NSRect(x: width - 9, y: bounds.height / 2 - 12, width: 8, height: 24)
+        // The grip stays above the terminal, whose scroller reaches the box edge.
+        let gripWidth: CGFloat = canvasCanLink ? 10 : 0
+        host?.frame = NSRect(x: 8, y: headerHeight + 4, width: width - 16 - gripWidth, height: bounds.height - headerHeight - footerHeight - 8)
+        grip.frame = NSRect(x: width - 11, y: bounds.height / 2 - 16, width: 10, height: 32)
+        addSubview(grip, positioned: .above, relativeTo: nil)
     }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         if canvasCanLink, grip.frame.insetBy(dx: -6, dy: -6).contains(point) {
+            linking = true
             canvas?.beginLink(from: self, event: event)
             return
         }
@@ -135,6 +146,10 @@ final class SessionBox: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        if linking {
+            canvas?.continueLink(event)
+            return
+        }
         guard let dragStart, let dragOrigin, canvas?.allowsDrag == true else { return }
         let dx = event.locationInWindow.x - dragStart.x
         let dy = event.locationInWindow.y - dragStart.y
@@ -142,6 +157,11 @@ final class SessionBox: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        if linking {
+            linking = false
+            canvas?.endLink(event)
+            return
+        }
         let point = convert(event.locationInWindow, from: nil)
         if showsFooter, details.frame.insetBy(dx: -4, dy: -4).contains(point) {
             AppModel.shared.setFocus(number)
@@ -402,16 +422,11 @@ final class CanvasView: NSView {
     func beginLink(from box: SessionBox, event: NSEvent) {
         linkSource = box
         trackLink(event)
-        window?.trackEvents(matching: [.leftMouseDragged, .leftMouseUp], timeout: .infinity, mode: .eventTracking) { [weak self] tracked, stop in
-            guard let self, let tracked else { return }
-            if tracked.type == .leftMouseUp {
-                self.finishLink(tracked)
-                stop.pointee = true
-            } else {
-                self.trackLink(tracked)
-            }
-        }
     }
+
+    func continueLink(_ event: NSEvent) { trackLink(event) }
+
+    func endLink(_ event: NSEvent) { finishLink(event) }
 
     private func trackLink(_ event: NSEvent) {
         guard let source = linkSource else { return }

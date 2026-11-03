@@ -190,10 +190,61 @@ final class Scheduler: ObservableObject {
     @Published var missed: [ScheduledJob] = []
     private var timer: Timer?
 
+    @Published var pendingTriggers: [(folder: String, trigger: RepoTrigger)] = []
+    private var gate = TriggerGate.load()
+    private var scanned = Set<String>()
+
     func start() {
         missed = jobs.filter { $0.missedRun(now: Date()) }
         arm()
     }
+
+    /// Looks for a schedule file in folders that sessions open. A repository's jobs never run until accepted.
+    func scan(folders: [String]) {
+        var changed = false
+        for folder in folders where !scanned.contains(folder) {
+            scanned.insert(folder)
+            let triggers = RepoTrigger.load(folder: folder)
+            guard !triggers.isEmpty else { continue }
+            // A job that was accepted before but whose content changed stops here.
+            let active = gate.active(triggers, folder: folder).map(\.fingerprint)
+            let before = jobs.count
+            jobs.removeAll { job in
+                job.cwd == folder && job.sourceFingerprint != nil && !active.contains(job.sourceFingerprint ?? "")
+            }
+            changed = changed || before != jobs.count
+            for trigger in gate.pending(triggers, folder: folder) where !pendingTriggers.contains(where: { $0.folder == folder && $0.trigger == trigger }) {
+                pendingTriggers.append((folder, trigger))
+                AppModel.shared.hint = "◆ Depodan Gelen Tetik: Onay Bekliyor"
+            }
+        }
+        if changed { save() }
+    }
+
+    func runOnce(_ item: (folder: String, trigger: RepoTrigger)) {
+        var spec = SessionSpec(name: item.trigger.name, tool: .terminal, cwd: item.folder, rows: 30, cols: 100)
+        spec.env = ["ENTERM_STARTUP": item.trigger.command]
+        AppModel.shared.create(spec)
+        pendingTriggers.removeAll { $0.folder == item.folder && $0.trigger == item.trigger }
+    }
+
+    func accept(_ item: (folder: String, trigger: RepoTrigger)) {
+        gate.accepted[item.folder, default: []].insert(item.trigger.fingerprint)
+        gate.save()
+        var job = ScheduledJob(name: item.trigger.name, command: item.trigger.command, tool: .terminal, cwd: item.folder, kind: .cron, first: Date())
+        job.cron = item.trigger.cron
+        job.sourceFingerprint = item.trigger.fingerprint
+        jobs.append(job)
+        pendingTriggers.removeAll { $0.folder == item.folder && $0.trigger == item.trigger }
+        save()
+    }
+
+    func reject(_ item: (folder: String, trigger: RepoTrigger)) {
+        gate.rejected[item.folder, default: []].insert(item.trigger.fingerprint)
+        gate.save()
+        pendingTriggers.removeAll { $0.folder == item.folder && $0.trigger == item.trigger }
+    }
+
 
     func save() {
         ScheduleBook.save(jobs)
@@ -214,7 +265,7 @@ final class Scheduler: ObservableObject {
     private func fireDue() {
         let now = Date()
         for index in jobs.indices where jobs[index].enabled {
-            let reference = jobs[index].lastRun ?? jobs[index].first.addingTimeInterval(-1)
+            let reference = jobs[index].lastRun ?? jobs[index].first.addingTimeInterval(jobs[index].kind == .cron ? -120 : -1)
             // Only what is due now. Older runs stay in the missed list until the user answers.
             guard let due = jobs[index].nextRun(after: reference), due <= now, now.timeIntervalSince(due) < 120 else { continue }
             run(index: index)
@@ -251,6 +302,7 @@ struct SchedulerPage: View {
     @State private var kind = ScheduleKind.daily
     @State private var first = Date().addingTimeInterval(3600)
     @State private var minutes = "60"
+    @State private var cron = "0 3 * * *"
     var body: some View {
         PageFrame(title: "Zamanlayıcı") {
             if !scheduler.missed.isEmpty {
@@ -272,6 +324,27 @@ struct SchedulerPage: View {
                         }
                         .padding(12)
                     }
+                }
+            }
+            ForEach(Array(scheduler.pendingTriggers.enumerated()), id: \.offset) { _, item in
+                Panel(border: Theme.palette.need) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            T("Bu Depodaki Zamanlayıcı Çalışmak İstiyor", bold: true)
+                            Spacer()
+                            StatusBadge(status: .needsApproval)
+                        }
+                        Dim("\(item.folder)/.enterm/zamanlayici.json")
+                        T(item.trigger.command).textSelection(.enabled)
+                        Dim("\(item.trigger.name) · Cron: \(item.trigger.cron)")
+                        Dim("Depodan gelen hiçbir tetik siz onaylamadan çalışmaz. İçerik değişirse yeniden sorulur.")
+                        HStack {
+                            Btn("Bir Kez Çalıştır") { scheduler.runOnce(item) }
+                            Btn("Hep İzin Ver", kind: .primary) { scheduler.accept(item) }
+                            Btn("Reddet", kind: .danger) { scheduler.reject(item) }
+                        }
+                    }
+                    .padding(12)
                 }
             }
             if scheduler.jobs.isEmpty { Dim("Henüz iş yok.") }
@@ -301,15 +374,21 @@ struct SchedulerPage: View {
             Seg(options: [(ToolKind.terminal, "Komut"), (ToolKind.claude, "Claude Code"), (ToolKind.codex, "Codex")], value: $tool)
             EntermField(placeholder: tool == .terminal ? "Komut: php artisan test" : "İş: Güncel olmayan paketleri listele", text: $command)
             Seg(options: ScheduleKind.allCases.map { ($0, $0.title) }, value: $kind)
+            if kind == .cron {
+                EntermField(placeholder: "Dakika Saat Gün Ay Haftanın Günü", text: $cron)
+                if CronExpression(cron) == nil { T("Geçersiz Cron", color: Theme.palette.err) }
+            }
             HStack {
-                T(kind == .once ? "Zaman" : "İlk Çalışma")
-                DatePicker("", selection: $first).labelsHidden()
+                if kind != .cron {
+                    T(kind == .once ? "Zaman" : "İlk Çalışma")
+                    DatePicker("", selection: $first).labelsHidden()
+                }
                 if kind == .interval {
                     EntermField(placeholder: "Dakika", text: $minutes).frame(width: 90)
                     Dim("Dakikada Bir")
                 }
             }
-            Dim("Klasör: \(model.displayPath(model.focusedInfo?.cwd ?? NSHomeDirectory())). Yalnız Enterm açıkken çalışır, kapalıyken kaçan iş size sorulur. Güç sınırındaysa ajan işi Sırada bekler. Cron yazımı ve depodan gelen tetik Henüz Yok.")
+            Dim("Klasör: \(model.displayPath(model.focusedInfo?.cwd ?? NSHomeDirectory())). Yalnız Enterm açıkken çalışır, kapalıyken kaçan iş size sorulur. Güç sınırındaysa ajan işi Sırada bekler.")
             Btn("Ekle", kind: .primary) { add() }
         }
     }
@@ -320,9 +399,10 @@ struct SchedulerPage: View {
         return "\(job.kind.title) · \(next)\(last)"
     }
     private func add() {
-        guard !command.isEmpty else { return }
-        let job = ScheduledJob(name: name.isEmpty ? command : name, command: command, tool: tool,
-                               cwd: model.focusedInfo?.cwd ?? NSHomeDirectory(), kind: kind, first: first, intervalMinutes: Int(minutes) ?? 60)
+        guard !command.isEmpty, kind != .cron || CronExpression(cron) != nil else { return }
+        var job = ScheduledJob(name: name.isEmpty ? command : name, command: command, tool: tool,
+                               cwd: model.focusedInfo?.cwd ?? NSHomeDirectory(), kind: kind, first: kind == .cron ? Date() : first, intervalMinutes: Int(minutes) ?? 60)
+        if kind == .cron { job.cron = cron }
         scheduler.jobs.append(job)
         scheduler.save()
         name = ""

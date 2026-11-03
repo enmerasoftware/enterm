@@ -29,6 +29,10 @@ enum Page: Equatable {
     case cost
     case restore
     case scheduler
+    case run
+    case whiteboard
+    case simulator
+    case uninstall
     case notYet(String)
 }
 
@@ -58,6 +62,7 @@ enum Overlay: Equatable {
     case limit(UInt32)
     case limitOpened
     case sshList(String)
+    case remoteLost(UInt32)
     case resumeFailed(UInt32)
     case codexLimit(UInt32)
 }
@@ -94,6 +99,8 @@ final class AppModel: ObservableObject {
         }
     }
     @Published var titles: [UInt32: String] = [:]
+    @Published var heavyQueue: [HeavyEntry] = []
+    @Published var remotes: [UInt32: RemoteProject] = [:]
 
     var hosts: [UInt32: TerminalHost] = [:]
     var state = JSONStore.load(WindowState.self, from: EntermPaths.stateFile) ?? WindowState()
@@ -179,6 +186,10 @@ final class AppModel: ObservableObject {
         case "notice":
             hint = message.text
             Notifier.shared.post(title: "Enterm", body: message.text ?? "", onlyWhenInactive: false)
+        case "heavy":
+            if let data = message.text?.data(using: .utf8), let list = try? JSONDecoder().decode([HeavyEntry].self, from: data) {
+                heavyQueue = list
+            }
         case "browserCmd":
             BrowserCenter.shared.handle(message: message)
         case "reload":
@@ -260,6 +271,10 @@ final class AppModel: ObservableObject {
 
     func output(_ number: UInt32, _ data: Data, _ replay: Bool) {
         guard let host = hosts[number] else { return }
+        if !replay, overlay == nil, remotes[number] != nil,
+           data.range(of: Data("Connection to ".utf8)) != nil || data.range(of: Data("Broken pipe".utf8)) != nil || data.range(of: Data("Connection reset".utf8)) != nil {
+            overlay = .remoteLost(number)
+        }
         if !replay, overlay == nil, !codexWarned.contains(number),
            sessions.first(where: { $0.number == number })?.tool == .codex,
            data.range(of: Data("usage limit".utf8)) != nil || data.range(of: Data("rate limit".utf8)) != nil {

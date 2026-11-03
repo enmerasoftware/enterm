@@ -61,7 +61,7 @@ func writeClaudeFiles() -> (settings: String, mcp: String) {
         "hooks": [
             "SessionStart": quick, "UserPromptSubmit": quick, "Stop": quick, "StopFailure": quick,
             "Notification": quick, "SubagentStart": quick, "SubagentStop": quick,
-            "PreToolUse": [hook(600)], "PermissionRequest": [hook(600)],
+            "PreToolUse": [hook(600)], "PermissionRequest": [hook(600)], "PostToolUse": quick,
         ],
     ]
     let dir = EntermPaths.hooksDir
@@ -183,6 +183,14 @@ func handleClaudeHook() {
         handlePreToolUse(input, base: event)
     case "PermissionRequest":
         handlePermissionRequest(input, base: event)
+    case "PostToolUse":
+        // Only a heavy command holds the queue, others must not spend time here.
+        let command = (input["tool_input"] as? [String: Any])?["command"] as? String ?? ""
+        if HeavyWork.matches(command) {
+            var done = WireMessage(op: "heavyDone")
+            done.event = event
+            _ = WireSocket.send(done)
+        }
     default:
         break
     }

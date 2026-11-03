@@ -51,6 +51,18 @@ final class DebugDriver {
                     mouse([(.leftMouseDown, n[0], n[1]), (.leftMouseDragged, (n[0] + n[2]) / 2, (n[1] + n[3]) / 2),
                            (.leftMouseDragged, n[2], n[3]), (.leftMouseUp, n[2], n[3])])
                 }
+            case "hit":
+                let n = rest.split(separator: " ").compactMap { Double($0) }
+                if n.count == 2, let view = NSApp.windows.first?.contentView {
+                    let hit = view.hitTest(NSPoint(x: n[0], y: n[1]))
+                    var chain = ""
+                    var cursor = hit
+                    while let current = cursor {
+                        chain += "\(type(of: current)) \(current.frame) > "
+                        cursor = current.superview
+                    }
+                    try? chain.write(toFile: "/tmp/et/hit.txt", atomically: true, encoding: .utf8)
+                }
             case "state":
                 let model = AppModel.shared
                 let text = "overlay=\(String(describing: model.overlay)) page=\(String(describing: model.page)) focused=\(String(describing: model.focused)) maximized=\(String(describing: model.maximized)) mode=\(model.mode) sessions=\(model.sessions.count) details=\(model.detailsOpen) links=\(LinkStore.shared.links.count) pressure=\(PowerCenter.shared.pressure.title) visible=\(NSApp.windows.first?.occlusionState.contains(.visible) ?? false)\n"
@@ -99,11 +111,15 @@ final class DebugDriver {
     private func mouse(_ steps: [(NSEvent.EventType, Double, Double)]) {
         guard let window = NSApp.windows.first else { return }
         let height = window.contentView?.bounds.height ?? 0
+        var events: [NSEvent] = []
         for (type, x, y) in steps {
             guard let event = NSEvent.mouseEvent(with: type, location: NSPoint(x: x, y: height - y), modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
                                                  windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) else { continue }
-            NSApp.postEvent(event, atStart: false)
+            events.append(event)
         }
+        // A drag handler pulls the following events from the queue, so they must be waiting first.
+        events.dropFirst().forEach { NSApp.postEvent($0, atStart: false) }
+        if let first = events.first { NSApp.sendEvent(first) }
     }
 
     func capture(to path: String) {

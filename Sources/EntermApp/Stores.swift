@@ -296,6 +296,7 @@ final class ExtensionsHub {
     private var awake: NSObjectProtocol?
 
     func sessionsChanged() {
+        Scheduler.shared.scan(folders: AppModel.shared.sessions.map(\.cwd))
         PowerCenter.shared.updateSampling()
         PowerCenter.shared.startQueued()
         updateAwake()

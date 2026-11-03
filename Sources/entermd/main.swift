@@ -127,6 +127,7 @@ final class Service {
         client.writeSource = nil
         clients[client.fd] = nil
         close(client.fd)
+        if heavyQueue.contains(where: { !$0.running && $0.client == nil || $0.client === client && !$0.running }) { advanceHeavy() }
         scheduleIdleCheck()
     }
 
@@ -308,6 +309,30 @@ final class Service {
                 reply.decision = "allow"
             }
             send(reply.frame(), to: client)
+        case "heavyStart":
+            guard let event = message.event, let session = sessionByID(event.sessionID) else {
+                var reply = WireMessage(op: "decision")
+                reply.decision = "allow"
+                send(reply.frame(), to: client)
+                return
+            }
+            heavyQueue.append(HeavyWaiter(sessionID: session.info.id, name: session.info.name.isEmpty ? session.info.tool.title : session.info.name,
+                                          command: event.text ?? "", client: client))
+            advanceHeavy()
+        case "heavyDone":
+            if let id = message.event?.sessionID { finishHeavy(id) }
+        case "heavyList":
+            var reply = WireMessage(op: "heavy")
+            reply.id = message.id
+            reply.text = heavyJSON()
+            send(reply.frame(), to: client)
+        case "shutdown":
+            // The user chose to remove Enterm: every session ends and the service exits.
+            for session in sessions.values {
+                if let pid = session.info.pid { kill(pid, SIGHUP) }
+            }
+            unlink(EntermPaths.socket.path)
+            exit(0)
         case "browser":
             // From an agent's bridge to the window that owns the browser, and back.
             let id = UUID().uuidString
@@ -476,6 +501,8 @@ final class Service {
         session.info.exitCode = exited ? (status >> 8) & 0xff : 128 + (status & 0x7f)
         session.info.status = .exited
         session.info.pid = nil
+        finishHeavy(session.info.id)
+        releaseLocks(session.info.id)
         session.info.pendingApproval = nil
         for (id, approval) in approvals where approval.sessionID == session.info.id {
             finishApproval(id: id, decision: "none", remember: false)
@@ -545,6 +572,7 @@ final class Service {
             info.pendingApproval = nil
             if let text = event.text, !text.isEmpty { info.lastActivity = String(text.prefix(300)) }
             releaseLocks(info.id)
+            finishHeavy(info.id)
         case "wait":
             if info.status != .needsApproval { info.status = .idle }
         case "ask":
@@ -608,6 +636,47 @@ final class Service {
     var approvalHosts: [String: String] = [:]
     var fileLocks: [String: String] = [:]
     var browserWaiting: [String: Client] = [:]
+
+    struct HeavyWaiter {
+        let sessionID: String
+        let name: String
+        let command: String
+        weak var client: Client?
+        var running = false
+    }
+    var heavyQueue: [HeavyWaiter] = []
+
+    /// One heavy command at a time. A waiting hook simply holds its answer until its turn.
+    func advanceHeavy() {
+        // A waiter whose hook gave up is no longer waiting.
+        heavyQueue.removeAll { !$0.running && $0.client.map { clients[$0.fd] === $0 } != true }
+        if !heavyQueue.contains(where: \.running), !heavyQueue.isEmpty {
+            heavyQueue[0].running = true
+            if let client = heavyQueue[0].client {
+                var reply = WireMessage(op: "decision")
+                reply.decision = "allow"
+                send(reply.frame(), to: client)
+            }
+        }
+        var note = WireMessage(op: "heavy")
+        note.text = heavyJSON()
+        broadcast(note)
+    }
+
+    func finishHeavy(_ sessionID: String) {
+        guard heavyQueue.contains(where: { $0.sessionID == sessionID }) else { return }
+        if let index = heavyQueue.firstIndex(where: { $0.sessionID == sessionID && $0.running }) {
+            heavyQueue.remove(at: index)
+        } else {
+            heavyQueue.removeAll { $0.sessionID == sessionID }
+        }
+        advanceHeavy()
+    }
+
+    func heavyJSON() -> String {
+        let entries = heavyQueue.map { HeavyEntry(sessionID: $0.sessionID, name: $0.name, command: $0.command, running: $0.running) }
+        return (try? JSONEncoder().encode(entries)).map { String(decoding: $0, as: UTF8.self) } ?? "[]"
+    }
     var recentAllowed: [String: Date] = [:]
 
     func releaseLocks(_ sessionID: String) {

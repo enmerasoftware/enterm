@@ -15,6 +15,7 @@ struct OverlayRouter: View {
         case .approval(let id): Scrim(alignment: .top) { ApprovalDialog(id: id) }
         case .limit(let number): Scrim(alignment: .top) { LimitDialog(number: number) }
         case .sshList(let id): Scrim(alignment: .top) { SSHListDialog(sessionID: id) }
+        case .remoteLost(let number): Scrim(alignment: .top) { RemoteLostDialog(number: number) }
         case .limitOpened: Scrim(alignment: .top) { LimitOpenedDialog() }
         case .resumeFailed(let number): Scrim(alignment: .top) { ResumeFailedDialog(number: number) }
         case .codexLimit(let number): Scrim(alignment: .top) { CodexLimitDialog(number: number) }
@@ -200,6 +201,7 @@ struct MainMenuPanel: View {
             item("Konuşarak Yaz", note: "Konuşun, Yazıya Dönsün", key: "⌃⌘ Basılı", id: "voice")
             item("Geçmiş Konuşmalar", note: "Açın, Sürdürün", id: "history")
             item("Uzak Sunucu", note: "SSH İle Proje Açın", id: "remote")
+            item("Değişiklikler Ve Git", note: "Hazırla, Commit, Push", id: "changes")
             item("Ekibini Kur", note: "Birkaç Claude Code Birlikte Çalışır", id: "team")
             item("Hesaplar", note: "Claude Code, Codex, Antigravity Girişleri", id: "accounts")
             item("Telefonu Bağla", note: "Bu Terminali Telefonda Açın", id: "phone")

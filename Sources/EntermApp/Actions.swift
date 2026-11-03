@@ -37,6 +37,10 @@ enum Commands {
         Command(id: "lowPower", title: "Düşük Güçlü Bilgisayar Aç Ya Da Kapat", key: ""),
         Command(id: "history", title: "Geçmiş Konuşmalar", key: ""),
         Command(id: "scheduler", title: "Zamanlayıcı", key: ""),
+        Command(id: "run", title: "Çalıştır", key: ""),
+        Command(id: "whiteboard", title: "Beyaz Tahta", key: ""),
+        Command(id: "simulator", title: "iOS Simülatörü", key: ""),
+        Command(id: "uninstall", title: "Enterm'i Kaldır", key: ""),
         Command(id: "newView", title: "Yeni Görünüm", key: ""),
         Command(id: "voice", title: "Konuşarak Yaz", key: "⌃⌘ Basılı"),
         Command(id: "remote", title: "Uzak Sunucu", key: ""),
@@ -89,6 +93,10 @@ enum Commands {
             model.detailsOpen = true
         case "messages": model.page = .messages
         case "scheduler": model.page = .scheduler
+        case "run": model.page = .run
+        case "whiteboard": model.page = .whiteboard
+        case "simulator": model.page = .simulator
+        case "uninstall": model.page = .uninstall
         case "approveFirst":
             if let request = model.sessions.compactMap(\.pendingApproval).first { Approvals.decide(id: request.id, decision: "allow") }
         case "denyFirst":

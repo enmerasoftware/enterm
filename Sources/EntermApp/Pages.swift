@@ -27,6 +27,10 @@ struct PageRouter: View {
         case .cost: CostPage()
         case .restore: RestorePage()
         case .scheduler: SchedulerPage()
+        case .run: RunPage()
+        case .whiteboard: WhiteboardPage()
+        case .simulator: SimulatorPage()
+        case .uninstall: UninstallPage()
         case .phone: NotYet(name: "Telefonu Bağla")
         case .notYet(let name): NotYet(name: name)
         }
@@ -396,7 +400,9 @@ enum AntigravityHooks {
         let object: [String: Any] = ["hooks": ["Stop": [entry], "PreInvocation": [entry]]]
         guard let data = try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted]) else { return false }
         try? FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
-        return FileManager.default.createFile(atPath: path, contents: data)
+        guard FileManager.default.createFile(atPath: path, contents: data) else { return false }
+        Uninstaller.remember(hookFile: path)
+        return true
     }
 }
 

@@ -194,7 +194,15 @@ struct ManagerPage: View {
                     Dim("✓ Yetkisi olmayan iş başka ajana devredilemez.")
                     Dim("✓ Ajan mesajı onay sayılmaz. Karar düğmesine yalnız siz basarsınız.")
                     Dim("✓ Mesaj sınırına takılan rapor dosyada kalır: ekip/raporlar/")
-                    Dim("Ağır İş Sırası: Yeni oturumlar Güç Sınırı'na göre sıraya girer. Tek tek komut sırası Henüz Yok.")
+                }
+                T("Ağır İş Sırası", bold: true)
+                if model.heavyQueue.isEmpty { Dim("Sırada ağır iş yok. Derleme ve toplu test gibi komutlar ajanlar arasında tek tek çalışır (Claude Code).") }
+                ForEach(Array(model.heavyQueue.enumerated()), id: \.element.id) { index, item in
+                    HStack {
+                        T("\(index + 1). \(item.name): \(item.command)").lineLimit(1)
+                        Spacer()
+                        Dim(item.running ? "● Çalışıyor" : "○ Sırada")
+                    }
                 }
             } else {
                 Dim("Henüz ekip yok.")

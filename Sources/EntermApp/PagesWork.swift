@@ -111,9 +111,9 @@ struct NewViewPage: View {
                 MenuRow(title: "Düzenleyici", note: "Dosyayı Burada Açıp Düzeltin") { model.page = .files }
                 MenuRow(title: "Not", note: "Bu Klasöre Bağlı Kısa Not") { model.page = .note }
                 MenuRow(title: "Zamanlayıcı", note: "Bir Komut Ya Da İş, Belli Saatte") { model.page = .scheduler }
-                MenuRow(title: "Beyaz Tahta", note: "Henüz Yok") { model.page = .notYet("Beyaz Tahta") }
-                MenuRow(title: "Çalıştır", note: "Henüz Yok") { model.page = .notYet("Çalıştır") }
-                MenuRow(title: "iOS Simülatörü", note: "Henüz Yok") { model.page = .notYet("iOS Simülatörü") }
+                MenuRow(title: "Beyaz Tahta", note: "Çizin, Ajana Gösterin") { model.page = .whiteboard }
+                MenuRow(title: "Çalıştır", note: "Projenin Sunucularını Başlatın") { model.page = .run }
+                MenuRow(title: "iOS Simülatörü", note: "Uygulamanızı Yanında Görün") { model.page = .simulator }
             }
         }
     }
@@ -122,25 +122,29 @@ struct NewViewPage: View {
 struct FilesPage: View {
     @ObservedObject var model = AppModel.shared
     @State private var path = ""
-    @State private var items: [URL] = []
+    @State private var items: [(name: String, directory: Bool)] = []
+    @State private var failed = false
     var body: some View {
         PageFrame(title: model.displayPath(path)) {
-            Btn("‹ Üst Klasör", kind: .plain) { open(URL(fileURLWithPath: path).deletingLastPathComponent().path) }
+            if let remote = model.focused.flatMap({ model.remotes[$0] }) { Dim("Uzak: \(remote.host). Dosyalar sunucuda, görünüm burada.") }
+            Btn("‹ Üst Klasör", kind: .plain) { open((path as NSString).deletingLastPathComponent) }
+            if failed { T("✕ Liste Alınamadı", color: Theme.palette.err) }
             Panel {
-                ForEach(items, id: \.self) { url in
-                    let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
-                    MenuRow(title: url.lastPathComponent + (isDirectory ? "/" : "")) {
-                        if isDirectory { open(url.path) } else { model.page = .editor(url.path) }
+                ForEach(items, id: \.name) { item in
+                    MenuRow(title: item.name + (item.directory ? "/" : "")) {
+                        let target = (path as NSString).appendingPathComponent(item.name)
+                        if item.directory { open(target) } else { model.page = .editor(target) }
                     }
                 }
             }
         }
-        .onAppear { open(model.focusedInfo?.cwd ?? NSHomeDirectory()) }
+        .onAppear { open(model.currentRunner.folder) }
     }
     private func open(_ directory: String) {
         path = directory
-        let found = (try? FileManager.default.contentsOfDirectory(at: URL(fileURLWithPath: directory), includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])) ?? []
-        items = found.sorted { $0.lastPathComponent.lowercased() < $1.lastPathComponent.lowercased() }
+        let result = model.currentRunner.listing(directory)
+        failed = !result.ok
+        items = result.items
     }
 }
 
@@ -149,10 +153,13 @@ struct EditorPage: View {
     @ObservedObject var model = AppModel.shared
     @State private var text = ""
     @State private var state = ""
+    @State private var loaded = false
     var body: some View {
         PageFrame(title: model.displayPath(path), wide: true) {
             HStack {
-                Btn("Kaydet", kind: .primary, key: "⌘S") { save() }.keyboardShortcut("s", modifiers: .command)
+                Btn("Kaydet", kind: .primary, key: "⌘S") { save() }
+                    .keyboardShortcut("s", modifiers: .command)
+                    .disabled(!loaded)
                 Dim(state)
             }
             TextEditor(text: $text)
@@ -162,20 +169,16 @@ struct EditorPage: View {
                 .background(Color(Theme.palette.panel))
         }
         .onAppear {
-            if let data = FileManager.default.contents(atPath: path), data.count < 2_000_000, let value = String(data: data, encoding: .utf8) {
+            if let value = model.currentRunner.readText(path) {
                 text = value
+                loaded = true
             } else {
                 state = "Bu Dosya Burada Açılamıyor: Çok Büyük Ya Da Metin Değil."
             }
         }
     }
     private func save() {
-        do {
-            try text.write(toFile: path, atomically: true, encoding: .utf8)
-            state = "Kaydedildi."
-        } catch {
-            state = "Kaydedilemedi."
-        }
+        state = model.currentRunner.writeText(text, to: path) ? "Kaydedildi." : "Kaydedilemedi."
     }
 }
 
@@ -208,37 +211,33 @@ struct NotePage: View {
 struct RemotePage: View {
     @ObservedObject var model = AppModel.shared
     @State private var hosts: [String] = []
-    @State private var custom = ""
+    @State private var host = ""
+    @State private var folder = "~"
     var body: some View {
         PageFrame(title: "Uzak Sunucu") {
-            Dim("Terminal bilgisayarınızda çalışır, ssh ile bağlanır. Anahtarlar ~/.ssh içinde kalır, Enterm okumaz. Uzak makinede kurulum kartı ve ajan durumu görünmez.")
             if !hosts.isEmpty {
                 Panel {
-                    ForEach(hosts, id: \.self) { host in
-                        MenuRow(title: host, note: "~/.ssh/config") { connect(host) }
+                    ForEach(hosts, id: \.self) { item in
+                        MenuRow(title: item, note: "~/.ssh/config", selected: host == item) { host = item }
                     }
                 }
             }
+            EntermField(placeholder: "Sunucu: kullanici@sunucu", text: $host)
+            EntermField(placeholder: "Uzak Klasör: /var/www/site", text: $folder)
+            Dim("Terminal, dosya ve git sunucuda çalışır, görünüm bu bilgisayarda kalır. Anahtarlar ~/.ssh içinde durur, Enterm okumaz. Uzak makinede kurulum kartı ve ajan durumu görünmez.")
             HStack {
-                EntermField(placeholder: "kullanici@sunucu", text: $custom)
-                Btn("Bağlan", kind: .primary) { if !custom.isEmpty { connect(custom) } }
+                Btn("Vazgeç", kind: .plain, key: "Esc") { model.page = nil }
+                Btn("Bağlan", kind: .primary, key: "⏎") { connect() }.keyboardShortcut(.defaultAction).disabled(host.isEmpty)
             }
         }
-        .onAppear { load() }
-    }
-    private func load() {
-        let text = (try? String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8)) ?? ""
-        hosts = text.split(separator: "\n").compactMap { line -> String? in
-            let parts = line.trimmingCharacters(in: .whitespaces).split(separator: " ")
-            guard parts.count == 2, parts[0].lowercased() == "host", !parts[1].contains("*") else { return nil }
-            return String(parts[1])
+        .onAppear {
+            let text = (try? String(contentsOfFile: NSHomeDirectory() + "/.ssh/config", encoding: .utf8)) ?? ""
+            hosts = SSHCommand.hosts(fromConfig: text)
         }
     }
-    private func connect(_ host: String) {
+    private func connect() {
         model.page = nil
-        var spec = SessionSpec(name: host, tool: .terminal, rows: 30, cols: 100)
-        spec.env = ["ENTERM_STARTUP": "ssh \(NotFoundActions.shellQuote(host))"]
-        model.create(spec)
+        RemoteProject(host: host, folder: folder).open()
     }
 }
 
@@ -246,18 +245,8 @@ struct RemotePage: View {
 
 enum Git {
     @discardableResult
-    static func run(_ arguments: [String], cwd: String) -> (ok: Bool, output: String) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        process.arguments = arguments
-        process.currentDirectoryURL = URL(fileURLWithPath: cwd)
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-        guard (try? process.run()) != nil else { return (false, "git başlatılamadı") }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return (process.terminationStatus == 0, String(decoding: data, as: UTF8.self))
+    static func run(_ arguments: [String], runner: CommandRunner) -> (ok: Bool, output: String) {
+        runner.run(["git"] + arguments)
     }
 }
 
@@ -279,10 +268,12 @@ struct ChangesPage: View {
     @State private var isRepository = true
     @State private var ahead = 0
     var cwd: String { model.focusedInfo?.cwd ?? NSHomeDirectory() }
+    var runner: CommandRunner { model.currentRunner }
     var body: some View {
         PageFrame(title: nil, wide: true) {
+            if let remote = model.focused.flatMap({ model.remotes[$0] }) { Dim("Uzak: \(remote.host):\(remote.folder)") }
             if !isRepository {
-                Dim("Bu klasör bir git deposu değil: \(model.displayPath(cwd))")
+                Dim("Bu klasör bir git deposu değil ya da sunucuya ulaşılamadı: \(model.displayPath(runner.folder))")
             } else {
                 HStack {
                     T("Dal: \(branch)", bold: true)
@@ -330,7 +321,7 @@ struct ChangesPage: View {
             T("\(title) \(list.count)", bold: true)
             Spacer()
             Btn(staged ? "Hepsini Geri Al" : "Hepsini Hazırla", kind: .plain) {
-                Git.run(staged ? ["reset", "-q"] : ["add", "-A"], cwd: cwd)
+                Git.run(staged ? ["reset", "-q"] : ["add", "-A"], runner: runner)
                 refresh()
             }
         }
@@ -339,19 +330,19 @@ struct ChangesPage: View {
                 Button { show(file) } label: { T(file.path).lineLimit(1) }.buttonStyle(.plain)
                 Spacer()
                 Btn(staged ? "Geri Al" : "Hazırla", kind: .plain) {
-                    Git.run(staged ? ["reset", "-q", "--", file.path] : ["add", "--", file.path], cwd: cwd)
+                    Git.run(staged ? ["reset", "-q", "--", file.path] : ["add", "--", file.path], runner: runner)
                     refresh()
                 }
             }
         }
     }
     private func refresh() {
-        let top = Git.run(["rev-parse", "--show-toplevel"], cwd: cwd)
+        let top = Git.run(["rev-parse", "--show-toplevel"], runner: runner)
         isRepository = top.ok
         guard top.ok else { return }
-        branch = Git.run(["branch", "--show-current"], cwd: cwd).output.trimmingCharacters(in: .whitespacesAndNewlines)
+        branch = Git.run(["branch", "--show-current"], runner: runner).output.trimmingCharacters(in: .whitespacesAndNewlines)
         var found: [GitFile] = []
-        for line in Git.run(["status", "--porcelain", "-uall"], cwd: cwd).output.split(separator: "\n") where line.count > 3 {
+        for line in Git.run(["status", "--porcelain", "-uall"], runner: runner).output.split(separator: "\n") where line.count > 3 {
             let index = line[line.startIndex]
             let tree = line[line.index(after: line.startIndex)]
             let path = String(line.dropFirst(3))
@@ -359,7 +350,7 @@ struct ChangesPage: View {
             if tree != " " { found.append(GitFile(path: path, staged: false, code: String(tree))) }
         }
         files = found
-        ahead = Int(Git.run(["rev-list", "--count", "@{u}..HEAD"], cwd: cwd).output.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+        ahead = Int(Git.run(["rev-list", "--count", "@{u}..HEAD"], runner: runner).output.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
         if let first = selected ?? found.first { show(first) } else { diff = "" }
     }
     private func show(_ file: GitFile) {
@@ -367,30 +358,30 @@ struct ChangesPage: View {
         var arguments = ["diff"]
         if file.staged { arguments.append("--cached") }
         arguments += ["--", file.path]
-        diff = Git.run(arguments, cwd: cwd).output
+        diff = Git.run(arguments, runner: runner).output
     }
     private func commit() {
         guard !message.isEmpty else {
             notice = "Commit İletisi Boş."
             return
         }
-        let result = Git.run(["commit", "-m", message], cwd: cwd)
+        let result = Git.run(["commit", "-m", message], runner: runner)
         notice = result.output.split(separator: "\n").first.map(String.init) ?? ""
         if result.ok { message = "" }
         refresh()
     }
     private func push() {
-        let result = Git.run(["push"], cwd: cwd)
+        let result = Git.run(["push"], runner: runner)
         notice = result.ok ? "Push Tamam." : (result.output.split(separator: "\n").last.map(String.init) ?? "Push Olmadı.")
         refresh()
     }
     private func makeWorktree() {
         let name = "enterm-\(Int(Date().timeIntervalSince1970))"
-        let path = (cwd as NSString).deletingLastPathComponent + "/" + name
-        let result = Git.run(["worktree", "add", "-b", name, path], cwd: cwd)
+        let path = (runner.folder as NSString).deletingLastPathComponent + "/" + name
+        let result = Git.run(["worktree", "add", "-b", name, path], runner: runner)
         if result.ok {
             model.page = nil
-            model.newTerminal(cwd: path)
+            if model.focused.flatMap({ model.remotes[$0] }) == nil { model.newTerminal(cwd: path) }
         } else {
             notice = result.output.split(separator: "\n").last.map(String.init) ?? "Olmadı."
         }
