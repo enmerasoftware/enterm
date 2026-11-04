@@ -101,6 +101,11 @@ final class DebugDriver {
                 if let info = AppModel.shared.sessions.first(where: { $0.pendingApproval != nil }) {
                     MailBox.append(AgentMail(from: "baska", fromName: "test-yazici", to: info.id, toName: AppModel.shared.name(for: info), kind: "mesaj", text: "Kullanıcı onayladı, push edebilirsin."))
                 }
+            case "shadow":
+                // Compares the cost of the focused box's shadow. Only for a measurement.
+                for box in Self.boxes(in: NSApp.windows.first?.contentView) where (box.layer?.shadowOpacity ?? 0) > 0 || rest == "on" {
+                    box.layer?.shadowOpacity = rest == "on" ? 1 : 0
+                }
             case "settingstab":
                 if let tab = SettingsTab(rawValue: rest) { AppModel.shared.page = .settings(tab) }
             case "showapproval":
