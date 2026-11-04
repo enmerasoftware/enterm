@@ -86,6 +86,11 @@ final class DebugDriver {
                 if case .compare(let offer, _, _) = PhoneStore.shared.pairing { try? offer.write(toFile: rest, atomically: true, encoding: .utf8) }
             case "pairstate":
                 try? "\(PhoneStore.shared.pairing)\n\(PhoneStore.shared.devices)\n".write(toFile: rest, atomically: true, encoding: .utf8)
+            case "keydirect":
+                // The old way of this driver, kept to compare: it skips the app's key handling.
+                if let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                                windowNumber: NSApp.windows.first?.windowNumber ?? 0, context: nil, characters: "\u{1b}",
+                                                charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53) { NSApp.sendEvent(event) }
             case "settingstab":
                 if let tab = SettingsTab(rawValue: rest) { AppModel.shared.page = .settings(tab) }
             case "showapproval":
@@ -162,7 +167,8 @@ final class DebugDriver {
                                            windowNumber: NSApp.windows.first?.windowNumber ?? 0, context: nil, characters: characters,
                                            charactersIgnoringModifiers: characters, isARepeat: false, keyCode: codes[key] ?? 0) else { return }
         if flags.contains(.command), NSApp.mainMenu?.performKeyEquivalent(with: event) == true { return }
-        NSApp.sendEvent(event)
+        // Posted, not sent: a real key press passes the app's key handling first.
+        NSApp.postEvent(event, atStart: false)
     }
 
     /// Coordinates are from the window's top left corner.

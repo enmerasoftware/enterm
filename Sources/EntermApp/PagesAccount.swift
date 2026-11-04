@@ -404,8 +404,11 @@ struct SettingsPage: View {
             HStack { T("Claude Code, Codex Ve Antigravity"); Spacer(); Dim(String(format: "%%%.1f · %.0f MB", power.agents.cpu, power.agents.memoryMB)) }.settingsRow()
             HStack { T("Bellek Baskısı"); Spacer(); Dim(power.pressure.title) }.settingsRow()
             }
-            Dim("Ajanların yükü Enterm'in elinde değildir. Aynı anda çalışan oturum sayısıyla azalır.")
-            Btn("Yeniden Ölç", kind: .plain) { power.measureUsage() }
+            HStack(spacing: 24) {
+                Dim("Ajanların yükü Enterm'in elinde değildir. Aynı anda çalışan oturum sayısıyla azalır.").fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Btn("Yeniden Ölç") { power.measureUsage() }
+            }
         }
         .onAppear { power.measureUsage() }
     }

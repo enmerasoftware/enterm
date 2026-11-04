@@ -59,7 +59,9 @@ final class RootView: NSView {
             }
             .store(in: &bags)
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handleKey(event) ?? event
+            // A nil answer means the key was used here. It must not go on to the terminal.
+            guard let self else { return event }
+            return self.handleKey(event)
         }
         mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
             self?.noteClick(event)

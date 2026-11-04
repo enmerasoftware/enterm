@@ -41,7 +41,19 @@ struct TopBar: View {
             }
             let waiting = model.sessions.filter { $0.pendingApproval != nil }.count
             if waiting > 0 {
-                Btn("◆ Onaylar \(waiting)", kind: .outline) { Commands.perform("inbox") }
+                Button { Commands.perform("inbox") } label: {
+                    HStack(spacing: 6) {
+                        Symbol("diamond.fill", color: palette.need, size: 8)
+                        T("Onaylar \(waiting)", color: palette.need, style: .secondary, weight: .semibold)
+                    }
+                    .padding(.leading, 6)
+                    .padding(.trailing, 8)
+                    .frame(height: 20)
+                    .background(Color(palette.need).opacity(0.16))
+                    .cornerRadius(Theme.cornerControl)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
             if model.focusedInfo?.tool != .terminal, model.focusedInfo != nil {
                 Btn("Ayrıntılar", kind: .plain, key: "⌘I") { model.detailsOpen.toggle() }
