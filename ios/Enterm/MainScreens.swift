@@ -235,9 +235,14 @@ struct SessionsScreen: View {
                 .buttonStyle(.plain)
             }
             if model.showQueuedNote {
-                DimTxt("◷ Sırada: Yer açılınca kendiliğinden başlar. Çalışan iş durmadı.")
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                    .padding(.horizontal, 16)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "clock").font(.footnote).foregroundColor(Palette.text2)
+                    DimTxt("Sırada: Yer açılınca kendiliğinden başlar. Çalışan iş durmadı.")
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
             HStack {
                 ScreenTitle(text: model.connection == .connected ? "Oturumlar" : "Son Bilinen Durum")
@@ -258,10 +263,21 @@ struct SessionsScreen: View {
                     }
                     ForEach(model.attention.queue) { item in
                         Button { model.route.append(.queued(item.id)) } label: {
-                            HStack {
-                                Txt(item.name, bold: true).lineLimit(1)
-                                Spacer()
-                                Txt("◷ Sırada", color: Palette.text2, style: .footnote, weight: .medium)
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Txt(item.name, bold: true).lineLimit(1)
+                                    Spacer()
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "clock").font(.caption2).foregroundColor(Palette.text2)
+                                        Txt("Sırada", color: Palette.text2, style: .footnote, weight: .medium)
+                                    }
+                                    .padding(.leading, 6)
+                                    .padding(.trailing, 8)
+                                    .frame(minHeight: 24)
+                                    .background(Palette.fill)
+                                    .cornerRadius(6)
+                                }
+                                if !item.folder.isEmpty { DimTxt(item.folder).lineLimit(1) }
                             }
                             .padding(12)
                             .frame(maxWidth: .infinity, alignment: .leading)

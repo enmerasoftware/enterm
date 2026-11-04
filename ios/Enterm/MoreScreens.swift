@@ -904,31 +904,38 @@ struct PowerScreen: View {
     @EnvironmentObject var model: PhoneModel
     var body: some View {
         VStack(spacing: 0) {
-            RouteHeader(back: "Daha", trailing: "Güç Sınırı")
+            RouteHeader(back: "Daha")
+            ScreenTitle(text: "Güç Sınırı")
             Loaded(call: PhoneCall("power"), type: PhonePower.self) { power, reload in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         DimTxt("Bilgisayardaki Enterm'e uygulanır.")
-                        DimTxt("Düşük Güçlü Bilgisayar")
-                        Choice(options: [(false, "Kapalı"), (true, "Açık")], value: Binding(
-                            get: { power.settings.lowPower },
-                            set: { value in set(["lowPower": value ? "1" : "0"], reload) }))
-                        DimTxt("Bilgisayarın Gücünün En Çok Şu Kadarını Kullan")
-                        Choice(options: [(25, "%25"), (50, "%50"), (75, "%75"), (100, "Sınırsız")], value: Binding(
-                            get: { power.settings.cpuLimit },
-                            set: { value in set(["cpuLimit": String(value)], reload) }))
-                        DimTxt("Üst hedeftir, kesin ölçüm değildir. Yeni iş sıraya girer, düz terminallere dokunulmaz.")
-                        DimTxt("Aynı Anda En Çok Şu Kadar Oturum Çalışsın: \(power.effectiveSessions)")
-                        Choice(options: [(true, "Otomatik"), (false, "Elle")], value: Binding(
-                            get: { power.settings.sessionsAutomatic },
-                            set: { value in set(["automatic": value ? "1" : "0"], reload) }))
+                        Card {
+                            DimTxt("Düşük Güçlü Bilgisayar")
+                            Choice(options: [(false, "Kapalı"), (true, "Açık")], value: Binding(
+                                get: { power.settings.lowPower },
+                                set: { value in set(["lowPower": value ? "1" : "0"], reload) }))
+                        }
+                        Card {
+                            DimTxt("Bilgisayarın Gücünün En Çok Şu Kadarını Kullan")
+                            Choice(options: [(25, "%25"), (50, "%50"), (75, "%75"), (100, "Sınırsız")], value: Binding(
+                                get: { power.settings.cpuLimit },
+                                set: { value in set(["cpuLimit": String(value)], reload) }))
+                            DimTxt("Üst hedeftir, kesin ölçüm değildir. Yeni iş sıraya girer, düz terminallere dokunulmaz.")
+                        }
+                        Card {
+                            DimTxt("Aynı Anda En Çok Şu Kadar Oturum Çalışsın: \(power.effectiveSessions)")
+                            Choice(options: [(true, "Otomatik"), (false, "Elle")], value: Binding(
+                                get: { power.settings.sessionsAutomatic },
+                                set: { value in set(["automatic": value ? "1" : "0"], reload) }))
+                        }
                         Card {
                             Txt("Şu Anki Kullanım", bold: true)
                             HStack { DimTxt("Enterm"); Spacer(); DimTxt(power.enterm) }
                             HStack { DimTxt("Claude Code Ve Codex"); Spacer(); DimTxt(power.agents) }
                         }
                     }
-                    .padding(16)
+                    .padding(.horizontal, 16)
                 }
             }
         }

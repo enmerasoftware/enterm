@@ -171,13 +171,15 @@ public struct PhoneQueued: Codable, Equatable, Identifiable {
     public var tool: ToolKind
     public var reason: String
     public var command: String
+    public var folder: String
 
-    public init(id: String, name: String, tool: ToolKind, reason: String, command: String) {
+    public init(id: String, name: String, tool: ToolKind, reason: String, command: String, folder: String = "") {
         self.id = id
         self.name = name
         self.tool = tool
         self.reason = reason
         self.command = command
+        self.folder = folder
     }
 }
 

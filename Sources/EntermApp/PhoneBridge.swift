@@ -192,7 +192,8 @@ enum PhoneBridge {
     private static func attention() -> PhoneAttention {
         let watch = LimitWatch.shared
         let queue = PowerCenter.shared.queue.map { item in
-            PhoneQueued(id: item.id.uuidString, name: item.spec.name ?? item.spec.tool.title, tool: item.spec.tool, reason: item.reason, command: item.spec.env?["ENTERM_STARTUP"] ?? "")
+            PhoneQueued(id: item.id.uuidString, name: item.spec.name ?? item.spec.tool.title, tool: item.spec.tool, reason: item.reason, command: item.spec.env?["ENTERM_STARTUP"] ?? "",
+                        folder: item.spec.cwd.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "")
         }
         return PhoneAttention(limitReturnAccount: watch.pendingReturn?.accountName, limitReturnSession: watch.pendingReturn?.sessionName,
                               resumeFailed: watch.failedResumes.sorted(), codexLimit: watch.codexWarnings.sorted(), queue: queue)
