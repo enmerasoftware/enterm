@@ -1,5 +1,4 @@
 import EntermCore
-import LocalAuthentication
 import SwiftUI
 import UserNotifications
 
@@ -11,14 +10,15 @@ struct EntermPhoneApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootScreen()
+            LockGate()
                 .environmentObject(model)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(model.theme == "light" ? .light : .dark)
                 .tint(Palette.fg)
                 .onAppear { model.start() }
                 .onOpenURL { url in _ = model.read(code: url.absoluteString) }
                 .onChange(of: phase) { _, value in
                     if value == .active { model.returnedToFront() }
+                    if value == .background { model.wentToBackground() }
                 }
         }
     }
@@ -76,19 +76,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 enum Approval {
     /// Permission is given by the person holding the phone. A phone with no lock set has nothing to ask.
     @MainActor static func allow(id: String) {
-        guard PhoneModel.shared.faceIDForApprovals else {
+        Task {
+            if PhoneModel.shared.faceIDForApprovals, !(await PhoneAuth.confirm("İzin vermek için doğrulayın.")) { return }
             PhoneModel.shared.decide(id: id, decision: "allow")
-            return
-        }
-        let context = LAContext()
-        var problem: NSError?
-        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &problem) else {
-            if problem?.code == LAError.passcodeNotSet.rawValue { PhoneModel.shared.decide(id: id, decision: "allow") }
-            return
-        }
-        context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "İzin vermek için doğrulayın.") { success, _ in
-            guard success else { return }
-            Task { @MainActor in PhoneModel.shared.decide(id: id, decision: "allow") }
         }
     }
 }

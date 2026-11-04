@@ -311,6 +311,8 @@ final class AppModel: ObservableObject {
            data.range(of: Data("usage limit".utf8)) != nil || data.range(of: Data("rate limit".utf8)) != nil {
             codexWarned.insert(number)
             overlay = .codexLimit(number)
+            LimitWatch.shared.codexWarnings.insert(number)
+            PhoneBridge.tellPhones(saying: "■ Codex limiti dolmuş olabilir, kontrol edin.")
         }
         if replay || shouldFeedNow(number) {
             host.feedOutput(data, replay: replay)

@@ -1,6 +1,29 @@
 import EntermCore
 import SwiftUI
 
+/// Whoever holds an unlocked phone would otherwise have a shell on the Mac. The gate comes before everything.
+struct LockGate: View {
+    @EnvironmentObject var model: PhoneModel
+    var body: some View {
+        if model.locked, model.peer != nil {
+            VStack(alignment: .leading, spacing: 16) {
+                Spacer()
+                Txt("enterm", bold: true)
+                Txt("Enterm Kilitli", bold: true)
+                DimTxt("Terminal bu telefondan bilgisayarda komut çalıştırır. Açmak için doğrulayın.")
+                ActionButton("Kilidi Aç", style: .primary) { Task { await model.unlock() } }
+                Spacer()
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .background(Palette.bg)
+            .task { await model.unlock() }
+        } else {
+            RootScreen()
+        }
+    }
+}
+
 struct RootScreen: View {
     @EnvironmentObject var model: PhoneModel
     var body: some View {
@@ -57,7 +80,7 @@ struct MainTabs: View {
     }
 
     private var tabBar: some View {
-        let waiting = model.waitingApprovals.count
+        let waiting = model.waitingApprovals.count + model.attention.count
         return HStack(spacing: 0) {
             tabItem("Oturum", 0)
             tabItem("Tuval", 1)
@@ -120,7 +143,7 @@ struct OfflineCard: View {
             Card {
                 Txt("Bilgisayar Uyku Modunda", bold: true)
                 DimTxt("Oturumlar duraklatıldı, işler kaybolmadı. Bilgisayar uyanınca kaldığı yerden sürer.")
-                DimTxt("Son Görülme: \(since.formatted(date: .omitted, time: .shortened))")
+                DimTxt("Son Görülme: \(since.turkish(date: .omitted))")
                 DimTxt("Bir dahaki sefer için bilgisayarda: Ayarlar › Uyku.")
             }
             .padding(.horizontal, 16)
@@ -177,6 +200,23 @@ struct SessionsScreen: View {
                     ForEach(model.sessions) { info in
                         Button { if model.connection == .connected { model.openSession = info.number } } label: { row(info) }
                             .buttonStyle(.plain)
+                    }
+                    ForEach(model.attention.queue) { item in
+                        Button { model.route.append(.queued(item.id)) } label: {
+                            HStack {
+                                Txt(item.name, bold: true).lineLimit(1)
+                                Spacer()
+                                DimTxt("◷ Sırada")
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Palette.panel)
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line2))
+                            .cornerRadius(6)
+                            .padding(.horizontal, 16)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
                     if model.sessions.isEmpty {
                         DimTxt(model.connection == .connected ? "Açık Oturum Yok." : "Henüz Bilgi Yok.")
@@ -302,6 +342,7 @@ struct ApprovalCard: View {
                 ActionButton("İzin Ver", style: .primary) { Approval.allow(id: approval.id) }
                 ActionButton("Reddet") { model.decide(id: approval.id, decision: "deny") }
             }
+            ActionButton("Ayrıntı", style: .plain) { model.route.append(.approval(approval.id)) }
             if model.connection != .connected {
                 DimTxt("Bağlantı dönünce gider.")
             }
@@ -321,6 +362,15 @@ struct ApprovalsScreen: View {
                     ForEach(model.waitingApprovals) { info in
                         if let approval = info.pendingApproval { ApprovalCard(info: info, approval: approval) }
                     }
+                    if model.attention.limitReturnAccount != nil {
+                        NavRow("✓ Limit Açıldı, Dönülsün Mü?") { model.route.append(.limitOpened) }
+                    }
+                    ForEach(model.attention.resumeFailed, id: \.self) { number in
+                        NavRow("■ \(model.session(number).map { model.title($0) } ?? "Oturum"): Konuşma Sürdürülemedi") { model.route.append(.resumeFailed(number)) }
+                    }
+                    ForEach(model.attention.codexLimit, id: \.self) { number in
+                        NavRow("■ \(model.session(number).map { model.title($0) } ?? "Oturum"): Kontrol Edin") { model.route.append(.codexLimit(number)) }
+                    }
                     ForEach(model.sessions.filter { $0.status == .limitReached }) { info in
                         Card {
                             HStack {
@@ -328,10 +378,11 @@ struct ApprovalsScreen: View {
                                 Spacer()
                                 Txt("■ Limit", color: Palette.limit, bold: true)
                             }
-                            DimTxt("Limit doldu, iş korundu. Hesap seçenekleri bilgisayarda.")
+                            DimTxt("Limit doldu, iş korundu.")
+                            ActionButton("Seçenekleri Gör") { model.route.append(.limit(info.number)) }
                         }
                     }
-                    if model.waitingApprovals.isEmpty && !model.sessions.contains(where: { $0.status == .limitReached }) {
+                    if model.waitingApprovals.isEmpty && model.attention.count == 0 && !model.sessions.contains(where: { $0.status == .limitReached }) {
                         DimTxt("Bekleyen Karar Yok.").frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -393,7 +444,7 @@ struct MoreScreen: View {
                         Txt(model.peer?.name ?? "Bilgisayar", bold: true)
                         DimTxt(model.connection == .connected ? "✓ Bilgisayar Bağlı" : "○ Bilgisayar Bağlı Değil")
                         if let peer = model.peer {
-                            DimTxt("Eşleşme: \(peer.pairedAt.formatted(date: .long, time: .omitted))")
+                            DimTxt("Eşleşme: \(peer.pairedAt.turkish(date: .long, time: .omitted))")
                         }
                         DimTxt("Telefon bu bilgisayara uçtan uca şifreli bağlanır. Oturumlar telefonda çalışmaz, yalnız görünür.")
                     }
@@ -403,8 +454,21 @@ struct MoreScreen: View {
                     NavRow("Model Ve Maliyet") { model.route.append(.cost) }
                     NavRow("Güç Sınırı") { model.route.append(.power) }
                     Card {
+                        DimTxt("Tema")
+                        Choice(options: [("dark", "Koyu"), ("light", "Açık")], value: $model.theme)
+                    }
+                    Card {
                         DimTxt("Onayda Face ID")
-                        Choice(options: [(true, "Açık"), (false, "Kapalı")], value: $model.faceIDForApprovals)
+                        Choice(options: [(true, "Açık"), (false, "Kapalı")], value: Binding(
+                            get: { model.faceIDForApprovals },
+                            set: { value in Task { await model.setFaceIDForApprovals(value) } }))
+                    }
+                    Card {
+                        DimTxt("Uygulama Kilidi")
+                        Choice(options: [(true, "Açık"), (false, "Kapalı")], value: Binding(
+                            get: { model.appLockOn },
+                            set: { value in Task { await model.setAppLock(value) } }))
+                        DimTxt("Açılışta ve bir dakikadan uzun aradan sonra doğrulama ister. Terminal bilgisayarda komut çalıştırır.")
                     }
                     ActionButton("Bildirimlere İzin Ver") { model.askForNotifications() }
                     if confirming {

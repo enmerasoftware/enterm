@@ -1,5 +1,6 @@
 import EntermCore
 import Foundation
+import LocalAuthentication
 import SwiftTerm
 import SwiftUI
 import UIKit
@@ -26,9 +27,33 @@ enum PhoneRoute: Hashable {
     case report(String)
     case newOptions
     case install(ToolKind)
+    case approval(String)
+    case queued(String)
+    case limitOpened
+    case resumeFailed(UInt32)
+    case codexLimit(UInt32)
 }
 
 /// The phone's view of the Mac. Sessions run there, this only shows them.
+/// The phone's own lock: Face ID, Touch ID or the passcode. Enterm never sees which, and never sees a code.
+/// A phone with no lock set has nothing to ask. This runs on the phone: the Mac cannot check it.
+enum PhoneAuth {
+    @MainActor static func confirm(_ reason: String) async -> Bool {
+#if DEBUG
+        if let answer = ProcessInfo.processInfo.environment["ENTERM_TEST_AUTH"] {
+            TestDriver.authAsked += 1
+            return answer == "allow"
+        }
+#endif
+        let context = LAContext()
+        var problem: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &problem) else {
+            return problem?.code == LAError.passcodeNotSet.rawValue
+        }
+        return (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)) ?? false
+    }
+}
+
 struct PhoneProblem: Error, Equatable {
     let message: String
 }
@@ -62,9 +87,17 @@ final class PhoneModel: ObservableObject {
     @Published var missingProgram: String?
     @Published var route: [PhoneRoute] = []
     @Published var startProblem: String?
-    @Published var faceIDForApprovals = UserDefaults.standard.object(forKey: "faceIDForApprovals") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(faceIDForApprovals, forKey: "faceIDForApprovals") }
+    @Published private(set) var faceIDForApprovals = UserDefaults.standard.object(forKey: "faceIDForApprovals") as? Bool ?? true
+    @Published private(set) var appLockOn = UserDefaults.standard.object(forKey: "appLock") as? Bool ?? true
+    @Published var locked = UserDefaults.standard.object(forKey: "appLock") as? Bool ?? true
+    @Published var attention = PhoneAttention()
+    @Published var theme = UserDefaults.standard.string(forKey: "theme") ?? "dark" {
+        didSet {
+            UserDefaults.standard.set(theme, forKey: "theme")
+            hosts.values.forEach { $0.applyTheme(dark: theme == "dark") }
+        }
     }
+    private var leftAt: Date?
 
     private var link: TunnelLink?
     private var agent: PairingAgent?
@@ -107,6 +140,57 @@ final class PhoneModel: ObservableObject {
 
     func returnedToFront() {
         link?.reconnectNow()
+        if appLockOn, let leftAt, Date().timeIntervalSince(leftAt) > 60 { locked = true }
+        leftAt = nil
+    }
+
+    func wentToBackground() {
+        leftAt = Date()
+    }
+
+    func unlock() async {
+        if await PhoneAuth.confirm("Enterm'i açmak için doğrulayın.") { locked = false }
+    }
+
+    /// Turning a safeguard off asks the owner. Turning it on never does.
+    func setFaceIDForApprovals(_ on: Bool) async {
+        if !on, !(await PhoneAuth.confirm("Onayda doğrulamayı kapatmak için doğrulayın.")) { return }
+        faceIDForApprovals = on
+        UserDefaults.standard.set(on, forKey: "faceIDForApprovals")
+    }
+
+    func setAppLock(_ on: Bool) async {
+        if !on, !(await PhoneAuth.confirm("Uygulama kilidini kapatmak için doğrulayın.")) { return }
+        appLockOn = on
+        UserDefaults.standard.set(on, forKey: "appLock")
+    }
+
+    /// The same call, but only after the phone's owner has confirmed.
+    func confirmedCall<T: Decodable>(_ reason: String, _ call: PhoneCall, as type: T.Type) async -> Result<T, PhoneProblem> {
+        guard await PhoneAuth.confirm(reason) else { return .failure(PhoneProblem(message: "Doğrulanmadı")) }
+        return await self.call(call, as: type)
+    }
+
+    func setPermission(_ number: UInt32, category: PermissionCategory, from old: PermissionMode, to new: PermissionMode) async -> Bool {
+        let call = PhoneCall("cardSet", number: number, args: ["category": category.rawValue, "mode": new.rawValue])
+        let result: Result<PermissionCard, PhoneProblem>
+        if PhoneGuard.needsConfirmation(from: old, to: new) {
+            result = await confirmedCall("Yetkiyi genişletmek için doğrulayın.", call, as: PermissionCard.self)
+        } else {
+            result = await self.call(call, as: PermissionCard.self)
+        }
+        if case .success = result { return true }
+        return false
+    }
+
+    func install(_ tool: ToolKind) async -> Bool {
+        let result = await confirmedCall("Kurulum komutunu bilgisayarda çalıştırmak için doğrulayın.", PhoneCall("install", args: ["tool": tool.rawValue]), as: PhoneNothing.self)
+        if case .success = result { return true }
+        return false
+    }
+
+    func refreshAttention() async {
+        if case .success(let answer) = await call(PhoneCall("attention"), as: PhoneAttention.self) { attention = answer }
     }
 
     func retryNow() {
@@ -194,6 +278,7 @@ final class PhoneModel: ObservableObject {
             attached.removeAll()
             send(WireMessage(op: "hello"))
             if let pushToken { sendToken(pushToken) }
+            Task { await refreshAttention() }
             for host in hosts.keys where host == openSession { attach(host) }
             let decisions = pendingDecisions
             pendingDecisions = []
@@ -251,6 +336,8 @@ final class PhoneModel: ObservableObject {
             unpair()
         case "notFound":
             missingProgram = message.text
+        case "phoneAttention":
+            Task { await refreshAttention() }
         default:
             break
         }
@@ -313,6 +400,7 @@ final class PhoneModel: ObservableObject {
 
     /// Started by the Mac's own code, so PATH, a copy outside it, the account and the queue work the same.
     func start(tool: ToolKind, name: String = "", folder: String = "", account: String = "", template: String = "", model: String = "", effort: String = "") async {
+        if PhoneGuard.needsConfirmation(startingTool: tool), !(await PhoneAuth.confirm("\(tool.title) başlatmak için doğrulayın.")) { return }
         let args = ["tool": tool.rawValue, "name": name, "folder": folder, "account": account, "template": template, "model": model, "effort": effort]
         switch await call(PhoneCall("start", args: args), as: PhoneStart.self) {
         case .failure(let problem):
@@ -401,6 +489,10 @@ final class PhoneModel: ObservableObject {
     // MARK: Notifications
 
     func askForNotifications() {
+#if DEBUG
+        // A test run has no finger to answer the system's question.
+        if ProcessInfo.processInfo.environment["ENTERM_TEST"] != nil { return }
+#endif
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
             guard granted else { return }
             DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }

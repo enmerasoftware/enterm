@@ -204,17 +204,20 @@ final class PowerCenter: ObservableObject {
     func enqueue(_ spec: SessionSpec, reason: String, then: ((SessionInfo) -> Void)? = nil) {
         queue.append(QueuedSession(spec: spec, reason: reason, then: then))
         updateSampling()
+        PhoneBridge.tellPhones()
     }
 
     func startQueued(force: QueuedSession? = nil) {
         if let force {
             queue.removeAll { $0.id == force.id }
             AppModel.shared.create(force.spec, then: force.then)
+            PhoneBridge.tellPhones()
             return
         }
         while let first = queue.first, blockReason() == nil {
             queue.removeFirst()
             AppModel.shared.create(first.spec, then: first.then)
+            PhoneBridge.tellPhones()
         }
     }
 
@@ -318,6 +321,8 @@ final class ExtensionsHub {
         if let limit = current.limit { AccountStore.shared.recordLimit(limit, accountID: current.accountID, tool: current.tool) }
         if previous.tool != .terminal, current.tool == .terminal, LimitWatch.shared.resumeFailed(current.number) {
             AppModel.shared.overlay = .resumeFailed(current.number)
+            LimitWatch.shared.failedResumes.insert(current.number)
+            PhoneBridge.tellPhones(saying: "■ Konuşma bu hesapta açılmadı. İş kaybolmadı.")
         }
         if previous.status != current.status {
             Inbox.shared.statusChanged(previous: previous, current: current)

@@ -99,6 +99,10 @@ final class PhoneCenter {
 #endif
         case "appReply":
             finishCall(message)
+        case "phoneAttention":
+            let frame = message.frame()
+            for phone in service.clients.values where phone.isPhone { service.send(frame, to: phone) }
+            if let text = message.text { scriptSaid(text) }
         case "deviceRemove":
             guard let id = message.text else { return true }
             links[id]?.tell(WireMessage(op: "unpaired"))

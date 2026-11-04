@@ -425,15 +425,16 @@ struct RestorePage: View {
     @ObservedObject var model = AppModel.shared
     @State private var pending: [SessionInfo] = []
     var body: some View {
-        PageFrame(title: "Oturumlar Geri Gelsin Mi") {
-            Dim("Bilgisayar Yeniden Başladı. Dökümler yerinde. Ajanlar kendiliğinden başlamaz, açtığınızda konuşma kaldığı yerden sürer, ilk mesajda limitten yer.")
+        PageFrame(title: "Oturumlar Geri Gelsin Mi?") {
+            Dim("Bilgisayar yeniden başladı. Dökümler yerinde. Ajanlar kendiliğinden başlamaz, açtığınızda konuşma kaldığı yerden sürer, ilk mesajda limitten yer.")
             Panel {
+                let names = SessionLabel.names(pending)
                 ForEach(pending) { info in
                     let exists = FileManager.default.fileExists(atPath: info.cwd)
                     Row {
                         VStack(alignment: .leading) {
-                            T(info.name.isEmpty ? info.tool.title : info.name, bold: true)
-                            Dim("\(info.tool.title) · \(model.displayPath(info.cwd))")
+                            T(names[info.number] ?? info.tool.title, bold: true)
+                            Dim(model.displayPath(info.cwd))
                         }
                         Spacer()
                         if exists {
@@ -450,6 +451,7 @@ struct RestorePage: View {
                 }
             }
             HStack {
+                Spacer()
                 Btn("Boş Başla", kind: .plain) { model.page = nil }
                 Btn("Şimdi Değil", kind: .plain, key: "Esc") { model.page = nil }
                 Btn("Hepsini Sürdür", kind: .primary, key: "⏎") {

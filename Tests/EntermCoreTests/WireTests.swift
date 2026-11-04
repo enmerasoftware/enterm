@@ -351,3 +351,24 @@ final class PhoneCallTests: XCTestCase {
     }
 }
 
+final class PhoneGuardTests: XCTestCase {
+    func testOnlyWideningAsks() {
+        XCTAssertTrue(PhoneGuard.needsConfirmation(from: .deny, to: .ask))
+        XCTAssertTrue(PhoneGuard.needsConfirmation(from: .deny, to: .allow))
+        XCTAssertTrue(PhoneGuard.needsConfirmation(from: .ask, to: .allow))
+        XCTAssertFalse(PhoneGuard.needsConfirmation(from: .allow, to: .ask))
+        XCTAssertFalse(PhoneGuard.needsConfirmation(from: .ask, to: .deny))
+        XCTAssertFalse(PhoneGuard.needsConfirmation(from: .ask, to: .ask))
+    }
+
+    func testAgentsAskAndTerminalsDoNot() {
+        XCTAssertFalse(PhoneGuard.needsConfirmation(startingTool: .terminal))
+        for tool in [ToolKind.claude, .codex, .antigravity] { XCTAssertTrue(PhoneGuard.needsConfirmation(startingTool: tool)) }
+    }
+
+    func testAttentionCountsWhatWaits() {
+        XCTAssertEqual(PhoneAttention().count, 0)
+        XCTAssertEqual(PhoneAttention(limitReturnAccount: "İş", resumeFailed: [1], codexLimit: [2, 3]).count, 4)
+    }
+}
+

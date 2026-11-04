@@ -165,6 +165,83 @@ public struct PhonePower: Codable, Equatable {
     }
 }
 
+public struct PhoneQueued: Codable, Equatable, Identifiable {
+    public var id: String
+    public var name: String
+    public var tool: ToolKind
+    public var reason: String
+    public var command: String
+
+    public init(id: String, name: String, tool: ToolKind, reason: String, command: String) {
+        self.id = id
+        self.name = name
+        self.tool = tool
+        self.reason = reason
+        self.command = command
+    }
+}
+
+/// What waits for the person besides approvals.
+public struct PhoneAttention: Codable, Equatable {
+    public var limitReturnAccount: String?
+    public var limitReturnSession: String?
+    public var resumeFailed: [UInt32]
+    public var codexLimit: [UInt32]
+    public var queue: [PhoneQueued]
+
+    public init(limitReturnAccount: String? = nil, limitReturnSession: String? = nil, resumeFailed: [UInt32] = [], codexLimit: [UInt32] = [], queue: [PhoneQueued] = []) {
+        self.limitReturnAccount = limitReturnAccount
+        self.limitReturnSession = limitReturnSession
+        self.resumeFailed = resumeFailed
+        self.codexLimit = codexLimit
+        self.queue = queue
+    }
+
+    public var count: Int { (limitReturnAccount == nil ? 0 : 1) + resumeFailed.count + codexLimit.count }
+}
+
+public struct PhoneFileItem: Codable, Equatable, Identifiable {
+    public var name: String
+    public var isDirectory: Bool
+    public var id: String { name }
+
+    public init(name: String, isDirectory: Bool) {
+        self.name = name
+        self.isDirectory = isDirectory
+    }
+}
+
+public struct PhoneFiles: Codable, Equatable {
+    public var path: String
+    public var display: String
+    public var items: [PhoneFileItem]
+
+    public init(path: String, display: String, items: [PhoneFileItem]) {
+        self.path = path
+        self.display = display
+        self.items = items
+    }
+}
+
+/// Which steps need the phone's owner, whoever is holding it.
+public enum PhoneGuard {
+    /// Narrowing a permission is always safe. Only widening asks.
+    public static func needsConfirmation(from old: PermissionMode, to new: PermissionMode) -> Bool {
+        rank(new) > rank(old)
+    }
+
+    private static func rank(_ mode: PermissionMode) -> Int {
+        switch mode {
+        case .deny: return 0
+        case .ask: return 1
+        case .allow: return 2
+        }
+    }
+
+    /// A plain terminal adds nothing to what the app lock already guards. An agent acts by itself and spends a limit.
+    public static func needsConfirmation(startingTool tool: ToolKind) -> Bool { tool != .terminal }
+}
+
 public struct PhoneNothing: Codable, Equatable {
     public init() {}
 }

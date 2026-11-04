@@ -132,6 +132,40 @@ enum PhoneBridge {
             }
             TeamBuilder.build(brief: brief, folder: path, members: members)
             send(PhoneNothing())
+        case "attention":
+            send(attention())
+        case "queueStart":
+            let center = PowerCenter.shared
+            guard let item = center.queue.first(where: { $0.id.uuidString == args["id"] }) else { return answer(nil, "Sırada Bulunamadı") }
+            center.startQueued(force: item)
+            send(PhoneNothing())
+        case "attentionClear":
+            if let number = call.number {
+                LimitWatch.shared.failedResumes.remove(number)
+                LimitWatch.shared.codexWarnings.remove(number)
+            }
+            send(PhoneNothing())
+            PhoneBridge.tellPhones()
+        case "limitReturn":
+            if args["go"] == "1" { LimitWatch.shared.returnToStart() } else { LimitWatch.shared.stayHere() }
+            send(PhoneNothing())
+            PhoneBridge.tellPhones()
+        case "resumeChoices":
+            guard let number = call.number else { return answer(nil, "Oturum Bulunamadı") }
+            let actions = LimitActions.resumeOptions(for: number)
+            LimitActions.current = actions.map(\.run)
+            send(actions.enumerated().map { PhoneChoice(id: $0.offset, title: $0.element.title, note: $0.element.note) })
+        case "resumeRun":
+            LimitActions.perform(index: Int(args["index"] ?? "") ?? -1)
+            if let number = call.number { LimitWatch.shared.failedResumes.remove(number) }
+            send(PhoneNothing())
+            PhoneBridge.tellPhones()
+        case "files":
+            let path = ((args["path"] ?? "~") as NSString).expandingTildeInPath
+            let listing = CommandRunner(remote: nil, folder: NSHomeDirectory()).listing(path)
+            guard listing.ok else { return answer(nil, "Klasör Okunamadı") }
+            let items = listing.items.filter { !$0.name.hasPrefix(".") }.map { PhoneFileItem(name: $0.name, isDirectory: $0.directory) }
+            send(PhoneFiles(path: path, display: model.displayPath(path), items: items))
         case "power":
             send(power())
         case "powerSet":
@@ -144,6 +178,22 @@ enum PhoneBridge {
         default:
             answer(nil, "Bilinmeyen İstek")
         }
+    }
+
+    /// Tells a connected phone to look again. A text also goes out as a notification.
+    static func tellPhones(saying text: String? = nil) {
+        var message = WireMessage(op: "phoneAttention")
+        message.text = text
+        AppModel.shared.connection.send(message)
+    }
+
+    private static func attention() -> PhoneAttention {
+        let watch = LimitWatch.shared
+        let queue = PowerCenter.shared.queue.map { item in
+            PhoneQueued(id: item.id.uuidString, name: item.spec.name ?? item.spec.tool.title, tool: item.spec.tool, reason: item.reason, command: item.spec.env?["ENTERM_STARTUP"] ?? "")
+        }
+        return PhoneAttention(limitReturnAccount: watch.pendingReturn?.accountName, limitReturnSession: watch.pendingReturn?.sessionName,
+                              resumeFailed: watch.failedResumes.sorted(), codexLimit: watch.codexWarnings.sorted(), queue: queue)
     }
 
     private static func name(_ sessionID: String) -> String {

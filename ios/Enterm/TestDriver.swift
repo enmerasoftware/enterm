@@ -25,6 +25,7 @@ struct AnyCodableShape: Decodable, CustomStringConvertible {
 
 @MainActor
 enum TestDriver {
+    static var authAsked = 0
     private static func parseRoute(_ text: String) -> PhoneRoute? {
         let bits = text.split(separator: " ").map(String.init)
         let number = bits.count > 1 ? UInt32(bits[1]) : nil
@@ -47,6 +48,11 @@ enum TestDriver {
         case "teamDecisions": return .teamDecisions
         case "newOptions": return .newOptions
         case "install": return ToolKind(rawValue: bits[1]).map { .install($0) }
+        case "approval": return .approval(bits[1])
+        case "queued": return .queued(bits[1])
+        case "limitOpened": return .limitOpened
+        case "resumeFailed": return number.map { .resumeFailed($0) }
+        case "codexLimit": return number.map { .codexLimit($0) }
         default: return nil
         }
     }
@@ -106,6 +112,33 @@ enum TestDriver {
             case "deny":
                 if let approval = model.waitingApprovals.first?.pendingApproval { model.decide(id: approval.id, decision: "deny") }
             case "token": model.receivedToken(rest)
+            case "theme": model.theme = rest
+            case "unlock": Task { await model.unlock() }
+            case "guard":
+                // Runs a guarded step the way its button does, and writes down how it went.
+                let bits = rest.split(separator: " ").map(String.init)
+                Task {
+                    var result = "?"
+                    let before = authAsked
+                    switch bits[0] {
+                    case "perm":
+                        let ok = await model.setPermission(UInt32(bits[1]) ?? 0, category: PermissionCategory(rawValue: bits[2]) ?? .ssh, from: PermissionMode(rawValue: bits[3]) ?? .ask, to: PermissionMode(rawValue: bits[4]) ?? .ask)
+                        result = ok ? "yapildi" : "yapilmadi"
+                    case "install":
+                        result = await model.install(ToolKind(rawValue: bits[1]) ?? .codex) ? "yapildi" : "yapilmadi"
+                    case "start":
+                        await model.start(tool: ToolKind(rawValue: bits[1]) ?? .codex)
+                        result = "bitti"
+                    case "facelock":
+                        await model.setFaceIDForApprovals(false)
+                        result = model.faceIDForApprovals ? "acik-kaldi" : "kapandi"
+                    case "applock":
+                        await model.setAppLock(false)
+                        result = model.appLockOn ? "acik-kaldi" : "kapandi"
+                    default: break
+                    }
+                    try? "\(bits.joined(separator: " ")): \(result) dogrulama=\(authAsked - before)\n".write(toFile: "/tmp/et/ios-guard.txt", atomically: true, encoding: .utf8)
+                }
             case "unpair": model.unpair()
             case "seal":
                 if let key = model.peer?.key, let plain = try? JSONEncoder().encode(PhoneNotice(kind: "approval", title: "◆ deneme", body: "ssh deploy@staging", number: 1, approvalID: "x")),
@@ -120,6 +153,7 @@ enum TestDriver {
                     lines.append("view=\(Int(view.bounds.width))x\(Int(view.bounds.height))")
                 }
                 lines.append("notice=\(String(describing: lastNotice))")
+                lines.append("attention=\(model.attention.count) queue=\(model.attention.queue.map(\.id)) locked=\(model.locked) theme=\(model.theme)")
                 try? lines.joined(separator: "\n").write(toFile: rest, atomically: true, encoding: .utf8)
             default: break
             }

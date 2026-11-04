@@ -78,6 +78,21 @@ final class LimitWatch {
         let accountName: String
     }
     var pendingReturn: Return?
+    var failedResumes = Set<UInt32>()
+    var codexWarnings = Set<UInt32>()
+
+    func returnToStart() {
+        guard let target = pendingReturn else { return }
+        pendingReturn = nil
+        if AppModel.shared.overlay == .limitOpened { AppModel.shared.overlay = nil }
+        let arguments = target.conversation.map { "--resume \(NotFoundActions.shellQuote($0))" } ?? "--continue"
+        ToolLauncher.start(.claude, cwd: target.cwd, name: target.sessionName.isEmpty ? nil : target.sessionName, accountID: target.accountID, extraArguments: arguments)
+    }
+
+    func stayHere() {
+        pendingReturn = nil
+        if AppModel.shared.overlay == .limitOpened { AppModel.shared.overlay = nil }
+    }
 
     func noteSwitch(from info: SessionInfo) {
         let id = info.accountID ?? "system-claude"
@@ -88,6 +103,7 @@ final class LimitWatch {
         let timer = Timer(fire: resets, interval: 0, repeats: false) { [weak self] _ in
             self?.pendingReturn = target
             AppModel.shared.overlay = .limitOpened
+            PhoneBridge.tellPhones(saying: "✓ Başladığınız hesabın limiti açıldı, dönülsün mü?")
         }
         timer.tolerance = 30
         RunLoop.main.add(timer, forMode: .common)
@@ -116,12 +132,8 @@ struct LimitOpenedDialog: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
                 DialogButtons {
-                    Btn("Burada Kalsın", kind: .plain, key: "Esc") { model.overlay = nil }
-                    Btn("\(target.accountName) Hesabına Dön", kind: .primary, key: "⏎") {
-                            model.overlay = nil
-                            let arguments = target.conversation.map { "--resume \(NotFoundActions.shellQuote($0))" } ?? "--continue"
-                            ToolLauncher.start(.claude, cwd: target.cwd, name: target.sessionName.isEmpty ? nil : target.sessionName, accountID: target.accountID, extraArguments: arguments)
-                        }
+                    Btn("Burada Kalsın", kind: .plain, key: "Esc") { LimitWatch.shared.stayHere() }
+                    Btn("\(target.accountName) Hesabına Dön", kind: .primary, key: "⏎") { LimitWatch.shared.returnToStart() }
                         .keyboardShortcut(.defaultAction)
                 }
             }
@@ -134,22 +146,12 @@ struct ResumeFailedDialog: View {
     let number: UInt32
     @ObservedObject var model = AppModel.shared
     var body: some View {
-        let info = model.sessions.first { $0.number == number }
         Panel(border: Theme.palette.limit) {
             PanelHeader(title: "Konuşma Bu Hesapta Açılmadı") { T("■ Oturum Durdu", color: Theme.palette.limit, bold: true) }
             VStack(alignment: .leading, spacing: 8) {
                 Dim("Bu konuşma başka hesapla sürdürülemedi. Çalışan iş kaybolmadı, eski konuşma yerinde duruyor. Programın hatası terminalde görünür.")
-                if let info {
-                    MenuRow(title: "Özetle Yeni Oturum", note: "Son Ekran Aktarılır · Konuşma Geçmişi Taşınmaz", key: "1") {
-                        model.overlay = nil
-                        var tail = WireMessage(op: "tail")
-                        tail.number = number
-                        model.connection.request(tail) { reply in
-                            let summary = (reply.text ?? "").suffix(3000)
-                            ToolLauncher.start(.claude, cwd: info.cwd, accountID: info.accountID,
-                                               extraArguments: NotFoundActions.shellQuote("Önceki oturumun son ekranı aşağıda. Kaldığı yerden devam et.\n\(summary)"))
-                        }
-                    }
+                ForEach(Array(LimitActions.resumeOptions(for: number).enumerated()), id: \.offset) { index, action in
+                    MenuRow(title: action.title, note: action.note, key: "\(index + 1)") { action.run() }
                 }
             }
             .padding(.horizontal, 20)

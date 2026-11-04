@@ -14,12 +14,18 @@ final class PhoneTerminal: NSObject, TerminalViewDelegate {
         view = TerminalView(frame: CGRect(x: 0, y: 0, width: 390, height: 600))
         super.init()
         view.terminalDelegate = self
-        view.nativeBackgroundColor = Palette.terminalBackground
-        view.nativeForegroundColor = Palette.terminalForeground
-        view.backgroundColor = Palette.terminalBackground
+        applyTheme(dark: UserDefaults.standard.string(forKey: "theme") != "light")
         view.font = UIFont.monospacedSystemFont(ofSize: 12, weight: .regular)
         // The key row is part of the screen, as drawn.
         view.inputAccessoryView = nil
+    }
+
+    func applyTheme(dark: Bool) {
+        let background = Palette.terminalBackground(dark: dark)
+        view.nativeBackgroundColor = background
+        view.nativeForegroundColor = Palette.terminalForeground(dark: dark)
+        view.backgroundColor = background
+        view.superview?.backgroundColor = background
     }
 
     func prepareForReplay() {
@@ -75,7 +81,7 @@ struct TerminalSurface: UIViewRepresentable {
     let terminal: PhoneTerminal
     func makeUIView(context: Context) -> UIView {
         let container = UIView()
-        container.backgroundColor = Palette.terminalBackground
+        container.backgroundColor = terminal.view.backgroundColor
         terminal.view.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(terminal.view)
         NSLayoutConstraint.activate([

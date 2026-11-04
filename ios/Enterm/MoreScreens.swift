@@ -147,8 +147,11 @@ struct FoundCardView: View {
                     CommandText(text: card.command)
                     DimTxt(card.note).fixedSize(horizontal: false, vertical: true)
                     ActionButton(card.button, style: .primary) {
-                        model.input(info.number, Data((card.command + "\r").utf8))
-                        dismissed = true
+                        Task {
+                            guard await PhoneAuth.confirm("Komutu bilgisayarda çalıştırmak için doğrulayın.") else { return }
+                            model.input(info.number, Data((card.command + "\r").utf8))
+                            dismissed = true
+                        }
                     }
                     ActionButton("Vazgeç", style: .plain) { dismissed = true }
                 }
@@ -189,6 +192,11 @@ struct RouteScreen: View {
             case .report(let id): ReportScreen(id: id)
             case .newOptions: NewOptionsScreen()
             case .install(let tool): InstallScreen(tool: tool)
+            case .approval(let id): ApprovalDetailScreen(id: id)
+            case .queued(let id): QueuedScreen(id: id)
+            case .limitOpened: LimitOpenedScreen()
+            case .resumeFailed(let number): ResumeFailedScreen(number: number)
+            case .codexLimit(let number): CodexLimitScreen(number: number)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -266,7 +274,7 @@ struct LimitLines: View {
         HStack {
             DimTxt("\(title) %\(Int(window.usedPercent))")
             Spacer()
-            if let resets = window.resetsAt { DimTxt(resets.formatted(date: .abbreviated, time: .shortened)) }
+            if let resets = window.resetsAt { DimTxt(resets.turkish()) }
         }
     }
 }
@@ -384,27 +392,26 @@ struct BrowserScreen: View {
                 if let failure = state?.failure { Txt(failure, color: Palette.err) }
                 if let data = state?.image, let image = UIImage(data: data) {
                     GeometryReader { geometry in
-                        ZoomableImage(image: image) { point in
+                        ZoomableImage(image: image, onTap: { point in
                             guard state?.userHasControl == true else { return }
                             let x = String(Double(point.x / geometry.size.width))
                             let y = String(Double(point.y / geometry.size.height))
                             Task { _ = await model.call(PhoneCall("browserTap", args: ["x": x, "y": y]), as: PhoneNothing.self) }
-                        }
+                        }, onScroll: { distance in
+                            guard state?.userHasControl == true else { return }
+                            scroll(Double(-distance / geometry.size.height))
+                        })
                     }
                 } else {
                     DimTxt(state?.isOpen == true ? "Görüntü Bekleniyor" : "Tarayıcı Kapalı. Adres Yazıp Açın.")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line2))
                 }
-                DimTxt("Görüntü bilgisayardan gelir. İki parmakla yakınlaştırın.")
+                DimTxt("Görüntü bilgisayardan gelir. Devralınca parmakla kaydırın. İki parmakla yakınlaştırın.")
                 if let agent = state?.agent, let step = state?.lastStep, state?.userHasControl == false {
                     DimTxt("\(agent): \(step)").lineLimit(2)
                 }
                 if state?.userHasControl == true {
-                    HStack {
-                        ActionButton("Yukarı") { scroll(-0.6) }
-                        ActionButton("Aşağı") { scroll(0.6) }
-                    }
                     HStack {
                         InputField(placeholder: "Odaktaki alana yaz", text: $text)
                         ActionButton("Yaz") {
@@ -449,6 +456,7 @@ struct BrowserScreen: View {
 struct ZoomableImage: View {
     let image: UIImage
     let onTap: (CGPoint) -> Void
+    let onScroll: (CGFloat) -> Void
     @State private var scale: CGFloat = 1
     @GestureState private var pinch: CGFloat = 1
     var body: some View {
@@ -460,6 +468,7 @@ struct ZoomableImage: View {
             .scaleEffect(scale * pinch, anchor: .top)
             .gesture(MagnificationGesture().updating($pinch) { value, state, _ in state = value }.onEnded { scale = max(1, min(4, scale * $0)) })
             .simultaneousGesture(SpatialTapGesture().onEnded { onTap($0.location) })
+            .simultaneousGesture(DragGesture(minimumDistance: 12).onEnded { onScroll($0.translation.height) })
             .clipped()
     }
 }
@@ -557,7 +566,7 @@ struct LinkPermissionScreen: View {
                 ActionButton("Bağla", style: .primary) {
                     Task {
                         let args = ["to": String(to), "permission": permission.rawValue, "both": bothWays ? "1" : "0"]
-                        switch await model.call(PhoneCall("linkAdd", number: from, args: args), as: PhoneNothing.self) {
+                        switch await model.confirmedCall("Bağlantı kurmak için doğrulayın.", PhoneCall("linkAdd", number: from, args: args), as: PhoneNothing.self) {
                         case .success:
                             model.route.removeAll { if case .linkTarget = $0 { return true }; if case .linkPermission = $0 { return true }; return false }
                         case .failure(let error):
@@ -587,12 +596,15 @@ struct MessagesScreen: View {
                                 HStack {
                                     Txt("\(mail.fromName) → \(mail.toName)", bold: true).lineLimit(1)
                                     Spacer()
-                                    DimTxt(mail.at.formatted(date: .omitted, time: .shortened))
+                                    DimTxt(mail.at.turkish(date: .omitted))
                                 }
                                 Txt(mail.text)
                                 if mail.claimedApproval {
                                     Txt("✕ Onay Sayılmadı", color: Palette.err, bold: true)
                                     DimTxt("Ajan mesajı onay değildir. İstek size düştü.")
+                                    if let id = model.session(number)?.pendingApproval?.id {
+                                        ActionButton("Onay İsteğini Aç", style: .primary) { model.route.append(.approval(id)) }
+                                    }
                                 }
                             }
                         }
@@ -634,7 +646,7 @@ struct PermissionCardScreen: View {
                                     ForEach(PermissionMode.allCases) { mode in
                                         ActionButton(mode.title, style: card.mode(category) == mode ? .primary : .outline) {
                                             Task {
-                                                _ = await model.call(PhoneCall("cardSet", number: number, args: ["category": category.rawValue, "mode": mode.rawValue]), as: PermissionCard.self)
+                                                _ = await model.setPermission(number, category: category, from: card.mode(category), to: mode)
                                                 open = nil
                                                 reload()
                                             }
@@ -643,7 +655,7 @@ struct PermissionCardScreen: View {
                                 }
                             }
                         }
-                        DimTxt("Satıra dokununca üç seçenek açılır.")
+                        DimTxt("Satıra dokununca üç seçenek açılır. Yetkiyi genişletmek doğrulama ister.")
                     }
                     .padding(16)
                 }
@@ -666,9 +678,11 @@ struct LimitScreen: View {
                         ForEach(choices) { choice in
                             Button {
                                 Task {
-                                    _ = await model.call(PhoneCall("limitRun", args: ["index": String(choice.id)]), as: PhoneNothing.self)
-                                    model.route = []
-                                    model.openSession = nil
+                                    let result = await model.confirmedCall("Hesap değişimi için doğrulayın.", PhoneCall("limitRun", args: ["index": String(choice.id)]), as: PhoneNothing.self)
+                                    if case .success = result {
+                                        model.route = []
+                                        model.openSession = nil
+                                    }
                                 }
                             } label: {
                                 VStack(alignment: .leading, spacing: 2) {
@@ -867,6 +881,7 @@ struct NewOptionsScreen: View {
     @State private var template = PermissionTemplate.development
     @State private var modelName = ""
     @State private var effort = ""
+    @State private var picking = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -878,6 +893,7 @@ struct NewOptionsScreen: View {
                         InputField(placeholder: "İsteğe Bağlı", text: $name)
                         DimTxt("Çalışma Alanı")
                         InputField(placeholder: "~/projeler/magaza", text: $folder)
+                        ActionButton("Klasör Seç", style: .plain) { picking = true }
                         ForEach(options.folders, id: \.self) { path in
                             ActionButton(path, style: folder == path ? .primary : .outline) { folder = path }
                         }
@@ -915,6 +931,12 @@ struct NewOptionsScreen: View {
                 }
             }
         }
+        .sheet(isPresented: $picking) {
+            FilePicker(start: folder.isEmpty ? "~" : folder, foldersOnly: true) { folder = $0 }.environmentObject(model)
+        }
+#if DEBUG
+        .onAppear { if TestForm.values == "pick" { picking = true } }
+#endif
     }
     private func isSelected(_ item: PhoneAccount) -> Bool {
         account == item.id || (account.isEmpty && item.id.hasPrefix("system-"))
@@ -935,11 +957,10 @@ struct InstallScreen: View {
             VStack(alignment: .leading, spacing: 12) {
                 Txt("\(tool.title) Bilgisayarda Kurulu Değil", bold: true)
                 CommandText(text: ToolPresence.installCommand(tool) ?? "")
-                DimTxt("Siz onaylamadan çalışmaz. Onaylarsanız bilgisayarda yeni terminalde görünür şekilde çalışır.")
+                DimTxt("Siz onaylamadan çalışmaz, önce doğrulama ister. Onaylarsanız bilgisayarda yeni terminalde görünür şekilde çalışır.")
                 ActionButton("Bilgisayarda Çalıştır", style: .primary) {
                     Task {
-                        _ = await model.call(PhoneCall("install", args: ["tool": tool.rawValue]), as: PhoneNothing.self)
-                        model.route = []
+                        if await model.install(tool) { model.route = [] }
                     }
                 }
                 Spacer()
@@ -967,6 +988,7 @@ struct TeamStartScreen: View {
     private let templates = [("software", "Yazılım", "Yönetici, Geliştirici, Test"), ("marketing", "Pazarlama", "Yönetici, Strateji, Metin"),
                              ("company", "Tam Şirket", "Yazılım, Tasarım, İçerik"), ("empty", "Boş", "Yalnız Yönetici")]
     @State private var key = "software"
+    @State private var picking = false
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             RouteHeader(back: "Daha", trailing: "Adım 1 / 3")
@@ -991,6 +1013,7 @@ struct TeamStartScreen: View {
                     }
                     DimTxt("Klasör")
                     InputField(placeholder: "~/projeler/magaza", text: $draft.folder)
+                    ActionButton("Klasör Seç", style: .plain) { picking = true }
                     ActionButton("Kadro Öner", style: .primary) {
                         draft.members = Team.template(key)
                         model.route.append(.teamRoster)
@@ -1001,6 +1024,9 @@ struct TeamStartScreen: View {
                 .padding(16)
             }
         }
+        .sheet(isPresented: $picking) {
+            FilePicker(start: draft.folder.isEmpty ? "~" : draft.folder, foldersOnly: true) { draft.folder = $0 }.environmentObject(model)
+        }
     }
 }
 
@@ -1010,6 +1036,7 @@ struct TeamRosterScreen: View {
     @ObservedObject var draft = TeamDraft.shared
     @State private var open: String?
     @State private var problem: String?
+    @State private var picking: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             RouteHeader(back: "Geri", trailing: "Adım 2 / 3")
@@ -1038,6 +1065,7 @@ struct TeamRosterScreen: View {
                                 ActionButton(item.title, style: member.template == item ? .primary : .outline) { member.template = item }
                             }
                             InputField(placeholder: "Kaynak Dosyalar", text: $member.sources)
+                            ActionButton("Kaynak Dosya Seç", style: .plain) { picking = member.id }
                             ActionButton("Üyeyi Çıkar") { draft.members.removeAll { $0.id == member.id } }
                         }
                     }
@@ -1050,12 +1078,20 @@ struct TeamRosterScreen: View {
                 .padding(16)
             }
         }
+        .sheet(isPresented: Binding(get: { picking != nil }, set: { if !$0 { picking = nil } })) {
+            FilePicker(start: draft.folder.isEmpty ? "~" : draft.folder, foldersOnly: false) { path in
+                guard let index = draft.members.firstIndex(where: { $0.id == picking }) else { return }
+                let current = draft.members[index].sources
+                draft.members[index].sources = current.isEmpty ? path : current + ", " + path
+            }
+            .environmentObject(model)
+        }
     }
     private func build() {
         guard let data = try? JSONEncoder().encode(draft.members) else { return }
         let args = ["brief": draft.brief, "folder": draft.folder, "members": String(decoding: data, as: UTF8.self)]
         Task {
-            switch await model.call(PhoneCall("teamBuild", args: args), as: PhoneNothing.self) {
+            switch await model.confirmedCall("Ekibi başlatmak için doğrulayın.", PhoneCall("teamBuild", args: args), as: PhoneNothing.self) {
             case .success:
                 model.route = [.teamDecisions]
             case .failure(let error):
@@ -1151,5 +1187,224 @@ struct ReportScreen: View {
             Txt(title, bold: true)
             Txt(text)
         }
+    }
+}
+
+
+// MARK: Waiting and limits
+
+/// Browses the Mac's folders, because a phone has no other way to know their names.
+struct FilePicker: View {
+    @EnvironmentObject var model: PhoneModel
+    @Environment(\.dismiss) private var dismiss
+    let start: String
+    let foldersOnly: Bool
+    let onPick: (String) -> Void
+    @State private var path = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Button { dismiss() } label: { Txt("‹ Vazgeç").frame(minHeight: 44).contentShape(Rectangle()) }
+                Spacer()
+                if !path.isEmpty, path != "/" {
+                    Button { path = (path as NSString).deletingLastPathComponent } label: { Txt("Üst Klasör").frame(minHeight: 44).contentShape(Rectangle()) }
+                }
+            }
+            .padding(.horizontal, 12)
+            Loaded(call: PhoneCall("files", args: ["path": path.isEmpty ? start : path]), type: PhoneFiles.self) { files, _ in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Txt(files.display, bold: true)
+                        if foldersOnly {
+                            ActionButton("Bu Klasörü Seç", style: .primary) {
+                                onPick(files.display)
+                                dismiss()
+                            }
+                        }
+                        ForEach(files.items.filter { !foldersOnly || $0.isDirectory }) { item in
+                            NavRow(item.isDirectory ? "\(item.name)/" : item.name) {
+                                let full = (files.path as NSString).appendingPathComponent(item.name)
+                                if item.isDirectory {
+                                    path = full
+                                } else {
+                                    onPick((files.display as NSString).appendingPathComponent(item.name))
+                                    dismiss()
+                                }
+                            }
+                        }
+                        if files.items.isEmpty { DimTxt("Bu Klasör Boş.") }
+                    }
+                    .padding(16)
+                }
+            }
+            .id(path)
+        }
+        .background(Palette.bg)
+    }
+}
+
+/// 8.2T
+struct ApprovalDetailScreen: View {
+    @EnvironmentObject var model: PhoneModel
+    let id: String
+    var body: some View {
+        VStack(spacing: 0) {
+            RouteHeader(back: "Onaylar", trailing: "◆ Onay İstiyor")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let info = model.sessions.first(where: { $0.pendingApproval?.id == id }), let approval = info.pendingApproval {
+                        Txt("\(model.title(info)) İzin İstiyor", bold: true)
+                        DimTxt("Hangi Komut")
+                        CommandText(text: approval.summary)
+                        DimTxt("Yetki: \(approval.category.title)")
+                        ActionButton("İzin Ver", style: .primary) { Approval.allow(id: id) }
+                        ActionButton("Reddet") { model.decide(id: id, decision: "deny") }
+                        NavRow("Yetki Kartını Aç") { model.route.append(.card(info.number)) }
+                    } else {
+                        DimTxt("Bu istek artık bekliyor değil.")
+                    }
+                }
+                .padding(16)
+            }
+        }
+    }
+}
+
+/// 4.7T
+struct QueuedScreen: View {
+    @EnvironmentObject var model: PhoneModel
+    let id: String
+    var body: some View {
+        VStack(spacing: 0) {
+            RouteHeader(back: "Oturumlar", trailing: "◷ Sırada")
+            VStack(alignment: .leading, spacing: 12) {
+                if let item = model.attention.queue.first(where: { $0.id == id }) {
+                    Txt(item.name, bold: true)
+                    Txt("Yer Açılınca Kendiliğinden Başlar", bold: true)
+                    DimTxt(item.reason)
+                    DimTxt("Çalışan iş durmadı. Bu oturum henüz başlamadı, token harcamıyor.")
+                    if !item.command.isEmpty { CommandText(text: item.command) }
+                    ActionButton("Yine De Başlat", style: .primary) {
+                        Task {
+                            let result = await model.confirmedCall("\(item.tool.title) başlatmak için doğrulayın.", PhoneCall("queueStart", args: ["id": id]), as: PhoneNothing.self)
+                            if case .success = result, !model.route.isEmpty { model.route.removeLast() }
+                        }
+                    }
+                    NavRow("Güç Sınırı") { model.route.append(.power) }
+                } else {
+                    DimTxt("Bu oturum artık sırada değil.")
+                }
+                Spacer()
+            }
+            .padding(16)
+        }
+    }
+}
+
+/// 9.5T
+struct LimitOpenedScreen: View {
+    @EnvironmentObject var model: PhoneModel
+    var body: some View {
+        VStack(spacing: 0) {
+            RouteHeader(back: "Onaylar", trailing: "✓ Limit Açıldı")
+            VStack(alignment: .leading, spacing: 12) {
+                if let account = model.attention.limitReturnAccount {
+                    Txt("Başladığınız hesabın limiti açıldı, dönülsün mü?", bold: true)
+                    DimTxt("Dönülecek: \(account). Dönüş, hesap değişimi gibi ilk mesajda konuşmayı baştan okur.")
+                    ActionButton("\(account) Hesabına Dön", style: .primary) {
+                        Task {
+                            let result = await model.confirmedCall("Hesap değişimi için doğrulayın.", PhoneCall("limitReturn", args: ["go": "1"]), as: PhoneNothing.self)
+                            if case .success = result { model.route = [] }
+                        }
+                    }
+                    ActionButton("Burada Kalsın") {
+                        Task {
+                            _ = await model.call(PhoneCall("limitReturn", args: ["go": "0"]), as: PhoneNothing.self)
+                            model.route = []
+                        }
+                    }
+                } else {
+                    DimTxt("Bekleyen Bir Şey Yok.")
+                }
+                Spacer()
+            }
+            .padding(16)
+        }
+    }
+}
+
+/// 9.6T
+struct ResumeFailedScreen: View {
+    @EnvironmentObject var model: PhoneModel
+    let number: UInt32
+    var body: some View {
+        VStack(spacing: 0) {
+            RouteHeader(back: "Onaylar", trailing: "■ Durdu")
+            Loaded(call: PhoneCall("resumeChoices", number: number), type: [PhoneChoice].self) { choices, _ in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Txt(model.session(number).map { model.title($0) } ?? "Oturum", bold: true)
+                        DimTxt("Konuşma bu hesapta açılmadı. İş kaybolmadı.")
+                        ForEach(choices) { choice in
+                            Button {
+                                Task {
+                                    let result = await model.confirmedCall("Devam etmek için doğrulayın.", PhoneCall("resumeRun", number: number, args: ["index": String(choice.id)]), as: PhoneNothing.self)
+                                    if case .success = result { model.route = [] }
+                                }
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Txt(choice.title, bold: true)
+                                    DimTxt(choice.note)
+                                }
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Palette.panel)
+                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line2))
+                                .cornerRadius(6)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(16)
+                }
+            }
+        }
+    }
+}
+
+/// 9.7T
+struct CodexLimitScreen: View {
+    @EnvironmentObject var model: PhoneModel
+    let number: UInt32
+    var body: some View {
+        VStack(spacing: 0) {
+            RouteHeader(back: "Onaylar", trailing: "■ Kontrol Edin")
+            VStack(alignment: .leading, spacing: 12) {
+                Txt(model.session(number).map { "\(model.title($0)) · Codex" } ?? "Codex", bold: true)
+                Txt("Limit Dolmuş Olabilir, Kontrol Edin", bold: true)
+                DimTxt("Son tur başarısız oldu, kesin bilgi gelmedi.")
+                LimitLines(limit: model.session(number)?.limit)
+                ActionButton("Terminale Bak") {
+                    clear()
+                    model.route = []
+                    model.openSession = number
+                }
+                ActionButton("Limit Doldu, Seçenekler") {
+                    clear()
+                    model.route.append(.limit(number))
+                }
+                ActionButton("Sorun Yok", style: .plain) {
+                    clear()
+                    model.route = []
+                }
+                Spacer()
+            }
+            .padding(16)
+        }
+    }
+    private func clear() {
+        Task { _ = await model.call(PhoneCall("attentionClear", number: number), as: PhoneNothing.self) }
     }
 }

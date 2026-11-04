@@ -676,6 +676,29 @@ enum LimitActions {
         return actions
     }
 
+    /// After a conversation did not open under the other account.
+    static func resumeOptions(for number: UInt32) -> [Action] {
+        let model = AppModel.shared
+        guard let info = model.sessions.first(where: { $0.number == number }) else { return [] }
+        var actions = [Action(title: "Özetle Yeni Oturum", note: "Son Ekran Aktarılır · Konuşma Geçmişi Taşınmaz") {
+            model.overlay = nil
+            var tail = WireMessage(op: "tail")
+            tail.number = number
+            model.connection.request(tail) { reply in
+                let summary = (reply.text ?? "").suffix(3000)
+                ToolLauncher.start(.claude, cwd: info.cwd, accountID: info.accountID,
+                                   extraArguments: NotFoundActions.shellQuote("Önceki oturumun son ekranı aşağıda. Kaldığın yerden devam et:\n\(summary)"))
+            }
+        }]
+        for account in AccountStore.shared.accounts where account.kind == .apiKey && account.tool == .claude {
+            actions.append(Action(title: "API Anahtarıyla Aynı Konuşma: \(account.name)", note: "Kullanıma Göre · İlk Mesajda Baştan Okunur") {
+                resume(info, accountID: account.id)
+            })
+        }
+        actions.append(Action(title: "Sıfırlanmayı Bekle", note: "Beklerken Limitten Yemez") { model.overlay = nil })
+        return actions
+    }
+
     static var current: [() -> Void] = []
     static func perform(index: Int) {
         guard index >= 0, index < current.count else { return }
