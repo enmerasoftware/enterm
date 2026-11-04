@@ -7,7 +7,12 @@ struct CommandRunner {
     var remote: RemoteProject?
     var folder: String
 
-    private static var sshPath: String { ProcessInfo.processInfo.environment["ENTERM_SSH"] ?? "/usr/bin/ssh" }
+    private static var sshPath: String {
+#if ENTERM_TEST_DRIVER
+        if let path = ProcessInfo.processInfo.environment["ENTERM_SSH"] { return path }
+#endif
+        return "/usr/bin/ssh"
+    }
 
     func run(_ words: [String], input: Data? = nil) -> (ok: Bool, output: String) {
         let process = Process()
