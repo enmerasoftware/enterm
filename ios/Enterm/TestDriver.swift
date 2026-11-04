@@ -71,8 +71,9 @@ enum TestDriver {
     }
 
     private static func poll(_ path: String) {
-        guard let text = try? String(contentsOfFile: path, encoding: .utf8), !text.isEmpty else { return }
-        try? "".write(toFile: path, atomically: true, encoding: .utf8)
+        // Moved away first: a line appended between reading and emptying the file would be lost.
+        let taken = path + ".taken"
+        guard rename(path, taken) == 0, let text = try? String(contentsOfFile: taken, encoding: .utf8), !text.isEmpty else { return }
         let model = PhoneModel.shared
         for line in text.split(separator: "\n") {
             let parts = line.split(separator: " ", maxSplits: 1).map(String.init)

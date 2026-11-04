@@ -364,7 +364,8 @@ struct SessionScreen: View {
             TerminalSurface(terminal: terminal)
                 .onAppear {
                     model.attach(info.number)
-                    _ = terminal.view.becomeFirstResponder()
+                    // With a decision waiting or large text there is no room for the keyboard yet. A tap on the terminal opens it.
+                    if info.pendingApproval == nil, !size.isAccessibilitySize { _ = terminal.view.becomeFirstResponder() }
                 }
                 .onDisappear { model.detach(info.number) }
             keyRow(terminal)
