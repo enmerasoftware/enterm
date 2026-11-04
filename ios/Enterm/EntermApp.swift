@@ -76,6 +76,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 enum Approval {
     /// Permission is given by the person holding the phone. A phone with no lock set has nothing to ask.
     @MainActor static func allow(id: String) {
+        guard PhoneModel.shared.faceIDForApprovals else {
+            PhoneModel.shared.decide(id: id, decision: "allow")
+            return
+        }
         let context = LAContext()
         var problem: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &problem) else {

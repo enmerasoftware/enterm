@@ -76,6 +76,18 @@ final class AccountStore: ObservableObject {
         return account
     }
 
+    /// Adds the account and opens a terminal where the official program shows its own sign-in.
+    @discardableResult
+    func beginLogin(tool: ToolKind, name: String) -> Account {
+        let account = add(tool: tool, name: name.isEmpty ? tool.title : name)
+        var spec = SessionSpec(name: "giriş: \(account.name)", tool: .terminal, rows: 30, cols: 100, accountID: account.id)
+        var env = environment(for: account.id)
+        env["ENTERM_STARTUP"] = tool == .codex ? "codex login" : "claude"
+        spec.env = env
+        AppModel.shared.create(spec)
+        return account
+    }
+
     func addKey(tool: ToolKind, name: String, cap: Double?) -> Account {
         let id = UUID().uuidString.lowercased()
         var account = Account(id: id, tool: tool, name: name, kind: .apiKey)

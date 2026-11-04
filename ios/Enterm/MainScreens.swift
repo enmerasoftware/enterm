@@ -36,7 +36,9 @@ struct MainTabs: View {
     @EnvironmentObject var model: PhoneModel
     var body: some View {
         VStack(spacing: 0) {
-            if let number = model.openSession, let info = model.sessions.first(where: { $0.number == number }) {
+            if let route = model.route.last {
+                RouteScreen(route: route)
+            } else if let number = model.openSession, let info = model.sessions.first(where: { $0.number == number }) {
                 SessionScreen(info: info)
             } else {
                 Group {
@@ -147,15 +149,22 @@ struct StatusText: View {
 /// 2.1T
 struct SessionsScreen: View {
     @EnvironmentObject var model: PhoneModel
-    @State private var creating = false
 
     var body: some View {
         VStack(spacing: 0) {
             ConnectionBanner()
+            if let problem = model.startProblem {
+                Button { model.startProblem = nil } label: {
+                    Txt(problem, color: Palette.limit)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .padding(.horizontal, 16)
+                }
+                .buttonStyle(.plain)
+            }
             HStack {
                 ScreenTitle(text: model.connection == .connected ? "Oturumlar" : "Son Bilinen Durum")
                 if model.connection == .connected {
-                    Button { creating = true } label: {
+                    Button { model.route.append(.newOptions) } label: {
                         Txt("+", bold: true).frame(width: 44, height: 44).contentShape(Rectangle())
                     }
                     .accessibilityLabel("Yeni Oturum")
@@ -177,7 +186,6 @@ struct SessionsScreen: View {
                 }
             }
         }
-        .sheet(isPresented: $creating) { NewSessionSheet().environmentObject(model) }
     }
 
     private func row(_ info: SessionInfo) -> some View {
@@ -200,41 +208,6 @@ struct SessionsScreen: View {
     }
 }
 
-/// 3.1T: the choices a Mac-side start needs are made on the Mac for now, so only these appear here.
-struct NewSessionSheet: View {
-    @EnvironmentObject var model: PhoneModel
-    @Environment(\.dismiss) private var dismiss
-    @State private var name = ""
-    @State private var tool = ToolKind.terminal
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Button { dismiss() } label: { Txt("‹ Vazgeç").frame(minHeight: 44) }
-            Txt("Yeni Oturum", bold: true)
-            DimTxt("Oturum Adı")
-            TextField("", text: $name, prompt: Text("İsteğe Bağlı").foregroundColor(Palette.dim))
-                .font(.mono)
-                .foregroundColor(Palette.fg)
-                .padding(.horizontal, 12)
-                .frame(minHeight: 44)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line2))
-            DimTxt("Araç")
-            ForEach(ToolKind.allCases, id: \.self) { kind in
-                ActionButton(kind.title, style: tool == kind ? .primary : .outline) { tool = kind }
-            }
-            DimTxt("Oturum bilgisayarda başlar, telefon bağlanır.")
-            Spacer()
-            ActionButton("Başlat", style: .primary) {
-                model.create(tool: tool, name: name)
-                dismiss()
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Palette.bg)
-    }
-}
-
 /// 0.1T and 4.1T: the session itself, with the keys a phone keyboard lacks.
 struct SessionScreen: View {
     @EnvironmentObject var model: PhoneModel
@@ -249,6 +222,9 @@ struct SessionScreen: View {
                 Spacer()
                 Txt(model.title(info), bold: true).lineLimit(1)
                 StatusText(info: info).lineLimit(1)
+                Button { model.route.append(.details(info.number)) } label: {
+                    Txt("Ayrıntılar").frame(minHeight: 44).contentShape(Rectangle())
+                }
             }
             .padding(.horizontal, 12)
             .background(Palette.panel)
@@ -263,13 +239,10 @@ struct SessionScreen: View {
             if let approval = info.pendingApproval {
                 ApprovalCard(info: info, approval: approval).padding(8)
             }
-            if info.status == .notFound, let command = info.tool.command {
-                Card {
-                    Txt("\(info.tool.title) Bilgisayarda Bulunamadı", bold: true)
-                    DimTxt("`\(command)` bilgisayarda bulunamadı. Bilgisayarda Yeni Oturum menüsünden kurulum komutunu görebilirsiniz.")
-                }
-                .padding(8)
+            if info.status == .limitReached {
+                ActionButton("■ Limit Doldu: Seçenekleri Gör") { model.route.append(.limit(info.number)) }.padding(8)
             }
+            FoundCardView(info: info).padding(.horizontal, 8)
             TerminalSurface(terminal: terminal)
                 .onAppear {
                     model.attach(info.number)
@@ -405,7 +378,7 @@ struct CanvasScreen: View {
     }
 }
 
-/// 13.1T: only what works on the phone today. The rest is on the Mac and returns here when it works.
+/// 13.1T
 struct MoreScreen: View {
     @EnvironmentObject var model: PhoneModel
     @State private var confirming = false
@@ -414,31 +387,41 @@ struct MoreScreen: View {
         VStack(spacing: 0) {
             ConnectionBanner()
             ScreenTitle(text: "Daha")
-            VStack(alignment: .leading, spacing: 8) {
-                Card {
-                    Txt(model.peer?.name ?? "Bilgisayar", bold: true)
-                    DimTxt(model.connection == .connected ? "✓ Bilgisayar Bağlı" : "○ Bilgisayar Bağlı Değil")
-                    if let peer = model.peer {
-                        DimTxt("Eşleşme: \(peer.pairedAt.formatted(date: .long, time: .omitted))")
-                    }
-                    DimTxt("Telefon bu bilgisayara uçtan uca şifreli bağlanır. Oturumlar telefonda çalışmaz, yalnız görünür.")
-                }
-                ActionButton("Bildirimlere İzin Ver") { model.askForNotifications() }
-                if confirming {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
                     Card {
-                        Txt("Bu Bilgisayar Kaldırılsın Mı?", bold: true)
-                        DimTxt("Tekrar kullanmak için yeniden eşleştirirsiniz. Oturumlar bilgisayarda çalışmaya devam eder.")
-                        HStack {
-                            ActionButton("Vazgeç") { confirming = false }
-                            ActionButton("Kaldır", style: .primary) { model.unpair() }
+                        Txt(model.peer?.name ?? "Bilgisayar", bold: true)
+                        DimTxt(model.connection == .connected ? "✓ Bilgisayar Bağlı" : "○ Bilgisayar Bağlı Değil")
+                        if let peer = model.peer {
+                            DimTxt("Eşleşme: \(peer.pairedAt.formatted(date: .long, time: .omitted))")
                         }
+                        DimTxt("Telefon bu bilgisayara uçtan uca şifreli bağlanır. Oturumlar telefonda çalışmaz, yalnız görünür.")
                     }
-                } else {
-                    ActionButton("Bilgisayarı Kaldır") { confirming = true }
+                    NavRow("Ekibini Kur") { model.route.append(.teamStart) }
+                    NavRow("Yönetici: Kararlar") { model.route.append(.teamDecisions) }
+                    NavRow("Hesaplar") { model.route.append(.accounts) }
+                    NavRow("Model Ve Maliyet") { model.route.append(.cost) }
+                    NavRow("Güç Sınırı") { model.route.append(.power) }
+                    Card {
+                        DimTxt("Onayda Face ID")
+                        Choice(options: [(true, "Açık"), (false, "Kapalı")], value: $model.faceIDForApprovals)
+                    }
+                    ActionButton("Bildirimlere İzin Ver") { model.askForNotifications() }
+                    if confirming {
+                        Card {
+                            Txt("Bu Bilgisayar Kaldırılsın Mı?", bold: true)
+                            DimTxt("Tekrar kullanmak için yeniden eşleştirirsiniz. Oturumlar bilgisayarda çalışmaya devam eder.")
+                            HStack {
+                                ActionButton("Vazgeç") { confirming = false }
+                                ActionButton("Kaldır", style: .primary) { model.unpair() }
+                            }
+                        }
+                    } else {
+                        ActionButton("Bilgisayarı Kaldır") { confirming = true }
+                    }
                 }
+                .padding(.horizontal, 16)
             }
-            .padding(.horizontal, 16)
-            Spacer()
         }
     }
 }

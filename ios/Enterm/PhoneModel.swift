@@ -1,10 +1,38 @@
 import EntermCore
 import Foundation
 import SwiftTerm
+import SwiftUI
 import UIKit
 import UserNotifications
 
+/// Screens that open over the tabs, one on top of the other.
+enum PhoneRoute: Hashable {
+    case details(UInt32)
+    case changes(UInt32)
+    case diff(UInt32, String)
+    case browser(UInt32)
+    case linkTarget(UInt32)
+    case linkPermission(UInt32, UInt32)
+    case messages(UInt32)
+    case card(UInt32)
+    case limit(UInt32)
+    case accounts
+    case accountAdd
+    case cost
+    case power
+    case teamStart
+    case teamRoster
+    case teamDecisions
+    case report(String)
+    case newOptions
+    case install(ToolKind)
+}
+
 /// The phone's view of the Mac. Sessions run there, this only shows them.
+struct PhoneProblem: Error, Equatable {
+    let message: String
+}
+
 @MainActor
 final class PhoneModel: ObservableObject {
     static let shared = PhoneModel()
@@ -32,6 +60,11 @@ final class PhoneModel: ObservableObject {
     @Published var tab = 0
     @Published var openSession: UInt32?
     @Published var missingProgram: String?
+    @Published var route: [PhoneRoute] = []
+    @Published var startProblem: String?
+    @Published var faceIDForApprovals = UserDefaults.standard.object(forKey: "faceIDForApprovals") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(faceIDForApprovals, forKey: "faceIDForApprovals") }
+    }
 
     private var link: TunnelLink?
     private var agent: PairingAgent?
@@ -278,16 +311,53 @@ final class PhoneModel: ObservableObject {
         send(message)
     }
 
-    func create(tool: ToolKind, name: String) {
-        var spec = SessionSpec(name: name.isEmpty ? nil : name, tool: tool, rows: 40, cols: 50)
-        if let command = tool.command { spec.env = ["ENTERM_STARTUP": command] }
-        var message = WireMessage(op: "create")
-        message.spec = spec
-        request(message) { [weak self] reply in
-            guard let self, let info = reply.session else { return }
-            if !self.sessions.contains(where: { $0.number == info.number }) { self.sessions.append(info) }
-            self.tab = 0
-            self.openSession = info.number
+    /// Started by the Mac's own code, so PATH, a copy outside it, the account and the queue work the same.
+    func start(tool: ToolKind, name: String = "", folder: String = "", account: String = "", template: String = "", model: String = "", effort: String = "") async {
+        let args = ["tool": tool.rawValue, "name": name, "folder": folder, "account": account, "template": template, "model": model, "effort": effort]
+        switch await call(PhoneCall("start", args: args), as: PhoneStart.self) {
+        case .failure(let problem):
+            startProblem = problem.message
+        case .success(let result):
+            if let missing = result.missingTool {
+                route.append(.install(missing))
+            } else if result.queued {
+                startProblem = "Sırada: Yer Açılınca Kendiliğinden Başlar. Çalışan İş Durmadı."
+            } else if let number = result.number {
+                tab = 0
+                route = []
+                openSession = number
+            }
+        }
+    }
+
+    /// A question to the window on the Mac. It may take a moment when the window has to open first.
+    func call<T: Decodable>(_ call: PhoneCall, as type: T.Type) async -> Result<T, PhoneProblem> {
+        guard connection == .connected else { return .failure(PhoneProblem(message: "Bilgisayara Bağlı Değil")) }
+        guard let text = try? String(decoding: JSONEncoder().encode(call), as: UTF8.self) else { return .failure(PhoneProblem(message: "İstek Hazırlanamadı")) }
+        var message = WireMessage(op: "appCall")
+        message.text = text
+        return await withCheckedContinuation { continuation in
+            var finished = false
+            let finish: (Result<T, PhoneProblem>) -> Void = { result in
+                guard !finished else { return }
+                finished = true
+                continuation.resume(returning: result)
+            }
+            request(message) { reply in
+                if let error = reply.error {
+                    finish(.failure(PhoneProblem(message: error)))
+                } else if T.self == String.self, let value = (reply.text ?? "") as? T {
+                    finish(.success(value))
+                } else if let data = reply.text?.data(using: .utf8), let value = try? JSONDecoder().decode(T.self, from: data) {
+                    finish(.success(value))
+                } else {
+                    finish(.failure(PhoneProblem(message: "Yanıt Okunamadı")))
+                }
+            }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 15_000_000_000)
+                finish(.failure(PhoneProblem(message: "Bilgisayar Yanıt Vermedi")))
+            }
         }
     }
 
@@ -325,6 +395,8 @@ final class PhoneModel: ObservableObject {
     func folder(_ info: SessionInfo) -> String {
         URL(fileURLWithPath: info.cwd).lastPathComponent
     }
+
+    func session(_ number: UInt32) -> SessionInfo? { sessions.first { $0.number == number } }
 
     // MARK: Notifications
 

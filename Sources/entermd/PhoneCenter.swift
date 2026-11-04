@@ -97,6 +97,8 @@ final class PhoneCenter {
         case "testSleep":
             tellSleeping()
 #endif
+        case "appReply":
+            finishCall(message)
         case "deviceRemove":
             guard let id = message.text else { return true }
             links[id]?.tell(WireMessage(op: "unpaired"))
@@ -177,6 +179,54 @@ final class PhoneCenter {
             return
         }
         send(notice)
+    }
+
+    // MARK: Calls to the window
+
+    private var waitingCalls: [String: (client: Client, id: String?)] = [:]
+    private var launchedWindowAt: Date?
+
+    /// Accounts, links and Git live in the window. When it is closed, it is opened behind whatever is in front.
+    func forward(_ message: WireMessage, from client: Client, attempt: Int = 0) {
+        guard let window = service.clients.values.first(where: { $0.subscribed && !$0.isPhone }) else {
+            guard attempt < 16 else {
+                var reply = WireMessage(op: "appReply")
+                reply.id = message.id
+                reply.error = "Enterm Bilgisayarda Açılamadı"
+                service.send(reply.frame(), to: client)
+                return
+            }
+            openWindow()
+            service.queue.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.forward(message, from: client, attempt: attempt + 1) }
+            return
+        }
+        let key = UUID().uuidString
+        waitingCalls[key] = (client, message.id)
+        var command = WireMessage(op: "appCallCmd")
+        command.id = key
+        command.text = message.text
+        service.send(command.frame(), to: window)
+    }
+
+    func finishCall(_ message: WireMessage) {
+        guard let key = message.id, let waiting = waitingCalls.removeValue(forKey: key), service.clients[waiting.client.fd] === waiting.client else { return }
+        var reply = WireMessage(op: "appReply")
+        reply.id = waiting.id
+        reply.text = message.text
+        reply.error = message.error
+        service.send(reply.frame(), to: waiting.client)
+    }
+
+    private func openWindow() {
+        if let last = launchedWindowAt, Date().timeIntervalSince(last) < 10 { return }
+        launchedWindowAt = Date()
+        guard let executable = Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("EntermApp") else { return }
+        let process = Process()
+        process.executableURL = executable
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try? process.run()
     }
 
     /// `enterm notify` reaches paired phones too.
@@ -334,6 +384,8 @@ final class DeviceLink {
                 guard let message = WireMessage.decode(frame.payload) else { continue }
                 if message.op == "pushToken", let token = message.text {
                     onToken(id, token)
+                } else if message.op == "appCall" {
+                    service.phones.forward(message, from: client)
                 } else if PhoneCenter.allowedOperations.contains(message.op) {
                     if message.op == "resize", let number = message.number { resized.insert(number) }
                     service.handleMessage(message, from: client)

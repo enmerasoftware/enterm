@@ -639,6 +639,43 @@ struct NewSessionOptions: View {
 // MARK: Limit reached
 
 enum LimitActions {
+    struct Action {
+        let title: String
+        let note: String
+        let run: () -> Void
+    }
+
+    private static func conversationNote(_ info: SessionInfo) -> String {
+        if let tokens = info.contextTokens { return "Konuşma \(SessionText.shortTokens(tokens)) Token · İlk Mesajda Baştan Okunur" }
+        return "İlk Mesajda Konuşma Baştan Okunur"
+    }
+
+    static func options(for info: SessionInfo) -> [Action] {
+        let accounts = AccountStore.shared
+        var actions: [Action] = []
+        let others = accounts.accounts.filter { $0.tool == .claude && $0.id != (info.accountID ?? "system-claude") && $0.kind != .apiKey }
+        for account in others {
+            var limit = "Limit Henüz Bilinmiyor"
+            if let snapshot = account.lastLimit, let window = snapshot.fiveHour ?? snapshot.sevenDay {
+                let minutes = Int(Date().timeIntervalSince(snapshot.seenAt) / 60)
+                limit = "%\(Int(window.usedPercent)) Dolu · \(minutes) dk Önce"
+            }
+            actions.append(Action(title: "Başka Hesapla Devam: \(account.name)", note: "\(limit) · \(conversationNote(info))") {
+                LimitActions.resume(info, accountID: account.id)
+            })
+        }
+        for account in accounts.accounts where account.kind == .apiKey && account.tool == .claude {
+            actions.append(Action(title: "API Anahtarıyla Devam: \(account.name)", note: "Kullanıma Göre · Yalnız Bu Oturuma · \(conversationNote(info))") {
+                LimitActions.resume(info, accountID: account.id)
+            })
+        }
+        actions.append(Action(title: "Codex'e Özetle Geçir", note: "Yeni Oturum · Özet Aktarılır · Konuşma Geçmişi Taşınmaz") {
+            LimitActions.summarizeToCodex(info)
+        })
+        actions.append(Action(title: "Sıfırlanmayı Bekle", note: "Beklerken Limitten Yemez") { AppModel.shared.overlay = nil })
+        return actions
+    }
+
     static var current: [() -> Void] = []
     static func perform(index: Int) {
         guard index >= 0, index < current.count else { return }
@@ -683,7 +720,7 @@ struct LimitDialog: View {
             PanelHeader(title: "\(info.map { model.title(for: $0) } ?? "Oturum"): Limit Doldu") { StatusBadge(status: .limitReached) }
             if let info {
                 let waiting = waitWithin24Hours(info)
-                let actions = buildActions(info)
+                let actions = LimitActions.options(for: info)
                 VStack(alignment: .leading, spacing: 8) {
                     if let waiting {
                         T("\(waiting)'da Sıfırlanınca Kendiliğinden Sürer", bold: true)
@@ -708,12 +745,6 @@ struct LimitDialog: View {
         .frame(width: 640)
     }
 
-    struct Action {
-        let title: String
-        let note: String
-        let run: () -> Void
-    }
-
     private func waitWithin24Hours(_ info: SessionInfo) -> String? {
         guard info.tool == .claude else { return nil }
         let windows = [info.limit?.fiveHour, info.limit?.sevenDay].compactMap { $0 }
@@ -722,36 +753,6 @@ struct LimitDialog: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: resets)
-    }
-
-    private func conversationNote(_ info: SessionInfo) -> String {
-        if let tokens = info.contextTokens { return "Konuşma \(SessionText.shortTokens(tokens)) Token · İlk Mesajda Baştan Okunur" }
-        return "İlk Mesajda Konuşma Baştan Okunur"
-    }
-
-    private func buildActions(_ info: SessionInfo) -> [Action] {
-        var actions: [Action] = []
-        let others = accounts.accounts.filter { $0.tool == .claude && $0.id != (info.accountID ?? "system-claude") && $0.kind != .apiKey }
-        for account in others {
-            var limit = "Limit Henüz Bilinmiyor"
-            if let snapshot = account.lastLimit, let window = snapshot.fiveHour ?? snapshot.sevenDay {
-                let minutes = Int(Date().timeIntervalSince(snapshot.seenAt) / 60)
-                limit = "%\(Int(window.usedPercent)) Dolu · \(minutes) dk Önce"
-            }
-            actions.append(Action(title: "Başka Hesapla Devam: \(account.name)", note: "\(limit) · \(conversationNote(info))") {
-                LimitActions.resume(info, accountID: account.id)
-            })
-        }
-        for account in accounts.accounts where account.kind == .apiKey && account.tool == .claude {
-            actions.append(Action(title: "API Anahtarıyla Devam: \(account.name)", note: "Kullanıma Göre · Yalnız Bu Oturuma · \(conversationNote(info))") {
-                LimitActions.resume(info, accountID: account.id)
-            })
-        }
-        actions.append(Action(title: "Codex'e Özetle Geçir", note: "Yeni Oturum · Özet Aktarılır · Konuşma Geçmişi Taşınmaz") {
-            LimitActions.summarizeToCodex(info)
-        })
-        actions.append(Action(title: "Sıfırlanmayı Bekle", note: "Beklerken Limitten Yemez") { AppModel.shared.overlay = nil })
-        return actions
     }
 }
 

@@ -269,17 +269,18 @@ enum NotFoundActions {
         let model = AppModel.shared
         guard let card = model.notFound else { return }
         model.notFound = nil
-        var text: String
+        model.connection.sendInput(number: card.number, bytes: Data((command(for: card) + "\r").utf8))
+    }
+
+    static func command(for card: NotFoundCard) -> String {
         switch card.kind {
-        case .notInstalled(let install): text = install
+        case .notInstalled(let install): return install
         case .notInPath(let path), .inApp(let path):
             // Only this one command sees the folder. The shell's PATH does not change.
             let folder = (path as NSString).deletingLastPathComponent
-            text = "PATH=\(shellQuote(folder)):\"$PATH\" \(card.command)"
-        case .geminiRejected: text = "agy"
+            return "PATH=\(shellQuote(folder)):\"$PATH\" \(card.command)"
+        case .geminiRejected: return "agy"
         }
-        text += "\r"
-        model.connection.sendInput(number: card.number, bytes: Data(text.utf8))
     }
 
     static func copy(_ text: String) {

@@ -84,13 +84,7 @@ struct AccountAddPage: View {
         }
     }
     private func start() {
-        let account = AccountStore.shared.add(tool: tool, name: name.isEmpty ? tool.title : name)
-        started = account
-        var spec = SessionSpec(name: "giriş: \(account.name)", tool: .terminal, rows: 30, cols: 100, accountID: account.id)
-        var env = AccountStore.shared.environment(for: account.id)
-        env["ENTERM_STARTUP"] = tool == .codex ? "codex login" : "claude"
-        spec.env = env
-        model.create(spec)
+        started = AccountStore.shared.beginLogin(tool: tool, name: name)
     }
 }
 

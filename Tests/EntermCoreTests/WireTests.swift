@@ -325,3 +325,29 @@ final class TunnelTests: XCTestCase {
         XCTAssertEqual(PairingOffer(url: agent.offer.url), agent.offer)
     }
 }
+
+final class PhoneCallTests: XCTestCase {
+    func testCostAddsTokensByModelAndLeavesTerminalsOut() {
+        func info(_ number: UInt32, _ tool: ToolKind, model: String?, tokens: Int?) -> SessionInfo {
+            var value = SessionInfo(id: "\(number)", number: number, name: "", tool: tool, cwd: "/", status: .running, startedAt: Date())
+            value.model = model
+            value.contextTokens = tokens
+            return value
+        }
+        let lines = PhoneCost.byModel([info(1, .terminal, model: nil, tokens: 999), info(2, .claude, model: "Sonnet", tokens: 1000),
+                                       info(3, .claude, model: "Sonnet", tokens: 500), info(4, .codex, model: nil, tokens: nil)])
+        XCTAssertEqual(lines.map(\.name), ["Sonnet", "Codex"])
+        XCTAssertEqual(lines[0].tokens, 1500)
+        XCTAssertEqual(PhoneCost.short(1500), "1.5k")
+        XCTAssertEqual(PhoneCost.short(900), "900")
+    }
+
+    func testCallSurvivesTheWire() throws {
+        let call = PhoneCall("cardSet", number: 3, args: ["mode": "allow"])
+        let back = try JSONDecoder().decode(PhoneCall.self, from: JSONEncoder().encode(call))
+        XCTAssertEqual(back.name, "cardSet")
+        XCTAssertEqual(back.number, 3)
+        XCTAssertEqual(back.args["mode"], "allow")
+    }
+}
+

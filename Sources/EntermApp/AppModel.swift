@@ -215,6 +215,8 @@ final class AppModel: ObservableObject {
             if let data = message.text?.data(using: .utf8), let list = try? JSONDecoder().decode([HeavyEntry].self, from: data) {
                 heavyQueue = list
             }
+        case "appCallCmd":
+            PhoneBridge.handle(message)
         case "pairState":
             PhoneStore.shared.pairingChanged(state: message.text ?? "", detail: message.error)
         case "devices":
