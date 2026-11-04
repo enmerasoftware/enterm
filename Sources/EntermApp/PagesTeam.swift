@@ -240,7 +240,8 @@ struct BoardPage: View {
         ZStack(alignment: .trailing) {
             PageFrame(title: nil, wide: true) {
                 HStack {
-                    T("Pano · \(store.board.cards.count) Kart", bold: true)
+                    T("Pano", bold: true, style: .title)
+                    Dim("\(store.board.cards.count) Kart")
                     Spacer()
                     EntermField(placeholder: "Yeni Kart Başlığı", text: $newTitle)
                         .frame(width: 280)
@@ -313,7 +314,7 @@ struct BoardCardView: View {
     let card: BoardCard
     @ObservedObject var model = AppModel.shared
     var body: some View {
-        Panel(border: card.column == .decision ? Theme.palette.need : Theme.palette.line2) {
+        Panel(border: card.column == .decision ? Theme.palette.need : Theme.palette.hair) {
             VStack(alignment: .leading, spacing: 4) {
                 T(card.title, bold: true).lineLimit(2)
                 Dim(card.members.isEmpty ? "Üye Yok" : card.members.joined(separator: ", ")).lineLimit(1)

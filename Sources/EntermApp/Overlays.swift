@@ -46,15 +46,26 @@ struct MenuRow: View {
     var key = ""
     var selected = false
     let action: () -> Void
+    @State private var hovering = false
     var body: some View {
-        Row(selected: selected, action: action) {
-            VStack(alignment: .leading, spacing: 2) {
-                T(title)
-                if !note.isEmpty { Dim(note) }
+        Button(action: action) {
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 2) {
+                    T(title)
+                    if !note.isEmpty { Dim(note) }
+                }
+                Spacer(minLength: 16)
+                if !key.isEmpty { Key(key) }
             }
-            Spacer(minLength: 16)
-            if !key.isEmpty { Key(key) }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+            .background(selected || hovering ? Color(Theme.palette.fillSelected) : .clear)
+            .cornerRadius(Theme.cornerControl)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
     }
 }
 
@@ -73,10 +84,10 @@ struct CommandPalette: View {
     var body: some View {
         Panel {
             HStack(spacing: 8) {
-                T(">", color: Theme.palette.dim)
-                TextField("", text: $query, prompt: Text("Ne Yapmak İstersiniz?").foregroundColor(Color(Theme.palette.dim)))
+                Symbol("magnifyingglass")
+                TextField("", text: $query, prompt: Text("Ne Yapmak İstersiniz?").foregroundColor(Color(Theme.palette.text3)))
                     .textFieldStyle(.plain)
-                    .font(Theme.swiftFont())
+                    .font(Theme.uiFont(.body))
                     .foregroundColor(Color(Theme.palette.fg))
                     .focused($focus)
                     .onSubmit(run)
@@ -92,6 +103,7 @@ struct CommandPalette: View {
                         }
                     }
                 }
+                .padding(4)
             }
             .frame(maxHeight: 340)
             Line()
@@ -152,23 +164,29 @@ struct KeyCatcher: NSViewRepresentable {
 /// A program that is not installed: the reason and the command, before any box opens.
 struct InstallToolDialog: View {
     let tool: ToolKind
+    private var explanation: String {
+        let source: String
+        switch tool {
+        case .claude: source = "Claude Code'un resmî kurulum komutu."
+        case .codex: source = "Codex'in resmî kurulum komutu."
+        case .antigravity: source = "Antigravity'nin resmî kurulum komutu."
+        case .terminal: source = ""
+        }
+        return "\(source) Siz onaylamadan çalışmaz, onaylarsanız yeni terminalde görünür şekilde çalışır."
+    }
     var body: some View {
         Panel {
             PanelHeader(title: "\(tool.title) Bu Bilgisayarda Kurulu Değil")
-            VStack(alignment: .leading, spacing: 8) {
-                let command = ToolPresence.installCommand(tool) ?? ""
-                HStack {
-                    Mono(command).lineLimit(1).textSelection(.enabled)
-                    Spacer()
-                    Btn("Kopyala", kind: .plain) { NotFoundActions.copy(command) }
-                }
-                Dim("\(tool.title)'in Resmî Kurulum Komutu. Siz Onaylamadan Çalışmaz, Onaylarsanız Yeni Terminalde Görünür Şekilde Çalışır.")
-                HStack {
-                    Btn("Yeni Terminalde Çalıştır", kind: .primary, key: "⏎") { InstallToolActions.run(tool) }
-                    Btn("Vazgeç", kind: .plain, key: "Esc") { AppModel.shared.overlay = nil }
-                }
+            VStack(alignment: .leading, spacing: 12) {
+                CommandBox(text: ToolPresence.installCommand(tool) ?? "")
+                Dim(explanation).fixedSize(horizontal: false, vertical: true)
             }
-            .padding(12)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            DialogButtons {
+                Btn("Vazgeç", kind: .plain, key: "Esc") { AppModel.shared.overlay = nil }
+                Btn("Yeni Terminalde Çalıştır", kind: .primary, key: "⏎") { InstallToolActions.run(tool) }
+            }
         }
         .frame(width: 560)
     }
@@ -191,12 +209,15 @@ struct NewSessionMenu: View {
     var body: some View {
         Panel {
             PanelHeader(title: "Yeni Oturum") { Dim(model.displayPath(model.focusedInfo?.cwd ?? NSHomeDirectory())) }
+            VStack(spacing: 0) {
             MenuRow(title: "Terminal", key: "⌘T") { run("newTerminal") }
             MenuRow(title: "Claude Code", note: catalog.note(.claude), key: "c") { run("newClaude") }
             MenuRow(title: "Codex", note: catalog.note(.codex), key: "x") { run("newCodex") }
             MenuRow(title: "Antigravity", note: catalog.note(.antigravity).isEmpty ? "Gemini" : "Gemini · \(catalog.note(.antigravity))", key: "a") { run("newAntigravity") }
-            Line()
+            Line().padding(.vertical, 4)
             MenuRow(title: "Seçeneklerle Aç", note: "Klasör, Hesap, Yetki, Model") { run("newSessionOptions") }
+            }
+            .padding(4)
             Line()
             HStack { Dim("Tek Tıkla Açılır, Gerisi Hazır Gelir") }.padding(.horizontal, 12).frame(height: 24)
         }
@@ -234,8 +255,9 @@ struct LetterKeys: NSViewRepresentable {
 struct MainMenuPanel: View {
     var body: some View {
         Panel {
+            VStack(spacing: 0) {
             item("Yeni Terminal", key: "⌘T", id: "newTerminal")
-            Line()
+            Line().padding(.vertical, 4)
             item("Yeni Görünüm", note: "Dosyalar, Düzenleyici, Not", id: "newView")
             item("Pano", note: "Kartlar, Üyeler, Son Tarihler", id: "board")
             item("Konuşarak Yaz", note: "Konuşun, Yazıya Dönsün", key: "⌃⌘ Basılı", id: "voice")
@@ -245,9 +267,11 @@ struct MainMenuPanel: View {
             item("Ekibini Kur", note: "Birkaç Claude Code Birlikte Çalışır", id: "team")
             item("Hesaplar", note: "Claude Code, Codex, Antigravity Girişleri", id: "accounts")
             item("Telefonu Bağla", note: "Bu Terminali Telefonda Açın", id: "phone")
-            Line()
+            Line().padding(.vertical, 4)
             item("Ayarlar", key: "⌘,", id: "settings")
             item("Tüm Komutlar", key: "⌘K", id: "palette")
+            }
+            .padding(4)
         }
         .frame(width: 320)
     }

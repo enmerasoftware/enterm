@@ -95,21 +95,22 @@ struct ApprovalDialog: View {
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Dim("Hangi Komut")
-                        Mono(request.summary).textSelection(.enabled).lineLimit(6)
+                        ApprovalCommand(text: request.summary)
                     }
                     let mode = PermissionBook.load().card(for: request.sessionID).mode(request.category)
                     Dim("Yetki: \(request.category.title), \(mode.title)")
                     if request.category == .internet {
                         Dim("Aynı adres bir kez sorulur, sonra hatırlanır. Hatırlananları Yetkiler'den silebilirsiniz.")
                     }
-                    HStack(spacing: 8) {
-                        Btn("İzin Ver", kind: .primary, key: "y") { Approvals.decide(id: id, decision: "allow", remember: request.category == .internet) }
-                        Btn("Reddet", key: "n") { Approvals.decide(id: id, decision: "deny") }
-                        Btn("Bu Oturumda Hep İzin Ver", kind: .plain) { Approvals.allowForSession(request) }
-                    }
                     Dim("Yalnız Bu Komut İçin · Kayda Geçer")
                 }
-                .padding(12)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+                DialogButtons {
+                    Btn("Bu Oturumda Hep İzin Ver", kind: .plain) { Approvals.allowForSession(request) }
+                    Btn("Reddet", key: "n") { Approvals.decide(id: id, decision: "deny") }
+                    Btn("İzin Ver", kind: .primary, key: "y") { Approvals.decide(id: id, decision: "allow", remember: request.category == .internet) }
+                }
             } else {
                 Dim("Bu istek artık bekliyor değil.").padding(12)
             }
@@ -150,17 +151,18 @@ struct LinkPermissionDialog: View {
                     Seg(options: [(false, "Tek Yön"), (true, "Çift Yön")], value: $bothWays)
                 }
                 Dim("Bağlantı yetki vermez, ajan mesajı onay sayılmaz.")
-                HStack {
-                    Btn("Vazgeç", kind: .plain, key: "Esc") { model.overlay = nil }
-                    Btn("Bağla", kind: .primary) {
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            DialogButtons {
+                Btn("Vazgeç", kind: .plain, key: "Esc") { model.overlay = nil }
+                Btn("Bağla", kind: .primary) {
                         if let source, let target {
                             LinkStore.shared.add(SessionLink(from: source.id, to: target.id, permission: permission, bothWays: bothWays))
                         }
                         model.overlay = nil
-                    }
                 }
             }
-            .padding(12)
         }
         .frame(width: 520)
     }
@@ -189,7 +191,11 @@ struct LinkDetailDialog: View {
                             get: { link.bothWays },
                             set: { var edited = link; edited.bothWays = $0; links.update(edited) }))
                     }
-                    HStack {
+                    Dim("Silince mesaj geçmişi kalır, yeni mesaj gitmez.")
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+                DialogButtons {
                         Btn("Bağlantıyı Sil", kind: .danger) {
                             links.remove(id)
                             model.overlay = nil
@@ -199,10 +205,7 @@ struct LinkDetailDialog: View {
                             model.page = .messages
                         }
                         Btn("Kapat", kind: .plain, key: "Esc") { model.overlay = nil }
-                    }
-                    Dim("Silince mesaj geçmişi kalır, yeni mesaj gitmez.")
                 }
-                .padding(12)
             }
             .frame(width: 520)
         }
@@ -282,7 +285,8 @@ struct LimitBars: View {
     private func bar(_ title: String, _ window: LimitWindow) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                T("\(title) %\(Int(window.usedPercent))")
+                T(title, color: Theme.palette.text2, style: .secondary)
+                T("%\(Int(window.usedPercent))", style: .secondary)
                 Spacer()
                 if let resets = window.resetsAt { Dim(TimeText.reset(resets)) }
             }
@@ -690,14 +694,14 @@ struct LimitDialog: View {
                     ForEach(Array(actions.enumerated()), id: \.offset) { index, action in
                         MenuRow(title: action.title, note: action.note, key: "\(index + 1)") { action.run() }
                     }
-                    Line()
-                    HStack {
-                        Dim("Hesap Değişimi Yalnız Sizin Seçiminizle")
-                        Spacer()
-                        Btn("Kapat", kind: .plain, key: "Esc") { model.overlay = nil }
-                    }
                 }
-                .padding(12)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+                DialogButtons {
+                    Dim("Hesap Değişimi Yalnız Sizin Seçiminizle")
+                    Spacer()
+                    Btn("Kapat", kind: .plain, key: "Esc") { model.overlay = nil }
+                }
                 .onAppear { LimitActions.current = actions.map(\.run) }
             }
         }
@@ -788,12 +792,12 @@ struct SSHListDialog: View {
                 }
                 if card.mode(.ssh) == .deny { T("Bu kartta SSH kapalı. Liste, kart açılınca geçerli olur.", color: Theme.palette.limit) }
                 Dim("Anahtarlar ~/.ssh içinde kalır, Enterm okumaz.")
-                HStack {
-                    Spacer()
-                    Btn("Kapat", kind: .plain, key: "Esc") { model.overlay = nil }
-                }
             }
-            .padding(12)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            DialogButtons {
+                Btn("Kapat", kind: .plain, key: "Esc") { model.overlay = nil }
+            }
         }
         .frame(width: 640)
     }

@@ -37,7 +37,7 @@ enum Page: Equatable {
 }
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case appearance, shortcuts, security, power, voice, sleep
+    case appearance, shortcuts, security, power, voice, sleep, notify
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -47,6 +47,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .power: return "Güç Sınırı"
         case .voice: return "Ses"
         case .sleep: return "Uyku"
+        case .notify: return "Betikten Bildirim"
         }
     }
     var icon: String {
@@ -57,6 +58,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .power: return "gauge.with.needle"
         case .voice: return "waveform"
         case .sleep: return "moon"
+        case .notify: return "bell"
         }
     }
 }

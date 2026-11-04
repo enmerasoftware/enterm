@@ -176,6 +176,15 @@ final class PhoneCenter {
         default:
             return
         }
+        send(notice)
+    }
+
+    /// `enterm notify` reaches paired phones too.
+    func scriptSaid(_ text: String) {
+        send(PhoneNotice(kind: "event", title: "Enterm", body: text))
+    }
+
+    private func send(_ notice: PhoneNotice) {
         guard let plain = try? JSONEncoder().encode(notice) else { return }
         for device in devices {
             guard let token = device.pushToken, let sealed = TunnelCrypto.sealNotification(plain, pairKey: device.key) else { continue }

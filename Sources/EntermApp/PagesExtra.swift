@@ -112,17 +112,18 @@ struct LimitOpenedDialog: View {
                 VStack(alignment: .leading, spacing: 12) {
                     T("Başladığınız hesabın limiti açıldı, dönülsün mü?")
                     Dim("Dönülecek: \(target.accountName). Dönüş, hesap değişimi gibi ilk mesajda konuşmayı baştan okur.")
-                    HStack {
-                        Btn("\(target.accountName) Hesabına Dön", kind: .primary, key: "⏎") {
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+                DialogButtons {
+                    Btn("Burada Kalsın", kind: .plain, key: "Esc") { model.overlay = nil }
+                    Btn("\(target.accountName) Hesabına Dön", kind: .primary, key: "⏎") {
                             model.overlay = nil
                             let arguments = target.conversation.map { "--resume \(NotFoundActions.shellQuote($0))" } ?? "--continue"
                             ToolLauncher.start(.claude, cwd: target.cwd, name: target.sessionName.isEmpty ? nil : target.sessionName, accountID: target.accountID, extraArguments: arguments)
                         }
                         .keyboardShortcut(.defaultAction)
-                        Btn("Burada Kalsın", kind: .plain, key: "Esc") { model.overlay = nil }
-                    }
                 }
-                .padding(12)
             }
         }
         .frame(width: 560)
@@ -150,12 +151,12 @@ struct ResumeFailedDialog: View {
                         }
                     }
                 }
-                HStack {
-                    Spacer()
-                    Btn("Terminale Bak", kind: .plain, key: "Esc") { model.overlay = nil }
-                }
             }
-            .padding(12)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            DialogButtons {
+                Btn("Terminale Bak", kind: .plain, key: "Esc") { model.overlay = nil }
+            }
         }
         .frame(width: 600)
     }
@@ -169,13 +170,14 @@ struct CodexLimitDialog: View {
             PanelHeader(title: "Limit Dolmuş Olabilir, Kontrol Edin") { T("■ Kontrol Edin", color: Theme.palette.limit, bold: true) }
             VStack(alignment: .leading, spacing: 12) {
                 Dim("Codex limit sözü geçen bir hata yazdı, kesin bilgi gelmedi.")
-                HStack {
-                    Btn("Terminale Bak", kind: .plain) { model.overlay = nil }
-                    Btn("Limit Doldu", kind: .outline) { model.overlay = .limit(number) }
-                    Btn("Sorun Yok", kind: .plain, key: "Esc") { model.overlay = nil }
-                }
             }
-            .padding(12)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            DialogButtons {
+                Btn("Sorun Yok", kind: .plain, key: "Esc") { model.overlay = nil }
+                Btn("Terminale Bak", kind: .plain) { model.overlay = nil }
+                Btn("Limit Doldu") { model.overlay = .limit(number) }
+            }
         }
         .frame(width: 520)
     }

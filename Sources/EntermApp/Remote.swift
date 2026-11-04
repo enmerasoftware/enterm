@@ -121,17 +121,18 @@ struct RemoteLostDialog: View {
             PanelHeader(title: "Bağlantı Koptu") { T("✕ Bağlantı Yok", color: Theme.palette.err, bold: true) }
             VStack(alignment: .leading, spacing: 12) {
                 Dim("İnternet ya da sunucu yanıt vermiyor. Yazdıklarınız gönderilmedi. Sunucuda komut orada sürebilir; Enterm bunu bilemez.")
-                HStack {
-                    Btn("Yeniden Bağlan", kind: .primary, key: "⏎") {
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            DialogButtons {
+                Btn("Kapat", kind: .plain, key: "Esc") { model.overlay = nil }
+                Btn("Yeniden Bağlan", kind: .primary, key: "⏎") {
                         model.overlay = nil
                         model.close(number)
                         remote?.open()
                     }
                     .keyboardShortcut(.defaultAction)
-                    Btn("Kapat", kind: .plain, key: "Esc") { model.overlay = nil }
-                }
             }
-            .padding(12)
         }
         .frame(width: 560)
     }

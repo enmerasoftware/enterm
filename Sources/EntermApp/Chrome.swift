@@ -229,18 +229,14 @@ struct InlineCards: View {
                 VStack(alignment: .leading, spacing: 8) {
                     switch card.kind {
                     case .notInstalled(let install):
-                        HStack {
-                            Mono(install).lineLimit(1).textSelection(.enabled)
-                            Spacer()
-                            Btn("Kopyala", kind: .plain) { NotFoundActions.copy(install) }
-                        }
+                        CommandBox(text: install)
                         Dim("Komut bu terminalde görünür şekilde çalışır. Kendiniz de yazabilirsiniz.")
                         HStack {
                             Btn("Bu Terminalde Çalıştır", kind: .primary, key: "⏎") { NotFoundActions.primary() }
                             Btn("Vazgeç", kind: .plain, key: "Esc") { model.notFound = nil }
                         }
                     case .notInPath(let path):
-                        Mono(path)
+                        CommandBox(text: path)
                         Dim("Kurulum bitmiş, ama bu klasör PATH'te değil. PATH değişmez, Enterm bu kopyayı tam yolla çalıştırır.")
                         HStack {
                             Btn("Buradan Çalıştır", kind: .primary, key: "⏎") { NotFoundActions.primary() }
@@ -248,7 +244,7 @@ struct InlineCards: View {
                             Btn("Vazgeç", kind: .plain, key: "Esc") { model.notFound = nil }
                         }
                     case .inApp(let path):
-                        Mono(path).lineLimit(1)
+                        CommandBox(text: path)
                         Dim("PATH değişmez, Enterm bu kopyayı tam yolla çalıştırır.")
                         HStack {
                             Btn("Buradan Çalıştır", kind: .primary, key: "⏎") { NotFoundActions.primary() }

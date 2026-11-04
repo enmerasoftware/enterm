@@ -3,6 +3,7 @@ import AppKit
 import CoreGraphics
 import EntermCore
 import QuartzCore
+import SwiftUI
 
 /// A test hook, active only when `ENTERM_DEBUG_DIR` is set. On SIGUSR1 it runs the lines of `<dir>/cmd`.
 /// It lets automated checks drive the running app and capture its own window without system permissions.
@@ -85,6 +86,10 @@ final class DebugDriver {
                 if case .compare(let offer, _, _) = PhoneStore.shared.pairing { try? offer.write(toFile: rest, atomically: true, encoding: .utf8) }
             case "pairstate":
                 try? "\(PhoneStore.shared.pairing)\n\(PhoneStore.shared.devices)\n".write(toFile: rest, atomically: true, encoding: .utf8)
+            case "settingstab":
+                if let tab = SettingsTab(rawValue: rest) { AppModel.shared.page = .settings(tab) }
+            case "showapproval":
+                if let id = AppModel.shared.sessions.compactMap(\.pendingApproval).first?.id { AppModel.shared.overlay = .approval(id) }
             case "pairremove":
                 if let device = PhoneStore.shared.devices.first { PhoneStore.shared.remove(device.id) }
             case "sleepsim":
@@ -180,8 +185,12 @@ final class DebugDriver {
               let view = window.contentView, let layer = view.layer else { return }
         AppModel.shared.flushPending()
         let size = view.bounds.size
+        // Terminals draw through draw(_:), which a layer render misses. So the picture is built in order:
+        // everything under the terminals, the terminals, and last whatever covers them.
+        let cover = view.subviews.flatMap { $0.subviews }.first { $0 is NSHostingView<CoverContent> } ?? view.subviews.first { $0 is NSHostingView<CoverContent> }
         let terminals = Self.terminals(in: view).filter { !$0.isHiddenOrHasHiddenAncestor }
         terminals.forEach { $0.isHidden = true }
+        cover?.isHidden = true
         window.displayIfNeeded()
         guard let context = Self.context(size) else { return }
         context.translateBy(x: 0, y: size.height)
@@ -190,15 +199,22 @@ final class DebugDriver {
         context.scaleBy(x: 1, y: -1)
         context.translateBy(x: 0, y: -size.height)
         terminals.forEach { $0.isHidden = false }
+        cover?.isHidden = false
         window.displayIfNeeded()
-        // Terminal views draw through draw(_:). Dialogs cover them, so they are only added without a cover.
-        if AppModel.shared.overlay == nil, AppModel.shared.page == nil {
-            for host in terminals {
-                guard let picture = Self.picture(of: host) else { continue }
-                let rect = host.convert(host.bounds, to: view)
-                let y = view.isFlipped ? size.height - rect.maxY : rect.minY
-                context.draw(picture, in: CGRect(x: rect.minX, y: y, width: rect.width, height: rect.height))
-            }
+        for host in terminals {
+            guard let picture = Self.picture(of: host) else { continue }
+            let rect = host.convert(host.bounds, to: view)
+            let y = view.isFlipped ? size.height - rect.maxY : rect.minY
+            context.draw(picture, in: CGRect(x: rect.minX, y: y, width: rect.width, height: rect.height))
+        }
+        if let cover, let coverLayer = cover.layer {
+            let rect = cover.convert(cover.bounds, to: view)
+            let y = view.isFlipped ? size.height - rect.maxY : rect.minY
+            context.saveGState()
+            context.translateBy(x: rect.minX, y: y + rect.height)
+            context.scaleBy(x: 1, y: -1)
+            coverLayer.render(in: context)
+            context.restoreGState()
         }
         guard let image = context.makeImage() else { return }
         let rep = NSBitmapImageRep(cgImage: image)

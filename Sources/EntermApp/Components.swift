@@ -51,7 +51,81 @@ struct Mono: View {
 struct Key: View {
     let text: String
     init(_ text: String) { self.text = text }
-    var body: some View { T(text, color: Theme.palette.text3, style: .hint) }
+    var body: some View { T(Self.label(text), color: Theme.palette.text3, style: .hint) }
+
+    /// A letter key is written the way it is printed on the keyboard.
+    static func label(_ text: String) -> String {
+        text.count == 1 ? text.uppercased(with: Locale(identifier: "en_US_POSIX")) : text
+    }
+}
+
+/// A command to read in full before it runs: it wraps, it never gets cut.
+struct CommandBox: View {
+    let text: String
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Mono(text)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            Btn("Kopyala", kind: .plain) { NotFoundActions.copy(text) }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(Theme.palette.terminal))
+        .cornerRadius(Theme.cornerControl)
+    }
+}
+
+/// A long request stays short until asked. Nothing in it is hidden without saying so.
+struct ApprovalCommand: View {
+    let text: String
+    var lines = 6
+    @State private var expanded = false
+    private var isLong: Bool {
+        text.split(separator: "\n", omittingEmptySubsequences: false).count > lines || text.count > lines * 60
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Mono(text)
+                .textSelection(.enabled)
+                .lineLimit(expanded ? nil : lines)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(Theme.palette.terminal))
+                .cornerRadius(Theme.cornerControl)
+            if isLong, !expanded {
+                Btn("Tamamını Gör", kind: .plain) { expanded = true }
+            }
+        }
+    }
+}
+
+/// The row at the foot of a dialog. The main action is the last one, on the right.
+struct DialogButtons<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        HStack(spacing: 8) {
+            Spacer(minLength: 0)
+            content()
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity)
+        .background(Color(Theme.palette.surface1))
+        .overlay(alignment: .top) { Line() }
+    }
+}
+
+extension View {
+    /// A row inside a settings group.
+    func settingsRow() -> some View {
+        padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .overlay(alignment: .top) { Line() }
+    }
 }
 
 enum BtnKind { case plain, outline, primary, danger, selected }
@@ -81,7 +155,7 @@ struct Btn: View {
                     .foregroundColor(Color(foreground))
                     .lineLimit(1)
                 if let key {
-                    Text(key)
+                    Text(Key.label(key))
                         .font(Theme.uiFont(.hint))
                         .foregroundColor(kind == .primary ? Color(palette.btnfg).opacity(0.7) : Color(palette.text3))
                 }
@@ -266,6 +340,7 @@ struct Panel<Content: View>: View {
         let palette = Theme.palette
         let radius = floating ? Theme.cornerFloat : Theme.cornerCard
         VStack(alignment: .leading, spacing: 0, content: content)
+            .frame(maxWidth: floating ? nil : .infinity, alignment: .leading)
             .background(Color(floating ? palette.surface2 : palette.surface1))
             .cornerRadius(radius)
             .overlay(RoundedRectangle(cornerRadius: radius).stroke(Color(border ?? (floating ? palette.hair2 : palette.hair))))
@@ -276,15 +351,17 @@ struct Panel<Content: View>: View {
 struct PanelHeader<Trailing: View>: View {
     let title: String
     @ViewBuilder var trailing: () -> Trailing
+    @Environment(\.floatingPanel) private var floating
     var body: some View {
         HStack {
             T(title, bold: true, style: .section)
             Spacer()
             trailing()
         }
-        .padding(.leading, 12)
-        .padding(.trailing, 8)
-        .frame(minHeight: 36)
+        .padding(.leading, floating ? 20 : 12)
+        .padding(.trailing, floating ? 20 : 8)
+        .padding(.top, floating ? 8 : 0)
+        .frame(minHeight: floating ? 44 : 36)
     }
 }
 

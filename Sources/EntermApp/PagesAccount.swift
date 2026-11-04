@@ -8,7 +8,7 @@ struct AccountsPage: View {
     var body: some View {
         PageFrame(title: nil) {
             HStack {
-                T("Hesaplar", bold: true)
+                T("Hesaplar", bold: true, style: .title)
                 Spacer()
                 Btn("API Anahtarı Ekle") { model.page = .apiKey }
                 Btn("Hesap Ekle", kind: .primary) { model.page = .accountAdd }
@@ -159,7 +159,7 @@ struct InboxPage: View {
                 Panel(border: Theme.palette.need) {
                     VStack(alignment: .leading, spacing: 8) {
                         T("◆ \(info.map { model.title(for: $0) } ?? "Oturum"): \(request.category.title)", color: Theme.palette.need, bold: true)
-                        Mono(request.summary).lineLimit(4)
+                        ApprovalCommand(text: request.summary, lines: 4)
                         HStack {
                             Btn("İzin Ver", kind: .primary) { Approvals.decide(id: request.id, decision: "allow", remember: request.category == .internet) }
                             Btn("Reddet") { Approvals.decide(id: request.id, decision: "deny") }
@@ -284,6 +284,7 @@ struct SettingsPage: View {
                         case .power: powerSection
                         case .voice: voice
                         case .sleep: sleep
+                        case .notify: notify
                         }
                     }
                     .padding(32)
@@ -312,18 +313,19 @@ struct SettingsPage: View {
     }
 
     private func line<Content: View>(_ title: String, _ note: String = "", @ViewBuilder content: () -> Content) -> some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading) {
+        HStack(spacing: 24) {
+            VStack(alignment: .leading, spacing: 2) {
                 T(title)
-                if !note.isEmpty { Dim(note) }
+                if !note.isEmpty { Dim(note).fixedSize(horizontal: false, vertical: true) }
             }
-            Spacer(minLength: 16)
+            Spacer(minLength: 0)
             content()
         }
+        .settingsRow()
     }
 
     private var appearance: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        Panel {
             line("Program Açılınca", "Son görünüm: kapattığınız ekranla açılır") {
                 Seg(options: [(true, "Son Görünüm"), (false, "Tek Terminal")], value: $store.settings.openWithLastView)
             }
@@ -355,7 +357,7 @@ struct SettingsPage: View {
     private var shortcuts: some View { ShortcutEditor() }
 
     private var security: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        Panel {
             line("Terminal Dökümünü Sakla", "Yeniden açılışta geri gelir, diske şifresiz yazılır") {
                 Seg(options: [(true, "Açık"), (false, "Kapalı")], value: $store.settings.keepTranscript)
             }
@@ -371,19 +373,21 @@ struct SettingsPage: View {
                     }))
             }
             line("Ajan Mesajı Onay Sayılmaz", "Kapatılamaz") { T("Zorunlu") }
-            line("Bağlı Cihazlar", "Telefon bağlantısı bu sürümde yok") { Dim("Henüz Yok") }
+            line("Bağlı Cihazlar", "Oturumları telefonda görün, onay verin") {
+                Btn("Cihazlar") { AppModel.shared.page = .phone }
+            }
         }
     }
 
     private var powerSection: some View {
         VStack(alignment: .leading, spacing: 16) {
+            Panel {
             line("Düşük Güçlü Bilgisayar", "Hareket kapalı, odak dışındaki kutular seyrek güncellenir, tarayıcı açılmaz.") {
                 Seg(options: [(false, "Kapalı"), (true, "Açık")], value: $power.settings.lowPower)
             }
             line("Bilgisayarın Gücünün En Çok Şu Kadarını Kullan") {
                 Seg(options: [(25, "%25"), (50, "%50"), (75, "%75"), (100, "Sınırsız")], value: $power.settings.cpuLimit)
             }
-            Dim("Bu bir üst hedeftir, kesin ölçüm değildir. Sınıra yaklaşınca yeni iş sıraya girer, arka plandaki oturumun önceliği düşer. İşlemciyle birlikte bellek baskısı da sayılır. Düz terminallere dokunulmaz.")
             line("Aynı Anda En Çok Şu Kadar Oturum Çalışsın", "Fazlası Sırada bekler, çalışan iş durmaz.") {
                 HStack {
                     Seg(options: [(true, "Otomatik"), (false, "Elle")], value: $power.settings.sessionsAutomatic)
@@ -396,15 +400,17 @@ struct SettingsPage: View {
                     }
                 }
             }
-            Line()
-            T("Ağır İş Sırası", bold: true)
-            HeavyQueueList()
-            Line()
-            T("Şu Anki Kullanım", bold: true)
-            HStack { T("Enterm"); Spacer(); Dim(String(format: "%%%.1f · %.0f MB", power.enterm.cpu, power.enterm.memoryMB)) }
-            HStack { T("Claude Code, Codex Ve Antigravity"); Spacer(); Dim(String(format: "%%%.1f · %.0f MB", power.agents.cpu, power.agents.memoryMB)) }
+            }
+            Dim("Bu bir üst hedeftir, kesin ölçüm değildir. Sınıra yaklaşınca yeni iş sıraya girer, arka plandaki oturumun önceliği düşer. İşlemciyle birlikte bellek baskısı da sayılır. Düz terminallere dokunulmaz.")
+            T("Ağır İş Sırası", bold: true, style: .section)
+            Panel { HeavyQueueList() }
+            T("Şu Anki Kullanım", bold: true, style: .section)
+            Panel {
+            HStack { T("Enterm"); Spacer(); Dim(String(format: "%%%.1f · %.0f MB", power.enterm.cpu, power.enterm.memoryMB)) }.settingsRow()
+            HStack { T("Claude Code, Codex Ve Antigravity"); Spacer(); Dim(String(format: "%%%.1f · %.0f MB", power.agents.cpu, power.agents.memoryMB)) }.settingsRow()
+            HStack { T("Bellek Baskısı"); Spacer(); Dim(power.pressure.title) }.settingsRow()
+            }
             Dim("Ajanların yükü Enterm'in elinde değildir. Aynı anda çalışan oturum sayısıyla azalır.")
-            HStack { T("Bellek Baskısı"); Spacer(); Dim(power.pressure.title) }
             Btn("Yeniden Ölç", kind: .plain) { power.measureUsage() }
         }
         .onAppear { power.measureUsage() }
@@ -412,19 +418,18 @@ struct SettingsPage: View {
 
     private var voice: some View {
         VStack(alignment: .leading, spacing: 16) {
+            Panel {
             line("Konuşarak Yazma", "Basılı tutun, konuşun, bırakın. Kullanılmadıkça yük bindirmez.") {
                 HStack {
                     Key("⌃⌘")
                     Seg(options: [(true, "Açık"), (false, "Kapalı")], value: $store.settings.voiceEnabled)
                 }
             }
-            Panel {
-                Row { VStack(alignment: .leading) { T("Sistem Diktesi"); Dim("İşletim sisteminin hizmeti. İndirme yok, bellek yükü Enterm'de yok. Mümkünse cihazda işlenir.") }; Spacer(); T("Seçili", bold: true) }
-                Line()
-                Row { VStack(alignment: .leading) { T("Yerel Whisper Modeli"); Dim("Küçük, Orta, Büyük. Ses bilgisayardan çıkmaz.") }; Spacer(); Dim("Henüz Yok") }
-            }
+            Row { VStack(alignment: .leading) { T("Sistem Diktesi"); Dim("İşletim sisteminin hizmeti. İndirme yok, bellek yükü Enterm'de yok. Mümkünse cihazda işlenir.") }; Spacer(); T("Seçili", bold: true) }.overlay(alignment: .top) { Line() }
+            Row { VStack(alignment: .leading) { T("Yerel Whisper Modeli"); Dim("Küçük, Orta, Büyük. Ses bilgisayardan çıkmaz.") }; Spacer(); Dim("Henüz Yok") }.overlay(alignment: .top) { Line() }
             line("Dil") {
                 Seg(options: [("tr-TR", "Türkçe"), ("en-US", "English")], value: $store.settings.voiceLanguage)
+            }
             }
             Dim("Metni siz gönderirsiniz: Enter'a siz basarsınız. Tuş bırakılınca mikrofon hemen kapanır.")
         }
@@ -432,11 +437,23 @@ struct SettingsPage: View {
 
     private var sleep: some View {
         VStack(alignment: .leading, spacing: 16) {
+            Panel {
             line("Ajan Çalışırken Bilgisayar Uyumasın", "Ajan bitince engel kalkar. Düz terminal için çalışmaz.") {
                 Seg(options: [(false, "Kapalı"), (true, "Açık")], value: $store.settings.keepAwakeWhileAgents)
             }
-            HStack { T("Şu An"); Spacer(); Dim(ExtensionsHub.shared.isHoldingAwake ? "Uyku Engelleniyor" : "Engel Yok") }
+            HStack { T("Şu An"); Spacer(); Dim(ExtensionsHub.shared.isHoldingAwake ? "Uyku Engelleniyor" : "Engel Yok") }.settingsRow()
+            }
             Dim("Kapak kapanırsa macOS yine uyuyabilir.")
+        }
+    }
+
+    /// A script tells the phone something. The command goes through the session service.
+    private var notify: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            T("Kendi betiğiniz telefona bildirim göndersin:")
+            CommandBox(text: "enterm notify \"Derleme bitti\"")
+            Dim("Bu bilgisayarda anahtar gerekmez. Bildirim içeriği yolda şifreli gider. Komutun başarılı dönmesi telefona ulaştı demek değildir. Çok sık gönderim sınırlanır.")
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -447,7 +464,8 @@ struct ShortcutEditor: View {
     @State private var message = ""
     @State private var monitor: Any?
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 16) {
+            Panel {
             ForEach(ShortcutBook.defaults, id: \.id) { item in
                 HStack {
                     T(item.title)
@@ -462,11 +480,13 @@ struct ShortcutEditor: View {
                         startCapture(item.id)
                     }
                 }
+                .settingsRow()
             }
-            if !message.isEmpty { T(message, color: Theme.palette.limit) }
-            HStack { T("Oturum 1 İla 9"); Spacer(); Key("⌘1 - ⌘9") }
-            HStack { T("Konuşarak Yaz"); Spacer(); Key("⌃⌘ Basılı") }
-            HStack { T("İzin Ver, Reddet"); Spacer(); Key("y n") }
+            HStack { T("Oturum 1 İla 9"); Spacer(); Key("⌘1 - ⌘9") }.settingsRow()
+            HStack { T("Konuşarak Yaz"); Spacer(); Key("⌃⌘ Basılı") }.settingsRow()
+            HStack { T("İzin Ver, Reddet"); Spacer(); Key("Y N") }.settingsRow()
+            }
+            if !message.isEmpty { T(message, color: Theme.palette.err) }
             Dim("Terminal odaktayken tuşlar terminale gider, Esc çalışmayı keser. Kısayol ⌘ ya da ⌃ içermelidir, tek tuş terminale aittir.")
         }
         .onDisappear(perform: stopCapture)
@@ -512,14 +532,21 @@ struct HeavyQueueList: View {
     @ObservedObject var model = AppModel.shared
     var body: some View {
         if model.heavyQueue.isEmpty {
-            Dim("Sırada ağır iş yok. Derleme ve toplu test gibi komutlar ajanlar arasında tek tek çalışır (Claude Code).")
+            DimRow("Sırada ağır iş yok. Derleme ve toplu test gibi komutlar ajanlar arasında tek tek çalışır (Claude Code).")
         }
         ForEach(Array(model.heavyQueue.enumerated()), id: \.element.id) { index, item in
             HStack {
-                T("\(index + 1). \(item.name): \(item.command)").lineLimit(1)
+                Mono("\(index + 1). \(item.name): \(item.command)").lineLimit(1)
                 Spacer()
                 Dim(item.running ? "● Çalışıyor" : "○ Sırada")
             }
+            .settingsRow()
         }
     }
+}
+
+private struct DimRow: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View { Dim(text).fixedSize(horizontal: false, vertical: true).settingsRow() }
 }

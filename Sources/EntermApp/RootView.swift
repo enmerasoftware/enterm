@@ -105,7 +105,7 @@ final class RootView: NSView {
         side.isHidden = sideWidth == 0
         let canvasRect = NSRect(x: 0, y: barHeight, width: bounds.width - sideWidth, height: bounds.height - barHeight - foot - toolbar)
         if canvas.frame != canvasRect { canvas.frame = canvasRect }
-        let cardsHeight: CGFloat = model.notFound == nil ? 0 : 190
+        let cardsHeight: CGFloat = model.notFound == nil ? 0 : 216
         // The card sits inside the box of the session it belongs to.
         var anchor = canvasRect
         if let number = model.notFound?.number, let box = canvas.boxes[number], !box.isHidden {

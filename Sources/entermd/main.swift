@@ -305,6 +305,7 @@ final class Service {
             var note = WireMessage(op: "notice")
             note.text = message.text
             broadcast(note)
+            phones.scriptSaid(message.text ?? "")
             var reply = WireMessage(op: "ok")
             reply.id = message.id
             send(reply.frame(), to: client)
