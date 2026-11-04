@@ -6,17 +6,17 @@ struct LockGate: View {
     @EnvironmentObject var model: PhoneModel
     var body: some View {
         if model.locked, model.peer != nil {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 Spacer()
-                Txt("enterm", bold: true)
-                Txt("Enterm Kilitli", bold: true)
-                DimTxt("Terminal bu telefondan bilgisayarda komut çalıştırır. Açmak için doğrulayın.")
+                Image(systemName: "lock.fill").font(.system(size: 32)).foregroundColor(Palette.text2)
+                Txt("Uygulama Kilitli", style: .title3, weight: .semibold)
+                Txt("Bu telefon bilgisayarda komut çalıştırabilir. Açmak için doğrulayın.", color: Palette.text2)
+                Spacer()
                 ActionButton("Kilidi Aç", style: .primary) { Task { await model.unlock() } }
-                Spacer()
             }
             .padding(16)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(Palette.bg)
+            .background(Palette.surface0)
             .task { await model.unlock() }
         } else {
             RootScreen()
@@ -57,6 +57,7 @@ struct ConnectingScreen: View {
 
 struct MainTabs: View {
     @EnvironmentObject var model: PhoneModel
+    @ScaledMetric private var tabIcon: CGFloat = 22
     var body: some View {
         VStack(spacing: 0) {
             if let route = model.route.last {
@@ -82,23 +83,44 @@ struct MainTabs: View {
     private var tabBar: some View {
         let waiting = model.waitingApprovals.count + model.attention.count
         return HStack(spacing: 0) {
-            tabItem("Oturum", 0)
-            tabItem("Tuval", 1)
-            tabItem(waiting > 0 ? "◆ Onay \(waiting)" : "Onay", 2)
-            tabItem("Daha", 3)
+            tabItem("Oturum", icon: "terminal", 0)
+            tabItem("Tuval", icon: "square.grid.2x2", 1)
+            tabItem("Onay", icon: "checkmark.shield", 2, count: waiting)
+            tabItem("Daha", icon: "ellipsis.circle", 3)
         }
-        .frame(height: 50)
-        .background(Palette.panel)
-        .overlay(alignment: .top) { Rectangle().fill(Palette.line).frame(height: 1) }
+        .frame(minHeight: 50)
+        .background(Palette.surface1)
+        .overlay(alignment: .top) { Rectangle().fill(Palette.hair).frame(height: 1) }
     }
 
-    private func tabItem(_ title: String, _ index: Int) -> some View {
-        Button { model.tab = index } label: {
-            Txt(title, color: model.tab == index ? Palette.fg : Palette.dim, bold: model.tab == index)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
+    private func tabItem(_ title: String, icon: String, _ index: Int, count: Int = 0) -> some View {
+        let on = model.tab == index
+        return Button { model.tab = index } label: {
+            VStack(spacing: 2) {
+                Image(systemName: icon)
+                    .font(.system(size: tabIcon))
+                    .foregroundColor(on ? Palette.text1 : Palette.text2)
+                    .overlay(alignment: .topTrailing) {
+                        if count > 0 {
+                            Text("\(count)")
+                                .font(.caption2.weight(.semibold))
+                                .monospacedDigit()
+                                .foregroundColor(Palette.btnfg)
+                                .padding(.horizontal, 4)
+                                .background(Palette.btn)
+                                .clipShape(Capsule())
+                                .offset(x: 10, y: -6)
+                        }
+                    }
+                Txt(title, color: on ? Palette.text1 : Palette.text2, style: .caption2, weight: on ? .semibold : .regular)
+            }
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(count > 0 ? "\(title), \(count) Bekliyor" : title)
+        .accessibilityShowsLargeContentViewer()
     }
 }
 
@@ -118,7 +140,7 @@ struct ConnectionBanner: View {
         }
     }
     private func bar(_ text: String, color: Color) -> some View {
-        Txt(text, color: color, bold: true)
+        Txt(text, color: color, style: .subheadline, weight: .medium)
             .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
             .padding(.horizontal, 16)
             .background(Palette.panel)
@@ -153,42 +175,74 @@ struct OfflineCard: View {
     }
 }
 
+/// One badge everywhere: neutral, and in colour only when it asks for something.
 struct StatusText: View {
     let info: SessionInfo
+    @ScaledMetric private var symbol: CGFloat = 9
     var body: some View {
-        Txt("\(info.status.symbol) \(info.status.title)", color: color, bold: info.status == .needsApproval)
+        HStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: symbol, weight: .semibold)).foregroundColor(symbolColor)
+            Txt(info.status.title, color: textColor, style: .footnote, weight: strong ? .semibold : .medium).lineLimit(1)
+        }
+        .padding(.leading, 6)
+        .padding(.trailing, 8)
+        .frame(minHeight: 24)
+        .background(ground)
+        .cornerRadius(6)
     }
-    private var color: Color {
+    private var icon: String {
         switch info.status {
-        case .needsApproval: return Palette.need
-        case .limitReached, .notFound: return Palette.limit
-        case .failed: return Palette.err
-        case .running: return Palette.fg
-        default: return Palette.dim
+        case .running: return "circle.fill"
+        case .queued: return "clock"
+        case .needsApproval: return "diamond.fill"
+        case .limitReached: return "square.fill"
+        case .failed, .notFound: return "xmark"
+        case .exited: return "checkmark"
+        default: return "circle"
         }
     }
+    private var strong: Bool { [.needsApproval, .limitReached, .failed, .notFound].contains(info.status) }
+    private var accent: Color {
+        switch info.status {
+        case .needsApproval: return Palette.need
+        case .limitReached: return Palette.limit
+        default: return Palette.err
+        }
+    }
+    private var symbolColor: Color {
+        if strong { return accent }
+        return info.status == .running ? Palette.add : Palette.text2
+    }
+    private var textColor: Color { strong ? accent : Palette.text1 }
+    private var ground: Color { strong ? accent.opacity(0.16) : Palette.fill }
 }
 
 /// 2.1T
 struct SessionsScreen: View {
     @EnvironmentObject var model: PhoneModel
+    @Environment(\.dynamicTypeSize) private var size
 
     var body: some View {
         VStack(spacing: 0) {
             ConnectionBanner()
             if let problem = model.startProblem {
                 Button { model.startProblem = nil } label: {
-                    Txt(problem, color: Palette.limit)
+                    Txt(problem, color: Palette.err)
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         .padding(.horizontal, 16)
                 }
                 .buttonStyle(.plain)
             }
+            if model.showQueuedNote {
+                DimTxt("◷ Sırada: Yer açılınca kendiliğinden başlar. Çalışan iş durmadı.")
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .padding(.horizontal, 16)
+            }
             HStack {
                 ScreenTitle(text: model.connection == .connected ? "Oturumlar" : "Son Bilinen Durum")
                 if model.connection == .connected {
                     Button { model.route.append(.newOptions) } label: {
-                        Txt("+", bold: true).frame(width: 44, height: 44).contentShape(Rectangle())
+                        Image(systemName: "plus").font(.headline).foregroundColor(Palette.text1).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                     }
                     .accessibilityLabel("Yeni Oturum")
                     .padding(.trailing, 8)
@@ -206,13 +260,13 @@ struct SessionsScreen: View {
                             HStack {
                                 Txt(item.name, bold: true).lineLimit(1)
                                 Spacer()
-                                DimTxt("◷ Sırada")
+                                Txt("◷ Sırada", color: Palette.text2, style: .footnote, weight: .medium)
                             }
                             .padding(12)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Palette.panel)
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line2))
-                            .cornerRadius(6)
+                            .background(Palette.surface1)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.hair))
+                            .cornerRadius(12)
                             .padding(.horizontal, 16)
                             .contentShape(Rectangle())
                         }
@@ -229,20 +283,25 @@ struct SessionsScreen: View {
     }
 
     private func row(_ info: SessionInfo) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack {
-                Txt(model.title(info), bold: true).lineLimit(1)
-                Spacer()
+        VStack(alignment: .leading, spacing: 4) {
+            if size.isAccessibilitySize {
+                Txt(model.title(info), bold: true).lineLimit(2)
                 StatusText(info: info)
+            } else {
+                HStack {
+                    Txt(model.title(info), bold: true).lineLimit(1)
+                    Spacer()
+                    StatusText(info: info)
+                }
             }
-            DimTxt(model.folder(info))
+            DimTxt(model.folder(info)).lineLimit(1)
             if let activity = info.lastActivity { DimTxt(activity).lineLimit(1) }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.panel)
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(info.pendingApproval != nil ? Palette.need : Palette.line2))
-        .cornerRadius(6)
+        .background(Palette.surface1)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(info.pendingApproval != nil ? Palette.need : Palette.hair))
+        .cornerRadius(12)
         .padding(.horizontal, 16)
         .contentShape(Rectangle())
     }
@@ -251,23 +310,42 @@ struct SessionsScreen: View {
 /// 0.1T and 4.1T: the session itself, with the keys a phone keyboard lacks.
 struct SessionScreen: View {
     @EnvironmentObject var model: PhoneModel
+    @Environment(\.dynamicTypeSize) private var size
     let info: SessionInfo
     @State private var controlOn = false
 
     var body: some View {
         let terminal = model.host(for: info.number)
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Button { model.openSession = nil } label: { Txt("‹ Oturumlar").lineLimit(1).fixedSize().frame(minHeight: 44).contentShape(Rectangle()) }
-                Spacer(minLength: 0)
-                Txt(model.title(info), bold: true).lineLimit(1)
-                Txt(info.status.symbol, color: info.status == .needsApproval ? Palette.need : Palette.dim).accessibilityLabel(info.status.title)
-                Button { model.route.append(.details(info.number)) } label: {
-                    Txt("Ayrıntılar").frame(minHeight: 44).contentShape(Rectangle())
+            HStack(spacing: 4) {
+                Button { model.openSession = nil } label: {
+                    Image(systemName: "chevron.left").font(.body.weight(.semibold)).foregroundColor(Palette.text1).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Oturumlar")
+                VStack(alignment: .leading, spacing: 0) {
+                    if size.isAccessibilitySize {
+                        Txt(model.title(info), bold: true).lineLimit(1)
+                        StatusText(info: info)
+                    } else {
+                        HStack(spacing: 8) {
+                            Txt(model.title(info), bold: true).lineLimit(1)
+                            StatusText(info: info).fixedSize()
+                        }
+                    }
+                    Txt(info.cwd, color: Palette.text2, style: .footnote).lineLimit(1).truncationMode(.middle)
+                }
+                Spacer(minLength: 0)
+                Button { model.route.append(.details(info.number)) } label: {
+                    Image(systemName: "info.circle").font(.body).foregroundColor(Palette.text1).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Ayrıntılar")
             }
-            .padding(.horizontal, 12)
-            .background(Palette.panel)
+            .padding(.horizontal, 4)
+            .frame(minHeight: 52)
+            .background(Palette.surface1)
+            .overlay(alignment: .bottom) { Rectangle().fill(Palette.hair).frame(height: 1) }
             if let other = model.waitingApprovals.first(where: { $0.number != info.number }) {
                 Button { model.openSession = nil; model.tab = 2 } label: {
                     Txt("◆ \(model.title(other)) onay istiyor ›", color: Palette.need)
@@ -295,32 +373,64 @@ struct SessionScreen: View {
     }
 
     private func keyRow(_ terminal: PhoneTerminal) -> some View {
-        HStack(spacing: 4) {
+        let first = HStack(spacing: 4) {
             key("Esc") { terminal.press("\u{1b}") }
             key("Tab") { terminal.press("\t") }
             key("Ctrl", on: controlOn) {
                 controlOn.toggle()
                 terminal.view.controlModifier = controlOn
             }
-            key("↑") { terminal.press("\u{1b}[A") }
-            key("↓") { terminal.press("\u{1b}[B") }
-            key("⏎") { terminal.press("\r") }
+        }
+        let second = HStack(spacing: 4) {
+            key(symbol: "arrow.up", label: "Yukarı") { terminal.press("\u{1b}[A") }
+            key(symbol: "arrow.down", label: "Aşağı") { terminal.press("\u{1b}[B") }
+            key(symbol: "return", label: "Enter") { terminal.press("\r") }
+        }
+        return Group {
+            if size.isAccessibilitySize {
+                VStack(spacing: 4) {
+                    first
+                    second
+                }
+            } else {
+                HStack(spacing: 4) {
+                    first
+                    second
+                }
+            }
         }
         .padding(4)
-        .background(Palette.panel)
+        .background(Palette.surface1)
         .onReceive(NotificationCenter.default.publisher(for: .terminalViewControlModifierReset)) { _ in controlOn = false }
     }
 
     private func key(_ title: String, on: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.monoBold)
-                .foregroundColor(on ? Palette.btnfg : Palette.fg)
+                .font(.subheadline.weight(.medium))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .foregroundColor(on ? Palette.text1 : Palette.text1)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .background(on ? Palette.btn : Palette.raise)
-                .cornerRadius(4)
+                .background(on ? Palette.fillSelected : Palette.fill)
+                .cornerRadius(8)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    private func key(symbol: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(Palette.text1)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(Palette.fill)
+                .cornerRadius(8)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 }
 
@@ -336,11 +446,12 @@ struct ApprovalCard: View {
                 Spacer()
                 Txt("◆ Onay", color: Palette.need, bold: true)
             }
-            Txt(approval.summary).lineLimit(4)
+            Text(approval.summary).font(.mono).foregroundColor(Palette.text1).lineLimit(4)
             DimTxt("Yetki: \(approval.category.title)")
-            HStack {
-                ActionButton("İzin Ver", style: .primary) { Approval.allow(id: approval.id) }
+            ButtonPair {
                 ActionButton("Reddet") { model.decide(id: approval.id, decision: "deny") }
+            } main: {
+                ActionButton("İzin Ver", style: .primary) { Approval.allow(id: approval.id) }
             }
             ActionButton("Ayrıntı", style: .plain) { model.route.append(.approval(approval.id)) }
             if model.connection != .connected {
@@ -410,15 +521,15 @@ struct CanvasScreen: View {
                                 StatusText(info: info).lineLimit(1)
                                 Spacer(minLength: 0)
                                 if let approval = info.pendingApproval {
-                                    ActionButton("İzin Ver", style: .primary) { Approval.allow(id: approval.id) }
                                     ActionButton("Reddet") { model.decide(id: approval.id, decision: "deny") }
+                                    ActionButton("İzin Ver", style: .primary) { Approval.allow(id: approval.id) }
                                 }
                             }
                             .padding(8)
                             .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
-                            .background(Palette.panel)
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(info.pendingApproval != nil ? Palette.need : Palette.line2))
-                            .cornerRadius(6)
+                            .background(Palette.surface1)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(info.pendingApproval != nil ? Palette.need : Palette.hair))
+                            .cornerRadius(12)
                         }
                         .buttonStyle(.plain)
                     }
@@ -448,11 +559,13 @@ struct MoreScreen: View {
                         }
                         DimTxt("Telefon bu bilgisayara uçtan uca şifreli bağlanır. Oturumlar telefonda çalışmaz, yalnız görünür.")
                     }
-                    NavRow("Ekibini Kur") { model.route.append(.teamStart) }
-                    NavRow("Yönetici: Kararlar") { model.route.append(.teamDecisions) }
-                    NavRow("Hesaplar") { model.route.append(.accounts) }
-                    NavRow("Model Ve Maliyet") { model.route.append(.cost) }
-                    NavRow("Güç Sınırı") { model.route.append(.power) }
+                    NavGroup {
+                        NavRow("Ekibini Kur", icon: "person.3") { model.route.append(.teamStart) }
+                        NavRow("Yönetici: Kararlar", icon: "checklist") { model.route.append(.teamDecisions) }
+                        NavRow("Hesaplar", icon: "person") { model.route.append(.accounts) }
+                        NavRow("Model Ve Maliyet", icon: "chart.bar") { model.route.append(.cost) }
+                        NavRow("Güç Sınırı", icon: "gauge.with.needle") { model.route.append(.power) }
+                    }
                     Card {
                         DimTxt("Tema")
                         Choice(options: [("dark", "Koyu"), ("light", "Açık")], value: $model.theme)
@@ -475,8 +588,9 @@ struct MoreScreen: View {
                         Card {
                             Txt("Bu Bilgisayar Kaldırılsın Mı?", bold: true)
                             DimTxt("Tekrar kullanmak için yeniden eşleştirirsiniz. Oturumlar bilgisayarda çalışmaya devam eder.")
-                            HStack {
+                            ButtonPair {
                                 ActionButton("Vazgeç") { confirming = false }
+                            } main: {
                                 ActionButton("Kaldır", style: .primary) { model.unpair() }
                             }
                         }

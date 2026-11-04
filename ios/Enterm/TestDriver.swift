@@ -52,6 +52,7 @@ enum TestDriver {
         case "newOptions": return .newOptions
         case "install": return ToolKind(rawValue: second).map { .install($0) }
         case "approval": return second.isEmpty ? nil : .approval(second)
+        case "firstapproval": return PhoneModel.shared.waitingApprovals.first?.pendingApproval.map { .approval($0.id) }
         case "queued": return second.isEmpty ? nil : .queued(second)
         case "limitOpened": return .limitOpened
         case "resumeFailed": return number.map { .resumeFailed($0) }

@@ -11,6 +11,10 @@ struct EntermPhoneApp: App {
     var body: some Scene {
         WindowGroup {
             LockGate()
+                .overlay {
+                    // The app switcher keeps a picture of the last screen. A terminal must not be in it.
+                    if phase != .active { Palette.bg.ignoresSafeArea() }
+                }
                 .environmentObject(model)
                 .preferredColorScheme(model.theme == "light" ? .light : .dark)
                 .tint(Palette.fg)

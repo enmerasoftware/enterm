@@ -15,6 +15,7 @@ final class PhoneTerminal: NSObject, TerminalViewDelegate {
         super.init()
         view.terminalDelegate = self
         applyTheme(dark: UserDefaults.standard.string(forKey: "theme") != "light")
+        // Fixed: a size that follows the system setting would change the session's columns on the Mac as well.
         view.font = UIFont.monospacedSystemFont(ofSize: 12, weight: .regular)
         // The key row is part of the screen, as drawn.
         view.inputAccessoryView = nil
@@ -38,7 +39,7 @@ final class PhoneTerminal: NSObject, TerminalViewDelegate {
         if replay {
             // Answers to queries in old output must not reach the program as if they were typed.
             replaying = true
-            view.feed(byteArray: ArraySlice(bytes))
+            view.feed(byteArray: ArraySlice([UInt8](ZshMark.strip(bytes))))
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.replaying = false }
         } else {
             view.feed(byteArray: ArraySlice(bytes))

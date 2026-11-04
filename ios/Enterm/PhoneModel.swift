@@ -87,6 +87,7 @@ final class PhoneModel: ObservableObject {
     @Published var missingProgram: String?
     @Published var route: [PhoneRoute] = []
     @Published var startProblem: String?
+    @Published var showQueuedNote = false
     @Published private(set) var faceIDForApprovals = UserDefaults.standard.object(forKey: "faceIDForApprovals") as? Bool ?? true
     @Published private(set) var appLockOn = UserDefaults.standard.object(forKey: "appLock") as? Bool ?? true
     @Published var locked = UserDefaults.standard.object(forKey: "appLock") as? Bool ?? true
@@ -190,7 +191,10 @@ final class PhoneModel: ObservableObject {
     }
 
     func refreshAttention() async {
-        if case .success(let answer) = await call(PhoneCall("attention"), as: PhoneAttention.self) { attention = answer }
+        if case .success(let answer) = await call(PhoneCall("attention"), as: PhoneAttention.self) {
+            attention = answer
+            if answer.queue.isEmpty { showQueuedNote = false }
+        }
     }
 
     func retryNow() {
@@ -409,7 +413,7 @@ final class PhoneModel: ObservableObject {
             if let missing = result.missingTool {
                 route.append(.install(missing))
             } else if result.queued {
-                startProblem = "Sırada: Yer Açılınca Kendiliğinden Başlar. Çalışan İş Durmadı."
+                showQueuedNote = true
             } else if let number = result.number {
                 tab = 0
                 route = []

@@ -372,3 +372,17 @@ final class PhoneGuardTests: XCTestCase {
     }
 }
 
+final class ZshMarkTests: XCTestCase {
+    func testMarkIsRemovedAndTheRestStays() {
+        let mark = "\u{1B}[1m\u{1B}[7m%\u{1B}[27m\u{1B}[1m\u{1B}[0m" + String(repeating: " ", count: 99) + "\r \r"
+        let text = "önce" + mark + "~ % ls\r\nsonra" + mark + "son"
+        XCTAssertEqual(String(decoding: ZshMark.strip(Data(text.utf8)), as: UTF8.self), "önce~ % ls\r\nsonrason")
+    }
+
+    func testOtherBoldTextStays() {
+        let text = "\u{1B}[1m\u{1B}[7m%50 dolu\u{1B}[27m\u{1B}[0m"
+        XCTAssertEqual(ZshMark.strip(Data(text.utf8)), Data(text.utf8))
+        XCTAssertEqual(ZshMark.strip(Data()), Data())
+    }
+}
+

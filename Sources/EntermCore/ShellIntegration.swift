@@ -53,6 +53,16 @@ public enum ShellIntegration {
       add-zsh-hook -d precmd _enterm_install
       add-zsh-hook precmd _enterm_cwd
       _enterm_cwd
+      # The first prompt draws before the box has its real width, so zsh's end-of-line mark would stay on screen.
+      # The mark stays off for this one prompt, the next one has it as the user set it.
+      _enterm_mark_set=${PROMPT_EOL_MARK+1}
+      _enterm_mark=${PROMPT_EOL_MARK-}
+      PROMPT_EOL_MARK=''
+      _enterm_restore_mark() {
+        add-zsh-hook -d precmd _enterm_restore_mark
+        if [[ -n "$_enterm_mark_set" ]]; then PROMPT_EOL_MARK=$_enterm_mark; else unset PROMPT_EOL_MARK; fi
+      }
+      add-zsh-hook precmd _enterm_restore_mark
       (( ${+functions[command_not_found_handler]} )) && functions[_enterm_prior_cnf]=$functions[command_not_found_handler]
       command_not_found_handler() {
         case "$1" in

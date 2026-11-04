@@ -143,7 +143,7 @@ enum ToolLauncher {
         spec.env = env
         if let reason = PowerCenter.shared.blockReason() {
             PowerCenter.shared.enqueue(spec, reason: reason, then: then)
-            AppModel.shared.hint = "Sırada: \(reason). Çalışan İş Durmadı."
+            AppModel.shared.hint = "◷ Sırada: \(reason). Çalışan iş durmadı."
             return
         }
         AppModel.shared.create(spec, then: then)

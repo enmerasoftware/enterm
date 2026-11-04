@@ -267,3 +267,46 @@ public enum PhoneCost {
         tokens >= 1000 ? String(format: "%.1fk", Double(tokens) / 1000) : "\(tokens)"
     }
 }
+
+/// zsh's end-of-line mark is a `%` and a line of spaces sized for the width it was written at.
+/// In old output replayed on a narrower screen it wraps and stays visible, so a replay leaves it out.
+public enum ZshMark {
+    private static let head = Array("\u{1B}[1m\u{1B}[7m".utf8)
+    private static let tail = Array("\u{1B}[27m\u{1B}[1m\u{1B}[0m".utf8)
+    private static let end = Array("\r \r".utf8)
+
+    public static func strip(_ data: Data) -> Data {
+        let bytes = [UInt8](data)
+        var output = [UInt8]()
+        output.reserveCapacity(bytes.count)
+        var index = 0
+        while index < bytes.count {
+            if let next = matchEnd(bytes, at: index) {
+                index = next
+            } else {
+                output.append(bytes[index])
+                index += 1
+            }
+        }
+        return Data(output)
+    }
+
+    private static func matchEnd(_ bytes: [UInt8], at start: Int) -> Int? {
+        guard bytes[start] == 0x1B, has(head, in: bytes, at: start) else { return nil }
+        var index = start + head.count
+        guard index < bytes.count, bytes[index] == UInt8(ascii: "%") || bytes[index] == UInt8(ascii: "#") else { return nil }
+        index += 1
+        guard has(tail, in: bytes, at: index) else { return nil }
+        index += tail.count
+        let spaces = index
+        while index < bytes.count, bytes[index] == 0x20 { index += 1 }
+        guard index > spaces, has(end, in: bytes, at: index) else { return nil }
+        return index + end.count
+    }
+
+    private static func has(_ pattern: [UInt8], in bytes: [UInt8], at index: Int) -> Bool {
+        guard index + pattern.count <= bytes.count else { return false }
+        return Array(bytes[index..<(index + pattern.count)]) == pattern
+    }
+}
+

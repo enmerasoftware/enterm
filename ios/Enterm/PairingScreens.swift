@@ -7,8 +7,7 @@ struct WelcomeScreen: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Spacer()
-            Txt("enterm", bold: true)
-            Txt("Bilgisayarınıza Bağlanın", bold: true)
+            Txt("Bilgisayarınıza Bağlanın", style: .title3, weight: .semibold)
             DimTxt("Terminal bilgisayarınızda çalışır. Telefon aynı ekrana bağlanır, bir kez eşleştirmek yeter.")
             Spacer()
             DimTxt("Bilgisayarda: ⋯ › Telefonu Bağla")
@@ -29,29 +28,29 @@ struct ScanScreen: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Button { model.cancelPairing() } label: { Txt("‹ Geri").frame(minHeight: 44) }
+                Button { model.cancelPairing() } label: { BackLabel(title: "Geri") }.buttonStyle(.plain)
                 Spacer()
                 DimTxt("Adım 1 / 2")
             }
-            Txt("Bilgisayarla Eşleştir", bold: true)
+            Txt("Bilgisayarla Eşleştir", style: .title3, weight: .semibold)
             DimTxt("Bilgisayarda Enterm'de gösterilen kodu okutun.")
             if typing {
                 TextField("", text: $text, prompt: Text("enterm://pair?…").foregroundColor(Palette.dim), axis: .vertical)
                     .font(.mono)
-                    .foregroundColor(Palette.fg)
+                    .foregroundColor(Palette.text1)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .padding(12)
                     .frame(minHeight: 88, alignment: .topLeading)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line2))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Palette.hair2))
                 if case .failed(let reason) = model.pairing { Txt(reason, color: Palette.err) }
                 ActionButton("Kodu Kullan", style: .primary) { _ = model.read(code: text) }
                 ActionButton("Kameraya Dön", style: .plain) { typing = false }
             } else {
                 CodeCamera { code in _ = model.read(code: code) }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .cornerRadius(6)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line2))
+                    .cornerRadius(8)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Palette.hair2))
                 ActionButton("Kodu Elle Yaz") { typing = true }
             }
             DimTxt("Oturumlar bilgisayarda çalışır, telefon aynı arayüze bağlanır.")
@@ -71,16 +70,16 @@ struct CompareScreen: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Button { model.cancelPairing() } label: { Txt("‹ Geri").frame(minHeight: 44) }
+                Button { model.cancelPairing() } label: { BackLabel(title: "Geri") }.buttonStyle(.plain)
                 Spacer()
                 DimTxt("Adım 2 / 2")
             }
-            Txt("Sayılar Aynı Mı?", bold: true)
+            Txt("Sayılar Aynı Mı?", style: .title3, weight: .semibold)
             Text(number)
                 .font(.monoLarge)
                 .foregroundColor(Palette.fg)
                 .frame(maxWidth: .infinity, minHeight: 120)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line2))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Palette.hair2))
             DimTxt("Bilgisayarda da bu sayı görünmeli.")
             Txt("Aynı değilse eşleştirmeyin.", color: Palette.limit)
             Spacer()

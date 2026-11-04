@@ -167,7 +167,9 @@ enum PhoneBridge {
             let items = listing.items.filter { !$0.name.hasPrefix(".") }.map { PhoneFileItem(name: $0.name, isDirectory: $0.directory) }
             send(PhoneFiles(path: path, display: model.displayPath(path), items: items))
         case "power":
-            send(power())
+            // The first reading of usage takes a moment. The answer waits for it rather than showing zero.
+            PowerCenter.shared.measureUsage()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { send(power()) }
         case "powerSet":
             let center = PowerCenter.shared
             if let value = args["lowPower"] { center.settings.lowPower = value == "1" }

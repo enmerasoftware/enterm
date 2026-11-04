@@ -1,58 +1,103 @@
 import EntermCore
 import SwiftUI
 
-/// The back line and title every opened screen shares.
+/// The back line every opened screen shares.
 struct RouteHeader: View {
     @EnvironmentObject var model: PhoneModel
     let back: String
     var trailing: String?
     var body: some View {
         HStack {
-            Button { if !model.route.isEmpty { model.route.removeLast() } } label: {
-                Txt("‹ \(back)").frame(minHeight: 44).contentShape(Rectangle())
-            }
+            Button { if !model.route.isEmpty { model.route.removeLast() } } label: { BackLabel(title: back) }
+                .buttonStyle(.plain)
             Spacer()
-            if let trailing { DimTxt(trailing) }
+            if let trailing { Txt(trailing, color: Palette.text2, style: .footnote, weight: .medium).lineLimit(1) }
         }
         .padding(.horizontal, 12)
-        .background(Palette.panel)
+        .frame(minHeight: 52)
+        .background(Palette.surface1)
+        .overlay(alignment: .bottom) { Rectangle().fill(Palette.hair).frame(height: 1) }
+    }
+}
+
+private struct GroupedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var navGrouped: Bool {
+        get { self[GroupedKey.self] }
+        set { self[GroupedKey.self] = newValue }
+    }
+}
+
+/// Rows that belong together share one group, with a hair between them.
+struct NavGroup<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+    var body: some View {
+        VStack(spacing: 0, content: content)
+            .environment(\.navGrouped, true)
+            .background(Palette.surface1)
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.hair))
+            .cornerRadius(12)
     }
 }
 
 struct NavRow: View {
+    @Environment(\.navGrouped) private var grouped
     let title: String
+    var icon: String?
     let action: () -> Void
-    init(_ title: String, action: @escaping () -> Void) {
+    init(_ title: String, icon: String? = nil, action: @escaping () -> Void) {
         self.title = title
+        self.icon = icon
         self.action = action
     }
     var body: some View {
         Button(action: action) {
-            HStack {
-                Txt(title)
-                Spacer()
-                DimTxt("›")
+            HStack(spacing: 12) {
+                if let icon { Image(systemName: icon).foregroundColor(Palette.text2) }
+                Txt(title).multilineTextAlignment(.leading)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundColor(Palette.text3)
             }
             .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, minHeight: 44)
-            .background(Palette.panel)
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line2))
-            .cornerRadius(6)
+            .background(grouped ? Color.clear : Palette.surface1)
+            .overlay(alignment: .top) { if grouped { Rectangle().fill(Palette.hair).frame(height: 1) } }
+            .cornerRadius(grouped ? 0 : 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
 }
 
+/// One selection style: neutral. Yellow is for the main action, approvals and the tab count.
 struct Choice<Value: Hashable>: View {
+    @Environment(\.dynamicTypeSize) private var size
     let options: [(Value, String)]
     @Binding var value: Value
     var body: some View {
-        HStack(spacing: 4) {
+        let layout = size.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 2)) : AnyLayout(HStackLayout(spacing: 2))
+        layout {
             ForEach(options, id: \.0) { option in
-                ActionButton(option.1, style: option.0 == value ? .primary : .outline) { value = option.0 }
+                let on = option.0 == value
+                Button { value = option.0 } label: {
+                    Txt(option.1, color: on ? Palette.text1 : Palette.text2, style: .subheadline, weight: on ? .medium : .regular)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 4)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(on ? Palette.fillSelected : Color.clear)
+                        .cornerRadius(6)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
         }
+        .padding(2)
+        .background(Palette.fill)
+        .cornerRadius(8)
     }
 }
 
@@ -60,14 +105,17 @@ struct InputField: View {
     let placeholder: String
     @Binding var text: String
     var body: some View {
-        TextField("", text: $text, prompt: Text(placeholder).foregroundColor(Palette.dim), axis: .vertical)
-            .font(.mono)
-            .foregroundColor(Palette.fg)
+        TextField("", text: $text, prompt: Text(placeholder).foregroundColor(Palette.text3), axis: .vertical)
+            .font(.body)
+            .foregroundColor(Palette.text1)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
-            .padding(12)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .frame(minHeight: 44)
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line2))
+            .background(Palette.field)
+            .cornerRadius(8)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Palette.hair2))
     }
 }
 
@@ -77,13 +125,14 @@ struct CommandText: View {
     var body: some View {
         Text(text)
             .font(.mono)
-            .foregroundColor(Palette.fg)
+            .foregroundColor(Palette.terminalText)
             .textSelection(.enabled)
             .fixedSize(horizontal: false, vertical: true)
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.bg)
-            .cornerRadius(6)
+            .background(Palette.terminal)
+            .cornerRadius(8)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Palette.hair2))
     }
 }
 
@@ -239,11 +288,13 @@ struct DetailsScreen: View {
                                 LimitLines(limit: info.limit)
                             }
                         }
-                        NavRow("Değişiklikler") { model.route.append(.changes(number)) }
-                        NavRow("Tarayıcı") { model.route.append(.browser(number)) }
-                        NavRow("Bağlantı Kur") { model.route.append(.linkTarget(number)) }
-                        NavRow("Mesajlar") { model.route.append(.messages(number)) }
-                        if info.tool != .terminal { NavRow("Yetki Kartı") { model.route.append(.card(number)) } }
+                        NavGroup {
+                            NavRow("Değişiklikler", icon: "arrow.triangle.branch") { model.route.append(.changes(number)) }
+                            NavRow("Tarayıcı", icon: "safari") { model.route.append(.browser(number)) }
+                            NavRow("Bağlantı Kur", icon: "link") { model.route.append(.linkTarget(number)) }
+                            NavRow("Mesajlar", icon: "bubble.left.and.bubble.right") { model.route.append(.messages(number)) }
+                            if info.tool != .terminal { NavRow("Yetki Kartı", icon: "checkmark.shield") { model.route.append(.card(number)) } }
+                        }
                         ActionButton("Oturumu Kapat") {
                             model.close(number)
                             model.route = []
@@ -311,8 +362,8 @@ struct ChangesScreen: View {
                                     }
                                     .padding(.horizontal, 12)
                                     .frame(maxWidth: .infinity, minHeight: 44)
-                                    .background(Palette.panel)
-                                    .cornerRadius(6)
+                                    .background(Palette.surface1)
+                                    .cornerRadius(8)
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
@@ -320,7 +371,8 @@ struct ChangesScreen: View {
                             ActionButton("Yenile", style: .plain, action: reload)
                         }
                         DimTxt("Oturuma Not Bırak")
-                        InputField(placeholder: "Bu not oturuma sizin yazınız olarak gider", text: $note)
+                        InputField(placeholder: "Not yazın", text: $note)
+                        DimTxt("Oturuma sizin yazınız olarak gider.")
                         ActionButton("Gönder") {
                             guard !note.isEmpty else { return }
                             model.input(number, Data((note + "\r").utf8))
@@ -497,8 +549,8 @@ struct LinkTargetScreen: View {
                                 .padding(8)
                                 .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
                                 .background(Palette.panel)
-                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line2))
-                                .cornerRadius(6)
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.hair))
+                                .cornerRadius(12)
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
@@ -636,23 +688,21 @@ struct PermissionCardScreen: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .frame(maxWidth: .infinity, minHeight: 44)
-                                .background(Palette.panel)
-                                .cornerRadius(6)
+                                .background(Palette.surface1)
+                                .cornerRadius(8)
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             if open == category {
-                                HStack(spacing: 4) {
-                                    ForEach(PermissionMode.allCases) { mode in
-                                        ActionButton(mode.title, style: card.mode(category) == mode ? .primary : .outline) {
-                                            Task {
-                                                _ = await model.setPermission(number, category: category, from: card.mode(category), to: mode)
-                                                open = nil
-                                                reload()
-                                            }
+                                Choice(options: PermissionMode.allCases.map { ($0, $0.title) }, value: Binding(
+                                    get: { card.mode(category) },
+                                    set: { (mode: PermissionMode) in
+                                        Task { @MainActor in
+                                            _ = await model.setPermission(number, category: category, from: card.mode(category), to: mode)
+                                            open = nil
+                                            reload()
                                         }
-                                    }
-                                }
+                                    }))
                             }
                         }
                         DimTxt("Satıra dokununca üç seçenek açılır. Yetkiyi genişletmek doğrulama ister.")
@@ -692,8 +742,8 @@ struct LimitScreen: View {
                                 .padding(12)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(Palette.panel)
-                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line2))
-                                .cornerRadius(6)
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.hair))
+                                .cornerRadius(12)
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
@@ -727,8 +777,8 @@ struct AccountsScreen: View {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(accounts) { account in
                             Card {
-                                Txt(account.name, bold: true)
-                                DimTxt("\(account.tool.title) · \(account.sessions) Oturum")
+                                Txt(account.tool.title, bold: true)
+                                DimTxt("\(account.name) · \(account.sessions) Oturum")
                                 if account.isAPIKey {
                                     DimTxt("Abonelik Limiti Yok · Kullanıma Göre")
                                 } else if account.tool == .antigravity {
@@ -798,8 +848,8 @@ struct CostScreen: View {
                         }
                         .padding(.horizontal, 12)
                         .frame(minHeight: 44)
-                        .background(Palette.panel)
-                        .cornerRadius(6)
+                        .background(Palette.surface1)
+                        .cornerRadius(8)
                     }
                     Card {
                         HStack {
@@ -816,7 +866,7 @@ struct CostScreen: View {
                                 Spacer()
                                 DimTxt(info.contextTokens.map(PhoneCost.short) ?? "-")
                             }
-                            DimTxt(info.model ?? info.tool.title)
+                            if let name = info.model { DimTxt(name) }
                             if let cost = info.costUSD { DimTxt(String(format: "$%.2f Liste Fiyatı", cost)) }
                         }
                     }
@@ -842,7 +892,7 @@ struct PowerScreen: View {
                             get: { power.settings.lowPower },
                             set: { value in set(["lowPower": value ? "1" : "0"], reload) }))
                         DimTxt("Bilgisayarın Gücünün En Çok Şu Kadarını Kullan")
-                        Choice(options: [(25, "%25"), (50, "%50"), (75, "%75"), (100, "Tümü")], value: Binding(
+                        Choice(options: [(25, "%25"), (50, "%50"), (75, "%75"), (100, "Sınırsız")], value: Binding(
                             get: { power.settings.cpuLimit },
                             set: { value in set(["cpuLimit": String(value)], reload) }))
                         DimTxt("Üst hedeftir, kesin ölçüm değildir. Yeni iş sıraya girer, düz terminallere dokunulmaz.")
@@ -895,29 +945,24 @@ struct NewOptionsScreen: View {
                         InputField(placeholder: "~/projeler/magaza", text: $folder)
                         ActionButton("Klasör Seç", style: .plain) { picking = true }
                         ForEach(options.folders, id: \.self) { path in
-                            ActionButton(path, style: folder == path ? .primary : .outline) { folder = path }
+                            ActionButton(path, style: .outline) { folder = path }
                         }
                         DimTxt("Araç")
-                        ForEach(ToolKind.allCases, id: \.self) { kind in
+                        Choice(options: ToolKind.allCases.map { kind in
                             let note = options.notes[kind.rawValue] ?? ""
-                            ActionButton(note.isEmpty ? kind.title : "\(kind.title) · \(note)", style: tool == kind ? .primary : .outline) {
-                                tool = kind
-                                account = ""
-                            }
-                        }
+                            return (kind, note.isEmpty ? kind.title : "\(kind.title) · \(note)")
+                        }, value: Binding(get: { tool }, set: { tool = $0; account = "" }))
                         if tool != .terminal {
                             DimTxt("Hesap")
-                            ForEach(options.accounts.filter { $0.tool == tool }) { item in
-                                ActionButton(title(item), style: isSelected(item) ? .primary : .outline) { account = item.id }
-                            }
+                            Choice(options: options.accounts.filter { $0.tool == tool }.map { ($0.id, title($0)) }, value: Binding(
+                                get: { account.isEmpty ? "system-\(tool.rawValue)" : account },
+                                set: { account = $0 }))
                             DimTxt("Model Davranışı")
                             Choice(options: [("", "Otomatik"), ("haiku", "Haiku"), ("sonnet", "Sonnet"), ("opus", "Opus")], value: $modelName)
                             DimTxt("Efor")
                             Choice(options: [("", "Otomatik"), ("medium", "Orta"), ("high", "Yüksek")], value: $effort)
                             DimTxt("Yetki Şablonu")
-                            ForEach(PermissionTemplate.allCases) { item in
-                                ActionButton(item.title, style: template == item ? .primary : .outline) { template = item }
-                            }
+                            Choice(options: PermissionTemplate.allCases.map { ($0, $0.title) }, value: $template)
                         }
                         DimTxt("Oturum bilgisayarda başlar, telefon bağlanır.")
                         ActionButton("Başlat", style: .primary) {
@@ -937,9 +982,6 @@ struct NewOptionsScreen: View {
 #if DEBUG
         .onAppear { if TestForm.values == "pick" { picking = true } }
 #endif
-    }
-    private func isSelected(_ item: PhoneAccount) -> Bool {
-        account == item.id || (account.isEmpty && item.id.hasPrefix("system-"))
     }
     private func title(_ item: PhoneAccount) -> String {
         if let window = item.limit?.fiveHour { return "\(item.name) · %\(Int(window.usedPercent)) Dolu" }
@@ -1006,7 +1048,8 @@ struct TeamStartScreen: View {
                             }
                             .padding(12)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(key == item.0 ? Palette.need : Palette.line2))
+                            .background(key == item.0 ? Palette.fillSelected : Palette.fill)
+                            .cornerRadius(8)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -1051,8 +1094,8 @@ struct TeamRosterScreen: View {
                             }
                             .padding(12)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(Palette.panel)
-                            .cornerRadius(6)
+                            .background(Palette.surface1)
+                            .cornerRadius(8)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -1061,9 +1104,7 @@ struct TeamRosterScreen: View {
                             InputField(placeholder: "Rol", text: $member.role)
                             Choice(options: [(ToolKind.claude, "Claude"), (ToolKind.codex, "Codex")], value: $member.tool)
                             InputField(placeholder: "Model", text: $member.model)
-                            ForEach(PermissionTemplate.allCases) { item in
-                                ActionButton(item.title, style: member.template == item ? .primary : .outline) { member.template = item }
-                            }
+                            Choice(options: PermissionTemplate.allCases.map { ($0, $0.title) }, value: $member.template)
                             InputField(placeholder: "Kaynak Dosyalar", text: $member.sources)
                             ActionButton("Kaynak Dosya Seç", style: .plain) { picking = member.id }
                             ActionButton("Üyeyi Çıkar") { draft.members.removeAll { $0.id == member.id } }
@@ -1205,7 +1246,7 @@ struct FilePicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Button { dismiss() } label: { Txt("‹ Vazgeç").frame(minHeight: 44).contentShape(Rectangle()) }
+                Button { dismiss() } label: { BackLabel(title: "Vazgeç") }.buttonStyle(.plain)
                 Spacer()
                 if !path.isEmpty, path != "/" {
                     Button { path = (path as NSString).deletingLastPathComponent } label: { Txt("Üst Klasör").frame(minHeight: 44).contentShape(Rectangle()) }
@@ -1244,28 +1285,44 @@ struct FilePicker: View {
     }
 }
 
-/// 8.2T
+/// The decision stays in reach, however long the command is: the box scrolls inside itself.
 struct ApprovalDetailScreen: View {
     @EnvironmentObject var model: PhoneModel
     let id: String
     var body: some View {
         VStack(spacing: 0) {
             RouteHeader(back: "Onaylar", trailing: "◆ Onay İstiyor")
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    if let info = model.sessions.first(where: { $0.pendingApproval?.id == id }), let approval = info.pendingApproval {
-                        Txt("\(model.title(info)) İzin İstiyor", bold: true)
-                        DimTxt("Hangi Komut")
-                        CommandText(text: approval.summary)
-                        DimTxt("Yetki: \(approval.category.title)")
-                        ActionButton("İzin Ver", style: .primary) { Approval.allow(id: id) }
-                        ActionButton("Reddet") { model.decide(id: id, decision: "deny") }
-                        NavRow("Yetki Kartını Aç") { model.route.append(.card(info.number)) }
-                    } else {
-                        DimTxt("Bu istek artık bekliyor değil.")
+            if let info = model.sessions.first(where: { $0.pendingApproval?.id == id }), let approval = info.pendingApproval {
+                VStack(alignment: .leading, spacing: 8) {
+                    Txt("\(model.title(info)) İzin İstiyor", bold: true)
+                    DimTxt("Hangi Komut")
+                    ScrollView {
+                        Text(approval.summary)
+                            .font(.mono)
+                            .foregroundColor(Palette.terminalText)
+                            .textSelection(.enabled)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .background(Palette.terminal)
+                    .cornerRadius(8)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Palette.hair2))
+                    DimTxt("Yetki: \(approval.category.title)")
+                    NavRow("Yetki Kartını Aç") { model.route.append(.card(info.number)) }
                 }
                 .padding(16)
+                .safeAreaInset(edge: .bottom) {
+                    ButtonPair {
+                        ActionButton("Reddet") { model.decide(id: id, decision: "deny") }
+                    } main: {
+                        ActionButton("İzin Ver", style: .primary) { Approval.allow(id: id) }
+                    }
+                    .padding(12)
+                    .background(Palette.surface1)
+                }
+            } else {
+                DimTxt("Bu istek artık bekliyor değil.").padding(16)
+                Spacer()
             }
         }
     }
@@ -1284,7 +1341,7 @@ struct QueuedScreen: View {
                     Txt("Yer Açılınca Kendiliğinden Başlar", bold: true)
                     DimTxt(item.reason)
                     DimTxt("Çalışan iş durmadı. Bu oturum henüz başlamadı, token harcamıyor.")
-                    if !item.command.isEmpty { CommandText(text: item.command) }
+                    if let program = item.tool.command { CommandText(text: program) }
                     ActionButton("Yine De Başlat", style: .primary) {
                         Task {
                             let result = await model.confirmedCall("\(item.tool.title) başlatmak için doğrulayın.", PhoneCall("queueStart", args: ["id": id]), as: PhoneNothing.self)
@@ -1360,8 +1417,8 @@ struct ResumeFailedScreen: View {
                                 .padding(12)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(Palette.panel)
-                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Palette.line2))
-                                .cornerRadius(6)
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.hair))
+                                .cornerRadius(12)
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
