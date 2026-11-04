@@ -37,6 +37,7 @@ enum Commands {
         Command(id: "lowPower", title: "Düşük Güçlü Bilgisayar Aç Ya Da Kapat", key: ""),
         Command(id: "history", title: "Geçmiş Konuşmalar", key: ""),
         Command(id: "scheduler", title: "Zamanlayıcı", key: ""),
+        Command(id: "files", title: "Dosya Gezgini", key: ""),
         Command(id: "run", title: "Çalıştır", key: ""),
         Command(id: "whiteboard", title: "Beyaz Tahta", key: ""),
         Command(id: "simulator", title: "iOS Simülatörü", key: ""),
@@ -94,6 +95,7 @@ enum Commands {
         case "messages": model.page = .messages
         case "scheduler": model.page = .scheduler
         case "run": model.page = .run
+        case "files": model.page = .files
         case "whiteboard": model.page = .whiteboard
         case "simulator": model.page = .simulator
         case "uninstall": model.page = .uninstall

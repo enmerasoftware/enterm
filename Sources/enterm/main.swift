@@ -227,6 +227,7 @@ func handlePreToolUse(_ input: [String: Any], base: AgentEvent) {
     switch mode {
     case .deny:
         preToolOutput("deny", reason: "Enterm yetki kartı: \(classified.category.title) kapalı.")
+        return
     case .ask where [.ssh, .pushDeploy, .deleteFiles, .internet].contains(classified.category):
         var request = base
         request.kind = "approval"
@@ -241,6 +242,15 @@ func handlePreToolUse(_ input: [String: Any], base: AgentEvent) {
         }
     default:
         break
+    }
+    // After the permissions, a heavy command waits for its turn. If the wait runs out it still goes ahead.
+    if classified.category == .command, HeavyWork.matches(classified.summary) {
+        var heavy = base
+        heavy.kind = "heavy"
+        heavy.text = classified.summary
+        var message = WireMessage(op: "heavyStart")
+        message.event = heavy
+        _ = WireSocket.send(message, waitForReply: true, timeout: 570)
     }
 }
 

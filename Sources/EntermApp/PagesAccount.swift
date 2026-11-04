@@ -351,6 +351,9 @@ struct SettingsPage: View {
                 }
             }
             Line()
+            T("Ağır İş Sırası", bold: true)
+            HeavyQueueList()
+            Line()
             T("Şu Anki Kullanım", bold: true)
             HStack { T("Enterm"); Spacer(); Dim(String(format: "%%%.1f · %.0f MB", power.enterm.cpu, power.enterm.memoryMB)) }
             HStack { T("Claude Code, Codex Ve Antigravity"); Spacer(); Dim(String(format: "%%%.1f · %.0f MB", power.agents.cpu, power.agents.memoryMB)) }
@@ -456,5 +459,21 @@ struct ShortcutEditor: View {
     private func commit() {
         book.save()
         (NSApp.delegate as? AppDelegate)?.buildMenu()
+    }
+}
+
+struct HeavyQueueList: View {
+    @ObservedObject var model = AppModel.shared
+    var body: some View {
+        if model.heavyQueue.isEmpty {
+            Dim("Sırada ağır iş yok. Derleme ve toplu test gibi komutlar ajanlar arasında tek tek çalışır (Claude Code).")
+        }
+        ForEach(Array(model.heavyQueue.enumerated()), id: \.element.id) { index, item in
+            HStack {
+                T("\(index + 1). \(item.name): \(item.command)").lineLimit(1)
+                Spacer()
+                Dim(item.running ? "● Çalışıyor" : "○ Sırada")
+            }
+        }
     }
 }

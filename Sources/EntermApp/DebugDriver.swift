@@ -51,6 +51,9 @@ final class DebugDriver {
                     mouse([(.leftMouseDown, n[0], n[1]), (.leftMouseDragged, (n[0] + n[2]) / 2, (n[1] + n[3]) / 2),
                            (.leftMouseDragged, n[2], n[3]), (.leftMouseUp, n[2], n[3])])
                 }
+            case "remote":
+                let n = rest.split(separator: " ").map(String.init)
+                if n.count == 2 { RemoteProject(host: n[0], folder: n[1]).open() }
             case "hit":
                 let n = rest.split(separator: " ").compactMap { Double($0) }
                 if n.count == 2, let view = NSApp.windows.first?.contentView {
