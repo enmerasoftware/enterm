@@ -1,14 +1,20 @@
 #!/bin/zsh
 # Builds Enterm.app from the Swift package. Usage: scripts/bundle.sh [debug|release] [output folder]
-# Pass a folder to leave build/Enterm.app alone while it is open.
+# Without a folder a delivery goes to build/release-<commit>. Only build/test is ever built over:
+# someone may be running any other copy.
 set -e
 config=${1:-release}
 root=${0:A:h:h}
 cd "$root"
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+output="${2:-$root/build/release-$(git -C "$root" rev-parse --short HEAD)}"
+if [[ -e "$output/Enterm.app" && "$output" != "$root/build/test" ]]; then
+  echo "$output/Enterm.app zaten var, üzerine yazılmaz." >&2
+  exit 1
+fi
 swift build -c "$config" -j 2
 bin=$(swift build -c "$config" -j 2 --show-bin-path)
-app="${2:-$root/build}/Enterm.app"
+app="$output/Enterm.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin/EntermApp" "$app/Contents/MacOS/EntermApp"
 cp "$bin/entermd" "$app/Contents/MacOS/entermd"

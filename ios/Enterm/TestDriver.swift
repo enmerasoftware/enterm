@@ -29,13 +29,16 @@ enum TestDriver {
     private static func parseRoute(_ text: String) -> PhoneRoute? {
         let bits = text.split(separator: " ").map(String.init)
         let number = bits.count > 1 ? UInt32(bits[1]) : nil
+        // A test line with a missing part is ignored, not a crash.
+        let second = bits.count > 1 ? bits[1] : ""
+        let third = bits.count > 2 ? bits[2] : ""
         switch bits.first {
         case "details": return number.map { .details($0) }
         case "changes": return number.map { .changes($0) }
-        case "diff": return number.map { .diff($0, bits[2]) }
+        case "diff": return number.map { .diff($0, third) }
         case "browser": return number.map { .browser($0) }
         case "linkTarget": return number.map { .linkTarget($0) }
-        case "linkPermission": return number.map { .linkPermission($0, UInt32(bits[2]) ?? 0) }
+        case "linkPermission": return number.map { .linkPermission($0, UInt32(third) ?? 0) }
         case "messages": return number.map { .messages($0) }
         case "card": return number.map { .card($0) }
         case "limit": return number.map { .limit($0) }
@@ -47,9 +50,9 @@ enum TestDriver {
         case "teamRoster": return .teamRoster
         case "teamDecisions": return .teamDecisions
         case "newOptions": return .newOptions
-        case "install": return ToolKind(rawValue: bits[1]).map { .install($0) }
-        case "approval": return .approval(bits[1])
-        case "queued": return .queued(bits[1])
+        case "install": return ToolKind(rawValue: second).map { .install($0) }
+        case "approval": return second.isEmpty ? nil : .approval(second)
+        case "queued": return second.isEmpty ? nil : .queued(second)
         case "limitOpened": return .limitOpened
         case "resumeFailed": return number.map { .resumeFailed($0) }
         case "codexLimit": return number.map { .codexLimit($0) }
