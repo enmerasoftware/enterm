@@ -105,6 +105,7 @@ public enum ToolPresence: Equatable {
     }
 
     /// The maker's own install command. Enterm shows it and runs it only when the user asks.
+    /// Sources: code.claude.com docs, developers.openai.com/codex, codelabs.developers.google.com/antigravity-cli-hands-on.
     public static func installCommand(_ tool: ToolKind) -> String? {
         switch tool {
         case .terminal: return nil
@@ -115,25 +116,33 @@ public enum ToolPresence: Equatable {
     }
 }
 
-/// How a session reads in a one line list: program and folder, or the name the user gave it.
-/// A number is added only when two sessions would otherwise look the same.
+/// How a session is called. A name the user gave stands alone. Otherwise the program,
+/// with a number from the second one on, in opening order.
 public enum SessionLabel {
-    public static func base(_ info: SessionInfo, program: String) -> String {
-        if !info.name.isEmpty { return "\(program) \(info.name)" }
-        let home = NSHomeDirectory()
-        let folder = info.cwd == home ? "~" : URL(fileURLWithPath: info.cwd).lastPathComponent
-        return "\(program) \(folder)"
+    public static func names(_ sessions: [SessionInfo]) -> [UInt32: String] {
+        var seen: [String: Int] = [:]
+        var result: [UInt32: String] = [:]
+        for info in sessions.sorted(by: { $0.number < $1.number }) {
+            if !info.name.isEmpty {
+                result[info.number] = info.name
+                continue
+            }
+            let program = info.tool.title
+            seen[program, default: 0] += 1
+            let count = seen[program] ?? 1
+            result[info.number] = count > 1 ? "\(program) \(count)" : program
+        }
+        return result
     }
 
-    public static func labels(_ sessions: [SessionInfo], program: (SessionInfo) -> String) -> [UInt32: String] {
-        var seen: [String: Int] = [:]
-        var counts: [String: Int] = [:]
-        for info in sessions { counts[base(info, program: program(info)), default: 0] += 1 }
+    /// In the strip the last folder follows. The home folder adds nothing, nor does a name the user chose.
+    public static func stripLabels(_ sessions: [SessionInfo]) -> [UInt32: String] {
+        let names = names(sessions)
         var result: [UInt32: String] = [:]
         for info in sessions {
-            let text = base(info, program: program(info))
-            seen[text, default: 0] += 1
-            result[info.number] = (counts[text] ?? 0) > 1 ? "\(text) \(seen[text] ?? 1)" : text
+            let name = names[info.number] ?? info.tool.title
+            let folder = info.cwd == NSHomeDirectory() ? "" : URL(fileURLWithPath: info.cwd).lastPathComponent
+            result[info.number] = !info.name.isEmpty || folder.isEmpty ? name : "\(name) · \(folder)"
         }
         return result
     }

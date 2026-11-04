@@ -159,7 +159,7 @@ struct InboxPage: View {
                 Panel(border: Theme.palette.need) {
                     VStack(alignment: .leading, spacing: 8) {
                         T("◆ \(info.map { model.title(for: $0) } ?? "Oturum"): \(request.category.title)", color: Theme.palette.need, bold: true)
-                        T(request.summary).lineLimit(4)
+                        Mono(request.summary).lineLimit(4)
                         HStack {
                             Btn("İzin Ver", kind: .primary) { Approvals.decide(id: request.id, decision: "allow", remember: request.category == .internet) }
                             Btn("Reddet") { Approvals.decide(id: request.id, decision: "deny") }
@@ -248,21 +248,67 @@ struct SettingsPage: View {
     @ObservedObject var store = SettingsStore.shared
     @ObservedObject var power = PowerCenter.shared
     var body: some View {
-        PageFrame(title: nil) {
-            HStack(spacing: 4) {
-                ForEach(SettingsTab.allCases) { item in
-                    Btn(item.title, kind: tab == item ? .selected : .plain) { tab = item }
+        let palette = Theme.palette
+        VStack(spacing: 0) {
+            HStack {
+                Btn("Geri", kind: .plain, key: "Esc", icon: "chevron.left") { AppModel.shared.page = nil }
+                Spacer()
+            }
+            .padding(.leading, 80)
+            .padding(.trailing, 16)
+            .frame(height: 44)
+            .background(Color(palette.surface1))
+            Line()
+            HStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(SettingsTab.allCases) { item in
+                        sideItem(item.title, icon: item.icon, selected: tab == item) { tab = item }
+                    }
+                    Line().padding(8)
+                    sideItem("Cihazlar", icon: "iphone", selected: false) { AppModel.shared.page = .phone }
+                    sideItem("Hesaplar", icon: "person", selected: false) { AppModel.shared.page = .accounts }
+                    Spacer()
+                }
+                .padding(.vertical, 12)
+                .padding(.horizontal, 8)
+                .frame(width: 220)
+                .background(Color(palette.surface1))
+                .overlay(alignment: .trailing) { Rectangle().fill(Color(palette.hair)).frame(width: 1) }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        T(tab.title, bold: true, style: .title)
+                        switch tab {
+                        case .appearance: appearance
+                        case .shortcuts: shortcuts
+                        case .security: security
+                        case .power: powerSection
+                        case .voice: voice
+                        case .sleep: sleep
+                        }
+                    }
+                    .padding(32)
+                    .frame(maxWidth: 744, alignment: .leading)
+                    .frame(maxWidth: .infinity)
                 }
             }
-            switch tab {
-            case .appearance: appearance
-            case .shortcuts: shortcuts
-            case .security: security
-            case .power: powerSection
-            case .voice: voice
-            case .sleep: sleep
-            }
         }
+        .background(Color(palette.surface0))
+    }
+
+    private func sideItem(_ title: String, icon: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Symbol(icon, color: selected ? Theme.palette.text1 : Theme.palette.text2)
+                T(title, weight: selected ? .medium : .regular)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(selected ? Color(Theme.palette.fillSelected) : .clear)
+            .cornerRadius(Theme.cornerControl)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func line<Content: View>(_ title: String, _ note: String = "", @ViewBuilder content: () -> Content) -> some View {

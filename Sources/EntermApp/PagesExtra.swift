@@ -335,7 +335,7 @@ struct SchedulerPage: View {
                             StatusBadge(status: .needsApproval)
                         }
                         Dim("\(item.folder)/.enterm/zamanlayici.json")
-                        T(item.trigger.command).textSelection(.enabled)
+                        Mono(item.trigger.command).textSelection(.enabled)
                         Dim("\(item.trigger.name) · Cron: \(item.trigger.cron)")
                         Dim("Depodan gelen hiçbir tetik siz onaylamadan çalışmaz. İçerik değişirse yeniden sorulur.")
                         HStack {

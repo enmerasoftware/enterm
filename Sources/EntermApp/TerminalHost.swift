@@ -27,10 +27,10 @@ final class TerminalHost: TerminalView, TerminalViewDelegate {
         let palette = Theme.palette
         font = Theme.font(size: SettingsStore.shared.settings.fontSize)
         appliedScale = 0
-        nativeBackgroundColor = palette.bg
-        nativeForegroundColor = palette.fg
-        caretColor = palette.fg
-        layer?.backgroundColor = palette.bg.cgColor
+        nativeBackgroundColor = palette.terminal
+        nativeForegroundColor = palette.terminalText
+        caretColor = palette.terminalText
+        layer?.backgroundColor = palette.terminal.cgColor
     }
 
     private var appliedScale: CGFloat = 0

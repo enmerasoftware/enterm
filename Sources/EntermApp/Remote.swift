@@ -174,7 +174,7 @@ struct RunPage: View {
                 Panel(border: Theme.palette.need) {
                     VStack(alignment: .leading, spacing: 8) {
                         T("Depodaki Bu Komut İlk Kez Çalışacak", bold: true)
-                        T(config.command).textSelection(.enabled)
+                        Mono(config.command).textSelection(.enabled)
                         HStack {
                             Btn("Çalıştır", kind: .primary) {
                                 RunTrust.accept(folder: folder, config: config)

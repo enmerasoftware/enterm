@@ -95,7 +95,7 @@ struct ApprovalDialog: View {
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Dim("Hangi Komut")
-                        T(request.summary).textSelection(.enabled).lineLimit(6)
+                        Mono(request.summary).textSelection(.enabled).lineLimit(6)
                     }
                     let mode = PermissionBook.load().card(for: request.sessionID).mode(request.category)
                     Dim("Yetki: \(request.category.title), \(mode.title)")

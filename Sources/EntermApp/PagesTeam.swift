@@ -261,10 +261,12 @@ struct BoardPage: View {
                         let cards = store.board.cards.filter { $0.column == column }.sorted { $0.priority > $1.priority }
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                T(column.title, bold: true)
+                                T(column.title, color: Theme.palette.text2, bold: true, style: .secondary)
                                 Spacer()
-                                Dim("\(cards.count)")
+                                T("\(cards.count)", color: Theme.palette.text3, style: .secondary)
                             }
+                            .frame(height: 24)
+                            .padding(.horizontal, 4)
                             ForEach(cards) { card in
                                 Button { selected = card.id } label: { BoardCardView(card: card) }
                                     .buttonStyle(.plain)
@@ -272,7 +274,10 @@ struct BoardPage: View {
                             }
                             Spacer(minLength: 40)
                         }
+                        .padding(8)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .background(Color(Theme.palette.fill))
+                        .cornerRadius(Theme.cornerFloat)
                         .onDrop(of: [.text], isTargeted: nil) { providers in
                             providers.first?.loadObject(ofClass: NSString.self) { item, _ in
                                 guard let id = item as? String else { return }

@@ -49,6 +49,16 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .sleep: return "Uyku"
         }
     }
+    var icon: String {
+        switch self {
+        case .appearance: return "circle.lefthalf.filled"
+        case .shortcuts: return "command"
+        case .security: return "lock"
+        case .power: return "gauge.with.needle"
+        case .voice: return "waveform"
+        case .sleep: return "moon"
+        }
+    }
 }
 
 enum Overlay: Equatable {
@@ -451,22 +461,13 @@ final class AppModel: ObservableObject {
         return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
     }
 
-    func title(for info: SessionInfo) -> String {
-        if !info.name.isEmpty { return info.name }
-        return displayPath(info.cwd)
+    /// The session's name: what the user gave it, or the program with a number when there are several.
+    func name(for info: SessionInfo) -> String {
+        SessionLabel.names(sessions)[info.number] ?? info.tool.title
     }
 
-    /// Labels for the bottom strip and the tabs, where a folder alone does not tell sessions apart.
-    var sessionLabels: [UInt32: String] { SessionLabel.labels(sessions) { self.toolLabel(for: $0) } }
+    func title(for info: SessionInfo) -> String { name(for: info) }
 
-    func toolLabel(for info: SessionInfo) -> String {
-        if info.tool != .terminal { return info.tool.title }
-        return titles[info.number].flatMap { Self.shellName(from: $0) } ?? Self.loginShellName
-    }
-
-    static let loginShellName: String = {
-        URL(fileURLWithPath: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh").lastPathComponent
-    }()
-
-    private static func shellName(from title: String) -> String? { nil }
+    /// Labels for the bottom strip and the tabs: the name and the last folder.
+    var sessionLabels: [UInt32: String] { SessionLabel.stripLabels(sessions) }
 }

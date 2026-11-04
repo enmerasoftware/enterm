@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                           backing: .buffered, defer: false)
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        window.backgroundColor = Theme.palette.bg
+        window.backgroundColor = Theme.palette.surface0
         window.minSize = NSSize(width: 560, height: 360)
         window.contentView = root
         window.delegate = self

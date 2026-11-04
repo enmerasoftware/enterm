@@ -33,6 +33,7 @@ struct Scrim<Content: View>: View {
                 .contentShape(Rectangle())
                 .onTapGesture { AppModel.shared.overlay = nil }
             content()
+                .environment(\.floatingPanel, true)
                 .padding(.top, alignment == .topTrailing ? 44 : 72)
                 .padding(.trailing, alignment == .topTrailing ? 16 : 0)
         }
@@ -47,7 +48,7 @@ struct MenuRow: View {
     let action: () -> Void
     var body: some View {
         Row(selected: selected, action: action) {
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 2) {
                 T(title)
                 if !note.isEmpty { Dim(note) }
             }
@@ -157,7 +158,7 @@ struct InstallToolDialog: View {
             VStack(alignment: .leading, spacing: 8) {
                 let command = ToolPresence.installCommand(tool) ?? ""
                 HStack {
-                    T(command).lineLimit(1).textSelection(.enabled)
+                    Mono(command).lineLimit(1).textSelection(.enabled)
                     Spacer()
                     Btn("Kopyala", kind: .plain) { NotFoundActions.copy(command) }
                 }
@@ -199,7 +200,7 @@ struct NewSessionMenu: View {
             Line()
             HStack { Dim("Tek Tıkla Açılır, Gerisi Hazır Gelir") }.padding(.horizontal, 12).frame(height: 24)
         }
-        .frame(width: 400)
+        .frame(width: 320)
         .background(LetterKeys(map: ["c": "newClaude", "x": "newCodex", "a": "newAntigravity"]))
         .onAppear { catalog.refresh() }
     }
@@ -248,7 +249,7 @@ struct MainMenuPanel: View {
             item("Ayarlar", key: "⌘,", id: "settings")
             item("Tüm Komutlar", key: "⌘K", id: "palette")
         }
-        .frame(width: 400)
+        .frame(width: 320)
     }
     private func item(_ title: String, note: String = "", key: String = "", id: String) -> some View {
         MenuRow(title: title, note: note, key: key) {

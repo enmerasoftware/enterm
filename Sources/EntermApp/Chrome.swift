@@ -8,22 +8,22 @@ struct TopBar: View {
     @ObservedObject var power = PowerCenter.shared
     var body: some View {
         let palette = Theme.palette
-        HStack(spacing: 16) {
+        HStack(spacing: 8) {
             if model.maximized != nil {
                 Btn("Tümünü Gör", kind: .plain, key: "⌘⏎") { model.toggleMaximize() }
             }
             if model.mode == .tabs && model.sessions.count > 1 {
                 let labels = model.sessionLabels
                 ForEach(model.sessions) { info in
-                    Btn(labels[info.number] ?? model.title(for: info), kind: info.number == model.focused ? .selected : .plain) {
+                    Btn(labels[info.number] ?? model.name(for: info), kind: info.number == model.focused ? .selected : .plain) {
                         model.setFocus(info.number)
                         model.onLayoutChange?()
                     }
                 }
             } else if let info = model.focusedInfo {
                 HStack(spacing: 8) {
-                    T(model.title(for: info), bold: true).lineLimit(1)
-                    Dim(model.toolLabel(for: info))
+                    T(model.name(for: info), bold: true).lineLimit(1)
+                    Dim(model.displayPath(info.cwd)).lineLimit(1).truncationMode(.head)
                 }
             }
             Spacer(minLength: 0)
@@ -31,7 +31,7 @@ struct TopBar: View {
                 Btn(hint, kind: .plain) { model.hint = nil }.lineLimit(1)
             }
             if model.serviceLost {
-                T("■ Koptu", color: palette.limit, bold: true)
+                T("■ Koptu", color: palette.err, bold: true)
             }
             if power.settings.lowPower {
                 Btn("Düşük Güçlü Açık", kind: .plain) { Commands.perform("power") }
@@ -46,8 +46,8 @@ struct TopBar: View {
             if model.focusedInfo?.tool != .terminal, model.focusedInfo != nil {
                 Btn("Ayrıntılar", kind: .plain, key: "⌘I") { model.detailsOpen.toggle() }
             }
-            Btn("+", kind: .plain) { Commands.perform("newSession") }.accessibilityLabel("Yeni Oturum")
-            Btn("⋯", kind: .plain) { Commands.perform("menu") }.accessibilityLabel("Menü")
+            IconBtn("plus", label: "Yeni Oturum") { Commands.perform("newSession") }
+            IconBtn("ellipsis", label: "Menü") { Commands.perform("menu") }
         }
         .padding(.leading, 84)
         .padding(.trailing, 16)
@@ -64,40 +64,28 @@ struct BottomBars: View {
     var body: some View {
         VStack(spacing: 0) {
             if model.toolbarVisible {
-                HStack(spacing: 4) {
-                    Btn("Tam Ekran", kind: .plain, key: "⌘⏎") { model.toggleMaximize() }
-                    Btn("Yeni Oturum", kind: .plain, key: "n") { Commands.perform("newSession") }
-                    Btn("−", kind: .plain) { Commands.perform("zoomOut") }
-                    T("%\(Int(model.zoom * 100))")
-                    Btn("+", kind: .plain) { Commands.perform("zoomIn") }
-                    Btn("Sığdır", kind: .plain, key: "0") { Commands.perform("fit") }
-                    Btn("Komutlar", kind: .plain, key: "⌘K") { Commands.perform("palette") }
+                HStack(spacing: 2) {
+                    ToolItem("Tam Ekran", icon: "arrow.up.left.and.arrow.down.right", key: "⌘⏎") { model.toggleMaximize() }
+                    ToolItem("Yeni Oturum", icon: "plus", key: "N") { Commands.perform("newSession") }
+                    ToolSeparator()
+                    IconBtn("minus", label: "Uzaklaştır") { Commands.perform("zoomOut") }
+                    T("%\(Int(model.zoom * 100))", style: .secondary).frame(width: 36)
+                    IconBtn("plus", label: "Yakınlaştır") { Commands.perform("zoomIn") }
+                    ToolItem("Sığdır", icon: "viewfinder", key: "0") { Commands.perform("fit") }
+                    ToolSeparator()
+                    ToolItem("Komutlar", icon: "command", key: "⌘K") { Commands.perform("palette") }
                 }
-                .padding(.horizontal, 8)
-                .frame(height: 44)
-                .background(Color(Theme.palette.raise))
-                .cornerRadius(6)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(Theme.palette.line2)))
+                .padding(.horizontal, 6)
+                .frame(height: 40)
+                .background(Color(Theme.palette.surface2))
+                .cornerRadius(Theme.cornerFloat)
+                .overlay(RoundedRectangle(cornerRadius: Theme.cornerFloat).stroke(Color(Theme.palette.hair2)))
+                .shadow(color: Color(Theme.palette.shadowFloat), radius: 12, y: 8)
                 .frame(maxHeight: .infinity)
                 .padding(.trailing, model.detailsOpen ? 400 : 0)
             }
             if model.footVisible {
-                HStack(spacing: 16) {
-                    let labels = model.sessionLabels
-                    ForEach(model.sessions) { info in
-                        Button { model.setFocus(info.number) } label: {
-                            T("\(info.status.symbol) \(labels[info.number] ?? model.title(for: info))", color: info.number == model.focused ? Theme.palette.fg : Theme.palette.dim)
-                                .lineLimit(1)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    Spacer(minLength: 0)
-                    Dim(limitSummary)
-                }
-                .padding(.horizontal, 16)
-                .frame(height: 32)
-                .background(Color(Theme.palette.panel))
-                .overlay(alignment: .top) { Line() }
+                SessionStrip(summary: limitSummary)
             }
         }
     }
@@ -107,6 +95,113 @@ struct BottomBars: View {
             guard let window = account.lastLimit?.fiveHour ?? account.lastLimit?.sevenDay else { return nil }
             return "\(account.name) %\(Int(window.usedPercent))"
         }.joined(separator: " · ")
+    }
+}
+
+struct ToolItem: View {
+    let title: String
+    let icon: String
+    let key: String
+    let action: () -> Void
+    @State private var hovering = false
+    init(_ title: String, icon: String, key: String, action: @escaping () -> Void) {
+        self.title = title
+        self.icon = icon
+        self.key = key
+        self.action = action
+    }
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Symbol(icon)
+                T(title)
+                Key(key)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(hovering ? Color(Theme.palette.fill) : .clear)
+            .cornerRadius(Theme.cornerControl)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+    }
+}
+
+struct ToolSeparator: View {
+    var body: some View {
+        Rectangle().fill(Color(Theme.palette.hair2)).frame(width: 1, height: 16).padding(.horizontal, 6)
+    }
+}
+
+/// One line per session at the bottom. What does not fit becomes a count that opens the list.
+struct SessionStrip: View {
+    @ObservedObject var model = AppModel.shared
+    let summary: String
+
+    var body: some View {
+        let palette = Theme.palette
+        GeometryReader { geometry in
+            let labels = model.sessionLabels
+            let reserve = (summary as NSString).size(withAttributes: [.font: Theme.ui(.secondary)]).width + 24
+            let visible = fitting(labels: labels, width: geometry.size.width - reserve - 16)
+            HStack(spacing: 2) {
+                ForEach(model.sessions.prefix(visible)) { info in
+                    item(info, label: labels[info.number] ?? "")
+                }
+                if visible < model.sessions.count {
+                    Btn("+\(model.sessions.count - visible)", kind: .plain) { Commands.perform("sessionList") }
+                }
+                Spacer(minLength: 0)
+                T(summary, color: palette.text2, style: .secondary).padding(.trailing, 8)
+            }
+            .padding(.horizontal, 8)
+            .frame(maxHeight: .infinity)
+        }
+        .frame(height: 36)
+        .background(Color(palette.surface1))
+        .overlay(alignment: .top) { Line() }
+    }
+
+    private func width(_ label: String) -> CGFloat {
+        min(200, (label as NSString).size(withAttributes: [.font: Theme.ui(.secondary, weight: .medium)]).width + 16 + 20)
+    }
+
+    private func fitting(labels: [UInt32: String], width available: CGFloat) -> Int {
+        var used: CGFloat = 0
+        for (index, info) in model.sessions.enumerated() {
+            used += width(labels[info.number] ?? "") + 2
+            // The last slot may have to hold the count instead.
+            let room = index == model.sessions.count - 1 ? available : available - 44
+            if used > room { return max(index, 1) }
+        }
+        return model.sessions.count
+    }
+
+    private func item(_ info: SessionInfo, label: String) -> some View {
+        let palette = Theme.palette
+        let look = StatusLook(info.status)
+        let on = info.number == model.focused
+        let color: NSColor = look.strong ? look.textColor : (on ? palette.text1 : palette.text2)
+        return Button { model.setFocus(info.number) } label: {
+            HStack(spacing: 6) {
+                if info.tool == .terminal {
+                    Symbol("terminal", color: palette.text3, size: 14)
+                } else {
+                    Symbol(look.symbol, color: look.symbolColor, size: 8)
+                }
+                T(label, color: color, style: .secondary, weight: look.strong ? .semibold : (on ? .medium : .regular))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 24)
+            .frame(width: width(label), alignment: .leading)
+            .background(on ? Color(palette.fillSelected) : .clear)
+            .cornerRadius(Theme.cornerControl)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -135,7 +230,7 @@ struct InlineCards: View {
                     switch card.kind {
                     case .notInstalled(let install):
                         HStack {
-                            T(install).lineLimit(1).textSelection(.enabled)
+                            Mono(install).lineLimit(1).textSelection(.enabled)
                             Spacer()
                             Btn("Kopyala", kind: .plain) { NotFoundActions.copy(install) }
                         }
@@ -145,7 +240,7 @@ struct InlineCards: View {
                             Btn("Vazgeç", kind: .plain, key: "Esc") { model.notFound = nil }
                         }
                     case .notInPath(let path):
-                        T(path)
+                        Mono(path)
                         Dim("Kurulum bitmiş, ama bu klasör PATH'te değil. PATH değişmez, Enterm bu kopyayı tam yolla çalıştırır.")
                         HStack {
                             Btn("Buradan Çalıştır", kind: .primary, key: "⏎") { NotFoundActions.primary() }
@@ -153,7 +248,7 @@ struct InlineCards: View {
                             Btn("Vazgeç", kind: .plain, key: "Esc") { model.notFound = nil }
                         }
                     case .inApp(let path):
-                        T(path).lineLimit(1)
+                        Mono(path).lineLimit(1)
                         Dim("PATH değişmez, Enterm bu kopyayı tam yolla çalıştırır.")
                         HStack {
                             Btn("Buradan Çalıştır", kind: .primary, key: "⏎") { NotFoundActions.primary() }

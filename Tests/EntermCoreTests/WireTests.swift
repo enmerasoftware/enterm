@@ -237,19 +237,25 @@ final class ToolPresenceTests: XCTestCase {
         }
     }
 
-    func testStripLabelsTellSessionsApart() {
+    func testSessionNames() {
         func info(_ number: UInt32, _ tool: ToolKind, _ cwd: String, name: String = "") -> SessionInfo {
             SessionInfo(id: "\(number)", number: number, name: name, tool: tool, cwd: cwd, status: .running, startedAt: Date())
         }
         let home = NSHomeDirectory()
         let list = [info(1, .terminal, home), info(2, .terminal, home), info(3, .codex, home),
-                    info(4, .claude, home + "/Projeler/Enterm"), info(5, .terminal, "/tmp", name: "Yedek")]
-        let labels = SessionLabel.labels(list) { $0.tool == .terminal ? "zsh" : $0.tool.title }
-        XCTAssertEqual(labels[1], "zsh ~ 1")
-        XCTAssertEqual(labels[2], "zsh ~ 2")
-        XCTAssertEqual(labels[3], "Codex ~")
-        XCTAssertEqual(labels[4], "Claude Code Enterm")
-        XCTAssertEqual(labels[5], "zsh Yedek")
+                    info(4, .claude, home + "/Projeler/magaza"), info(5, .claude, home + "/Projeler/magaza"),
+                    info(6, .terminal, "/tmp", name: "sunucu-bakimi")]
+        let names = SessionLabel.names(list)
+        XCTAssertEqual(names[1], "Terminal")
+        XCTAssertEqual(names[2], "Terminal 2")
+        XCTAssertEqual(names[5], "Claude Code 2")
+        XCTAssertEqual(names[6], "sunucu-bakimi")
+        let strip = SessionLabel.stripLabels(list)
+        XCTAssertEqual(strip[2], "Terminal 2")
+        XCTAssertEqual(strip[3], "Codex")
+        XCTAssertEqual(strip[4], "Claude Code · magaza")
+        XCTAssertEqual(strip[5], "Claude Code 2 · magaza")
+        XCTAssertEqual(strip[6], "sunucu-bakimi")
     }
 }
 

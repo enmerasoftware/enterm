@@ -2,20 +2,63 @@ import AppKit
 import EntermCore
 
 /// Drawn only: the box under it handles the mouse.
-final class PassThroughView: NSView {
+class PassThroughView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+private func symbolImage(_ name: String, size: CGFloat) -> NSImage? {
+    NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(.init(pointSize: size * 0.85, weight: .regular))
+}
+
+/// The status chip on a box: symbol and word on a soft ground, no frame.
+final class BadgeView: PassThroughView {
+    private let icon = NSImageView()
+    private let label = NSTextField(labelWithString: "")
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.cornerRadius = Theme.cornerControl
+        addSubview(icon)
+        addSubview(label)
+        label.lineBreakMode = .byClipping
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override var isFlipped: Bool { true }
+
+    func apply(_ status: SessionStatus) {
+        let look = StatusLook(status)
+        icon.image = symbolImage(look.symbol, size: 8)
+        icon.contentTintColor = look.symbolColor
+        label.stringValue = status.title
+        label.font = Theme.ui(.secondary, weight: look.strong ? .semibold : .medium)
+        label.textColor = look.textColor
+        layer?.backgroundColor = look.background.cgColor
+        label.sizeToFit()
+        let width = 6 + 8 + 6 + label.frame.width + 8
+        frame.size = NSSize(width: ceil(width), height: 20)
+        icon.frame = NSRect(x: 6, y: 6, width: 8, height: 8)
+        label.frame.origin = NSPoint(x: 20, y: (20 - label.frame.height) / 2)
+    }
 }
 
 /// One session on the canvas: a header, the live terminal, and for agents a one line footer.
 final class SessionBox: NSView {
     let number: UInt32
     let header = NSView()
+    let programIcon = NSImageView()
     let titleLabel = NSTextField(labelWithString: "")
-    let toolLabel = NSTextField(labelWithString: "")
-    let badge = NSTextField(labelWithString: "")
+    let folderLabel = NSTextField(labelWithString: "")
+    let badge = BadgeView()
+    let footerBar = NSView()
     let footer = NSTextField(labelWithString: "")
-    let details = NSTextField(labelWithString: "Ayrıntılar ⌘I")
+    let details = NSTextField(labelWithString: "Ayrıntılar")
+    let detailsKey = NSTextField(labelWithString: "⌘I")
     let grip = PassThroughView()
+    let gripIcon = NSImageView()
     var showsHeader = true
     var showsFooter = false
     var summaryOnly = false
@@ -24,29 +67,46 @@ final class SessionBox: NSView {
     private var dragStart: NSPoint?
     private var dragOrigin: NSPoint?
     private var linking = false
+    private var isAgent = false
+    private var shadowSize = NSSize.zero
 
     init(number: UInt32) {
         self.number = number
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.cornerRadius = 6
+        layer?.cornerRadius = Theme.cornerCard
         layer?.borderWidth = 1
-        layer?.masksToBounds = true
         header.wantsLayer = true
+        header.layer?.cornerRadius = Theme.cornerCard
+        header.layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
         addSubview(header)
-        for label in [titleLabel, toolLabel, badge, footer, details, summaryLabel] {
+        footerBar.wantsLayer = true
+        footerBar.layer?.cornerRadius = Theme.cornerCard
+        footerBar.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        addSubview(footerBar)
+        for label in [titleLabel, folderLabel, footer, details, detailsKey, summaryLabel] {
             label.lineBreakMode = .byTruncatingTail
-            label.font = Theme.font()
         }
-        titleLabel.font = Theme.font(bold: true)
+        folderLabel.lineBreakMode = .byTruncatingHead
+        titleLabel.font = Theme.ui(.body, weight: .semibold)
+        folderLabel.font = Theme.ui(.secondary)
+        footer.font = Theme.ui(.secondary)
+        details.font = Theme.ui(.secondary)
+        detailsKey.font = Theme.ui(.hint)
+        summaryLabel.font = Theme.ui(.body, weight: .semibold)
+        header.addSubview(programIcon)
         header.addSubview(titleLabel)
-        header.addSubview(toolLabel)
+        header.addSubview(folderLabel)
         header.addSubview(badge)
-        addSubview(footer)
-        addSubview(details)
+        footerBar.addSubview(footer)
+        footerBar.addSubview(details)
+        footerBar.addSubview(detailsKey)
         addSubview(summaryLabel)
         grip.wantsLayer = true
-        grip.layer?.cornerRadius = 5
+        grip.layer?.cornerRadius = Theme.cornerControl
+        gripIcon.image = symbolImage("link", size: 14)
+        gripIcon.frame = NSRect(x: 5, y: 5, width: 14, height: 14)
+        grip.addSubview(gripIcon)
         addSubview(grip)
         grip.toolTip = "Sürükleyerek Bağla"
     }
@@ -59,58 +119,79 @@ final class SessionBox: NSView {
 
     func apply(info: SessionInfo, focused: Bool, model: AppModel) {
         let palette = Theme.palette
-        titleLabel.stringValue = model.title(for: info)
-        titleLabel.textColor = palette.fg
-        toolLabel.stringValue = model.toolLabel(for: info)
-        toolLabel.textColor = palette.dim
-        layer?.backgroundColor = palette.bg.cgColor
-        header.layer?.backgroundColor = palette.raise.cgColor
-        let isAgent = info.tool != .terminal
+        isAgent = info.tool != .terminal
+        let attention = info.status == .needsApproval || info.status == .limitReached || info.status == .failed
+        titleLabel.stringValue = model.name(for: info)
+        titleLabel.textColor = focused || attention ? palette.text1 : palette.text2
+        folderLabel.stringValue = model.displayPath(info.cwd)
+        folderLabel.textColor = focused ? palette.text2 : palette.text3
+        programIcon.image = symbolImage(isAgent ? "sparkle" : "terminal", size: 14)
+        programIcon.contentTintColor = focused ? palette.text2 : palette.text3
+        layer?.backgroundColor = palette.terminal.cgColor
+        header.layer?.backgroundColor = (focused ? palette.surface2 : palette.surface1).cgColor
+        footerBar.layer?.backgroundColor = palette.surface1.cgColor
         badge.isHidden = !isAgent
-        badge.stringValue = "\(info.status.symbol) \(info.status.title)"
-        var border = focused ? palette.fg : palette.line2
+        if isAgent { badge.apply(info.status) }
+        var border = focused ? palette.focus : palette.hair2
+        var borderWidth: CGFloat = 1
         switch info.status {
         case .needsApproval:
-            badge.textColor = palette.need
             border = palette.need
+            borderWidth = 2
         case .limitReached:
-            badge.textColor = palette.limit
             border = palette.limit
+            borderWidth = 2
         case .failed:
-            badge.textColor = palette.err
             border = palette.err
-        case .notFound:
-            badge.textColor = palette.limit
+            borderWidth = 2
         default:
-            badge.textColor = info.status == .running ? palette.fg : palette.dim
+            break
         }
         layer?.borderColor = border.cgColor
+        layer?.borderWidth = borderWidth
+        applyShadow(focused || info.status == .needsApproval)
         showsFooter = isAgent
-        footer.isHidden = !isAgent
-        details.isHidden = !isAgent
-        footer.textColor = palette.dim
-        details.textColor = palette.dim
+        footerBar.isHidden = !isAgent
+        footer.textColor = palette.text2
+        details.textColor = palette.text2
+        detailsKey.textColor = palette.text3
         footer.stringValue = SessionText.footer(info)
+        gripIcon.contentTintColor = palette.text2
         updateGrip()
-        grip.layer?.backgroundColor = palette.line2.cgColor
-        summaryLabel.stringValue = "\(info.status.symbol) \(model.title(for: info))"
-        summaryLabel.textColor = palette.fg
+        summaryLabel.stringValue = "\(info.status.symbol) \(model.name(for: info))"
+        summaryLabel.textColor = palette.text1
         summaryLabel.isHidden = !summaryOnly
+    }
+
+    /// Only the focused box casts a shadow, and its outline is computed once per size.
+    private func applyShadow(_ on: Bool) {
+        guard let layer else { return }
+        layer.shadowColor = Theme.palette.shadowBox.cgColor
+        layer.shadowOpacity = on ? 1 : 0
+        layer.shadowRadius = on ? 8 : 0
+        layer.shadowOffset = on ? CGSize(width: 0, height: -4) : .zero
+        if !on { layer.shadowPath = nil; shadowSize = .zero }
+        if on, shadowSize != bounds.size {
+            shadowSize = bounds.size
+            layer.shadowPath = CGPath(roundedRect: bounds, cornerWidth: Theme.cornerCard, cornerHeight: Theme.cornerCard, transform: nil)
+        }
     }
 
     var canvasCanLink: Bool { canvas?.linkingEnabled ?? false }
 
-    /// The grip is a small dot shown under the mouse. A bar at the edge would read as a scroller.
+    /// The grip lives in the header and shows under the mouse, so nothing sits on the terminal.
     private var hovering = false
+    private var overGrip = false
 
     private func updateGrip() {
-        grip.isHidden = !(canvasCanLink && (hovering || linking))
+        grip.isHidden = !(canvasCanLink && showsHeader && (hovering || linking))
+        grip.layer?.backgroundColor = overGrip ? Theme.palette.fill.cgColor : nil
     }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow, .inVisibleRect], owner: self))
     }
 
     override func mouseEntered(with event: NSEvent) {
@@ -120,6 +201,14 @@ final class SessionBox: NSView {
 
     override func mouseExited(with event: NSEvent) {
         hovering = false
+        overGrip = false
+        updateGrip()
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let over = grip.frame.contains(convert(event.locationInWindow, from: nil))
+        guard over != overGrip else { return }
+        overGrip = over
         updateGrip()
     }
 
@@ -127,40 +216,52 @@ final class SessionBox: NSView {
         let width = bounds.width
         if summaryOnly {
             header.isHidden = true
+            footerBar.isHidden = true
             host?.isHidden = true
+            grip.isHidden = true
             summaryLabel.frame = bounds.insetBy(dx: 8, dy: (bounds.height - 20) / 2)
-            footer.isHidden = true
-            details.isHidden = true
             return
         }
         header.isHidden = !showsHeader
         host?.isHidden = false
         let headerHeight: CGFloat = showsHeader ? 32 : 0
         header.frame = NSRect(x: 0, y: 0, width: width, height: headerHeight)
+        programIcon.frame = NSRect(x: 10, y: 9, width: 14, height: 14)
+        let badgeWidth = badge.isHidden ? 0 : badge.frame.width
+        let right = badge.isHidden ? width - 6 : width - 6 - badgeWidth
+        badge.frame.origin = NSPoint(x: right, y: 6)
+        grip.frame = NSRect(x: (badge.isHidden ? right : right - 6) - 24, y: 4, width: 24, height: 24)
         titleLabel.sizeToFit()
-        badge.sizeToFit()
-        toolLabel.sizeToFit()
-        let badgeWidth = badge.isHidden ? 0 : badge.frame.width + 8
-        let titleWidth = min(titleLabel.frame.width, max(40, width - 24 - badgeWidth - toolLabel.frame.width - 8))
-        titleLabel.frame = NSRect(x: 12, y: 6, width: titleWidth, height: 20)
-        toolLabel.frame.origin = NSPoint(x: titleLabel.frame.maxX + 8, y: 6)
-        badge.frame.origin = NSPoint(x: width - badge.frame.width - 8, y: 6)
+        folderLabel.sizeToFit()
+        // The folder gives way first, then the name.
+        let textStart: CGFloat = 30
+        let textEnd = grip.frame.minX - 8
+        let room = max(0, textEnd - textStart)
+        let titleWidth = min(titleLabel.frame.width, room)
+        titleLabel.frame = NSRect(x: textStart, y: 7, width: titleWidth, height: 18)
+        let folderX = titleLabel.frame.maxX + 8
+        folderLabel.frame = NSRect(x: folderX, y: 8, width: max(0, min(folderLabel.frame.width, textEnd - folderX)), height: 16)
         let footerHeight: CGFloat = showsFooter ? 24 : 0
+        footerBar.frame = NSRect(x: 0, y: bounds.height - footerHeight, width: width, height: footerHeight)
         if showsFooter {
+            detailsKey.sizeToFit()
             details.sizeToFit()
-            details.frame.origin = NSPoint(x: width - details.frame.width - 12, y: bounds.height - 22)
-            footer.frame = NSRect(x: 12, y: bounds.height - 22, width: max(0, details.frame.minX - 20), height: 20)
+            detailsKey.frame.origin = NSPoint(x: width - detailsKey.frame.width - 12, y: (24 - detailsKey.frame.height) / 2)
+            details.frame.origin = NSPoint(x: detailsKey.frame.minX - details.frame.width - 6, y: (24 - details.frame.height) / 2)
+            footer.frame = NSRect(x: 12, y: (24 - 16) / 2, width: max(0, details.frame.minX - 20), height: 16)
         }
-        // The grip stays above the terminal, whose scroller reaches the box edge.
-        let gripWidth: CGFloat = canvasCanLink ? 10 : 0
-        host?.frame = NSRect(x: 8, y: headerHeight + 4, width: width - 16 - gripWidth, height: bounds.height - headerHeight - footerHeight - 8)
-        grip.frame = NSRect(x: width - 11, y: bounds.height / 2 - 5, width: 10, height: 10)
+        // Rows and columns do not depend on how many sessions are open.
+        host?.frame = NSRect(x: 8, y: headerHeight + 4, width: width - 16, height: bounds.height - headerHeight - footerHeight - 8)
         addSubview(grip, positioned: .above, relativeTo: nil)
+        if layer?.shadowOpacity ?? 0 > 0, shadowSize != bounds.size {
+            shadowSize = bounds.size
+            layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: Theme.cornerCard, cornerHeight: Theme.cornerCard, transform: nil)
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        if canvasCanLink, grip.frame.insetBy(dx: -6, dy: -6).contains(point) {
+        if canvasCanLink, !grip.isHidden, grip.frame.contains(point) {
             linking = true
             canvas?.beginLink(from: self, event: event)
             return
@@ -188,7 +289,7 @@ final class SessionBox: NSView {
             return
         }
         let point = convert(event.locationInWindow, from: nil)
-        if showsFooter, details.frame.insetBy(dx: -4, dy: -4).contains(point) {
+        if showsFooter, footerBar.convert(details.frame, to: self).insetBy(dx: -4, dy: -4).contains(point) {
             AppModel.shared.setFocus(number)
             AppModel.shared.detailsOpen.toggle()
         }
@@ -259,7 +360,7 @@ final class CanvasView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         let palette = Theme.palette
-        palette.bg.setFill()
+        palette.surface0.setFill()
         dirtyRect.fill()
         guard model.mode == .canvas, model.maximized == nil, SettingsStore.shared.settings.canvasDots else { return }
         palette.line.setFill()

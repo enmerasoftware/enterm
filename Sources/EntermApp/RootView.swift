@@ -31,7 +31,7 @@ final class RootView: NSView {
             (view as? NSHostingView<InlineCards>)?.safeAreaRegions = []
         }
         wantsLayer = true
-        layer?.backgroundColor = Theme.palette.bg.cgColor
+        layer?.backgroundColor = Theme.palette.surface0.cgColor
         addSubview(canvas)
         addSubview(top)
         addSubview(bottom)
@@ -95,7 +95,7 @@ final class RootView: NSView {
 
     private func layoutBars() {
         let barHeight: CGFloat = 44
-        let foot: CGFloat = model.footVisible ? 32 : 0
+        let foot: CGFloat = model.footVisible ? 36 : 0
         let toolbar: CGFloat = model.toolbarVisible ? 52 : 0
         let sideWidth: CGFloat = model.detailsOpen ? 400 : 0
         top.frame = NSRect(x: 0, y: 0, width: bounds.width, height: barHeight)
