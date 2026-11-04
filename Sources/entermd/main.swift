@@ -43,6 +43,7 @@ final class Service {
     var clients: [Int32: Client] = [:]
     var sessions: [UInt32: Session] = [:]
     var nextNumber: UInt32 = 1
+    lazy var phones = PhoneCenter(service: self)
     var idleTimer: DispatchSourceTimer?
     var flushTimer: DispatchSourceTimer?
     var permissions = PermissionBook.load()
@@ -81,6 +82,7 @@ final class Service {
         umask(previous)
         guard bound == 0, listen(fd, 16) == 0 else { exit(1) }
         chmod(path, 0o600)
+        phones.start()
         let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
         source.setEventHandler { [weak self] in self?.accept(fd) }
         source.resume()
@@ -93,6 +95,11 @@ final class Service {
     func accept(_ listenFD: Int32) {
         let fd = Darwin.accept(listenFD, nil, nil)
         guard fd >= 0 else { return }
+        _ = adopt(fd)
+    }
+
+    @discardableResult
+    func adopt(_ fd: Int32) -> Client {
         var one: Int32 = 1
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
         _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
@@ -106,6 +113,7 @@ final class Service {
         source.resume()
         client.readSource = source
         cancelIdleCheck()
+        return client
     }
 
     func readClient(_ client: Client) {
@@ -183,6 +191,7 @@ final class Service {
     }
 
     func publish(_ session: Session) {
+        phones.sessionChanged(session.info)
         var message = WireMessage(op: "session")
         message.session = session.info
         broadcast(message)
@@ -210,6 +219,7 @@ final class Service {
     }
 
     func handleMessage(_ message: WireMessage, from client: Client) {
+        if phones.handle(message, from: client) { return }
         switch message.op {
         case "hello":
             client.subscribed = true

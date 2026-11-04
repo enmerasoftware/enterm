@@ -1,3 +1,4 @@
+import CryptoKit
 @testable import EntermCore
 import XCTest
 
@@ -249,5 +250,72 @@ final class ToolPresenceTests: XCTestCase {
         XCTAssertEqual(labels[3], "Codex ~")
         XCTAssertEqual(labels[4], "Claude Code Enterm")
         XCTAssertEqual(labels[5], "zsh Yedek")
+    }
+}
+
+final class TunnelTests: XCTestCase {
+    func testOfferSurvivesTheCode() {
+        let offer = PairingOffer(relay: "wss://aktarim.ornek.com:8443/a?b=c", id: TunnelCrypto.randomRoom(), key: TunnelCrypto.randomBytes(32))
+        XCTAssertEqual(PairingOffer(url: offer.url), offer)
+        XCTAssertNil(PairingOffer(url: "https://ornek.com/pair"))
+        XCTAssertNil(PairingOffer(url: offer.url.replacingOccurrences(of: "v=1", with: "v=2")))
+        XCTAssertNil(PairingOffer(url: PairingOffer(relay: "http://ornek.com", id: offer.id, key: offer.key).url))
+        XCTAssertNil(PairingOffer(url: PairingOffer(relay: offer.relay, id: "kisa", key: offer.key).url))
+    }
+
+    func testBothSidesDeriveTheSameThings() {
+        let mac = Curve25519.KeyAgreement.PrivateKey()
+        let phone = Curve25519.KeyAgreement.PrivateKey()
+        func shared(_ own: Curve25519.KeyAgreement.PrivateKey, _ other: Curve25519.KeyAgreement.PrivateKey) -> SymmetricKey {
+            try! own.sharedSecretFromKeyAgreement(with: other.publicKey).withUnsafeBytes { SymmetricKey(data: Data($0)) }
+        }
+        let offer = mac.publicKey.rawRepresentation
+        let answer = phone.publicKey.rawRepresentation
+        let a = TunnelCrypto.comparisonNumber(shared: shared(mac, phone), offer: offer, answer: answer)
+        XCTAssertEqual(a, TunnelCrypto.comparisonNumber(shared: shared(phone, mac), offer: offer, answer: answer))
+        XCTAssertEqual(a.count, 7)
+        XCTAssertEqual(TunnelCrypto.pairKey(shared: shared(mac, phone), offer: offer, answer: answer),
+                       TunnelCrypto.pairKey(shared: shared(phone, mac), offer: offer, answer: answer))
+        // A relay swapping keys ends up with a different number on each side.
+        let evil = Curve25519.KeyAgreement.PrivateKey()
+        XCTAssertNotEqual(a, TunnelCrypto.comparisonNumber(shared: shared(mac, evil), offer: offer, answer: evil.publicKey.rawRepresentation))
+    }
+
+    func testCipherRefusesReplayAndWrongKey() {
+        let key = TunnelCrypto.randomBytes(32)
+        let m = TunnelCrypto.randomBytes(32), p = TunnelCrypto.randomBytes(32)
+        var mac = TunnelCrypto.cipher(pairKey: key, role: .mac, macSalt: m, phoneSalt: p)
+        var phone = TunnelCrypto.cipher(pairKey: key, role: .phone, macSalt: m, phoneSalt: p)
+        let first = mac.seal(Data("bir".utf8))!
+        let second = mac.seal(Data("iki".utf8))!
+        XCTAssertNotEqual(first.prefix(3), second.prefix(3))
+        XCTAssertEqual(phone.open(first), Data("bir".utf8))
+        XCTAssertNil(phone.open(first), "replay")
+        XCTAssertEqual(phone.open(second), Data("iki".utf8))
+        XCTAssertEqual(mac.open(phone.seal(Data("yanit".utf8))!), Data("yanit".utf8))
+        var stranger = TunnelCrypto.cipher(pairKey: TunnelCrypto.randomBytes(32), role: .phone, macSalt: m, phoneSalt: p)
+        XCTAssertNil(stranger.open(mac.seal(Data("gizli".utf8))!))
+    }
+
+    func testNotificationOpensOnlyWithTheKey() {
+        let key = TunnelCrypto.randomBytes(32)
+        let sealed = TunnelCrypto.sealNotification(Data("ssh deploy".utf8), pairKey: key)!
+        XCTAssertFalse(Data(base64Encoded: sealed)!.contains(Data("ssh".utf8)))
+        XCTAssertEqual(TunnelCrypto.openNotification(sealed, pairKey: key), Data("ssh deploy".utf8))
+        XCTAssertNil(TunnelCrypto.openNotification(sealed, pairKey: TunnelCrypto.randomBytes(32)))
+    }
+
+    func testRoomRevealsNothingAndIsStable() {
+        let key = TunnelCrypto.randomBytes(32)
+        XCTAssertEqual(TunnelCrypto.room(pairKey: key), TunnelCrypto.room(pairKey: key))
+        XCTAssertTrue(TunnelCrypto.isRoom(TunnelCrypto.room(pairKey: key)))
+        XCTAssertNotEqual(TunnelCrypto.room(pairKey: key), TunnelCrypto.room(pairKey: TunnelCrypto.randomBytes(32)))
+    }
+
+    /// Two agents through a real relay would need a server. The agents' first step is covered here.
+    func testAgentOffersItsOwnKey() {
+        let agent = PairingAgent(relay: "ws://127.0.0.1:1", name: "Mac", queue: .main)
+        XCTAssertEqual(agent.offer.key.count, 32)
+        XCTAssertEqual(PairingOffer(url: agent.offer.url), agent.offer)
     }
 }

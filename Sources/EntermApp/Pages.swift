@@ -31,7 +31,7 @@ struct PageRouter: View {
         case .whiteboard: WhiteboardPage()
         case .simulator: SimulatorPage()
         case .uninstall: UninstallPage()
-        case .phone: NotYet(name: "Telefonu Bağla")
+        case .phone: PhonePage()
         case .notYet(let name): NotYet(name: name)
         }
     }

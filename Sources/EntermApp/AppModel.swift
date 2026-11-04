@@ -203,6 +203,10 @@ final class AppModel: ObservableObject {
             if let data = message.text?.data(using: .utf8), let list = try? JSONDecoder().decode([HeavyEntry].self, from: data) {
                 heavyQueue = list
             }
+        case "pairState":
+            PhoneStore.shared.pairingChanged(state: message.text ?? "", detail: message.error)
+        case "devices":
+            PhoneStore.shared.devicesChanged(message.text)
         case "browserCmd":
             BrowserCenter.shared.handle(message: message)
         case "reload":

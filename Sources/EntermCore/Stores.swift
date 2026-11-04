@@ -12,6 +12,7 @@ public struct AppSettings: Codable, Equatable {
     public var keepAwakeWhileAgents = true
     public var keepAwakeBatteryFloor = 20
     public var systemNotifications = true
+    public var relayURL = ""
     public var defaultTemplate = PermissionTemplate.development
     public var voiceEnabled = true
     public var voiceEngine = "system"
@@ -35,6 +36,7 @@ public struct AppSettings: Codable, Equatable {
         keepAwakeWhileAgents = try c.decodeIfPresent(Bool.self, forKey: .keepAwakeWhileAgents) ?? d.keepAwakeWhileAgents
         keepAwakeBatteryFloor = try c.decodeIfPresent(Int.self, forKey: .keepAwakeBatteryFloor) ?? d.keepAwakeBatteryFloor
         systemNotifications = try c.decodeIfPresent(Bool.self, forKey: .systemNotifications) ?? d.systemNotifications
+        relayURL = try c.decodeIfPresent(String.self, forKey: .relayURL) ?? d.relayURL
         defaultTemplate = try c.decodeIfPresent(PermissionTemplate.self, forKey: .defaultTemplate) ?? d.defaultTemplate
         voiceEnabled = try c.decodeIfPresent(Bool.self, forKey: .voiceEnabled) ?? d.voiceEnabled
         voiceEngine = try c.decodeIfPresent(String.self, forKey: .voiceEngine) ?? d.voiceEngine
