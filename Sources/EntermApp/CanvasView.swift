@@ -48,12 +48,12 @@ final class BadgeView: PassThroughView {
 /// One session on the canvas: a header, the live terminal, and for agents a one line footer.
 final class SessionBox: NSView {
     let number: UInt32
-    let header = NSView()
+    let header = PassThroughView()
     let programIcon = NSImageView()
     let titleLabel = NSTextField(labelWithString: "")
     let folderLabel = NSTextField(labelWithString: "")
     let badge = BadgeView()
-    let footerBar = NSView()
+    let footerBar = PassThroughView()
     let footer = NSTextField(labelWithString: "")
     let details = NSTextField(labelWithString: "Ayrıntılar")
     let detailsKey = NSTextField(labelWithString: "⌘I")
