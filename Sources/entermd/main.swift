@@ -33,6 +33,7 @@ final class Session {
     var replayedOldLog = false
     var rows = 24
     var cols = 80
+    var wasResized = false
     init(info: SessionInfo, master: Int32) {
         self.info = info
         self.master = master
@@ -41,6 +42,7 @@ final class Session {
 
 final class Service {
     static let ringLimit = 1024 * 1024
+    static let shellStartColumns = 20
     let queue = DispatchQueue(label: "enterm.service")
     var listener: DispatchSourceRead?
     var clients: [Int32: Client] = [:]
@@ -256,6 +258,7 @@ final class Service {
             guard let number = message.number, let session = sessions[number],
                   let rows = message.rows, let cols = message.cols else { return }
             _ = cpty_resize(session.master, UInt16(rows), UInt16(cols))
+            session.wasResized = true
             if !client.isPhone {
                 session.rows = rows
                 session.cols = cols
@@ -446,7 +449,11 @@ final class Service {
             cArgv.forEach { free($0) }
             cEnv.forEach { free($0) }
         }
-        let status = cpty_spawn(path, cArgv, cEnv, cwd, UInt16(max(spec.rows, 2)), UInt16(max(spec.cols, 2)), &master, &pid)
+        // zsh writes its end-of-line mark as wide as the terminal before the first prompt, before any hook runs.
+        // The window's size arrives a moment after the start. If the terminal then is narrower, the mark wraps
+        // and stays on screen. A shell starts narrower than any box, and the window's size or the asked one follows.
+        let startColumns = spec.argv == nil ? min(spec.cols, Service.shellStartColumns) : spec.cols
+        let status = cpty_spawn(path, cArgv, cEnv, cwd, UInt16(max(spec.rows, 2)), UInt16(max(startColumns, 2)), &master, &pid)
         guard status == 0 else { throw SpawnError.failed(errno) }
         _ = fcntl(master, F_SETFL, fcntl(master, F_GETFL) | O_NONBLOCK)
         let number = nextNumber
@@ -460,6 +467,13 @@ final class Service {
         let session = Session(info: info, master: master)
         session.rows = spec.rows
         session.cols = spec.cols
+        if startColumns != spec.cols {
+            // Nobody may be looking yet, as for a queued start. The session still gets the size it asked for.
+            queue.asyncAfter(deadline: .now() + 1) { [weak session] in
+                guard let session, !session.wasResized else { return }
+                _ = cpty_resize(session.master, UInt16(max(spec.rows, 2)), UInt16(max(spec.cols, 2)))
+            }
+        }
         sessions[number] = session
         let read = DispatchSource.makeReadSource(fileDescriptor: master, queue: queue)
         read.setEventHandler { [weak self, weak session] in

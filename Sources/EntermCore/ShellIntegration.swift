@@ -53,16 +53,6 @@ public enum ShellIntegration {
       add-zsh-hook -d precmd _enterm_install
       add-zsh-hook precmd _enterm_cwd
       _enterm_cwd
-      # The box gets its real width while the shell starts, so zsh's end-of-line mark would stay on screen.
-      # A resize can draw the first prompt again, so the mark stays off until the first command runs.
-      _enterm_mark_set=${PROMPT_EOL_MARK+1}
-      _enterm_mark=${PROMPT_EOL_MARK-}
-      PROMPT_EOL_MARK=''
-      _enterm_restore_mark() {
-        add-zsh-hook -d preexec _enterm_restore_mark
-        if [[ -n "$_enterm_mark_set" ]]; then PROMPT_EOL_MARK=$_enterm_mark; else unset PROMPT_EOL_MARK; fi
-      }
-      add-zsh-hook preexec _enterm_restore_mark
       (( ${+functions[command_not_found_handler]} )) && functions[_enterm_prior_cnf]=$functions[command_not_found_handler]
       command_not_found_handler() {
         case "$1" in
