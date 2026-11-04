@@ -145,7 +145,7 @@ struct FoundCardView: View {
                 Card {
                     Txt(card.title, bold: true)
                     CommandText(text: card.command)
-                    DimTxt(card.note)
+                    DimTxt(card.note).fixedSize(horizontal: false, vertical: true)
                     ActionButton(card.button, style: .primary) {
                         model.input(info.number, Data((card.command + "\r").utf8))
                         dismissed = true
