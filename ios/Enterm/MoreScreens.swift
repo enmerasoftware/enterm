@@ -6,12 +6,25 @@ struct RouteHeader: View {
     @EnvironmentObject var model: PhoneModel
     let back: String
     var trailing: String?
+    var asksApproval = false
     var body: some View {
         HStack {
             Button { if !model.route.isEmpty { model.route.removeLast() } } label: { BackLabel(title: back) }
                 .buttonStyle(.plain)
             Spacer()
-            if let trailing { Txt(trailing, color: Palette.text2, style: .footnote, weight: .medium).lineLimit(1) }
+            if asksApproval {
+                HStack(spacing: 6) {
+                    Image(systemName: "diamond.fill").font(.caption2).foregroundColor(Palette.need)
+                    Txt("Onay İstiyor", color: Palette.need, style: .footnote, weight: .semibold).lineLimit(1)
+                }
+                .padding(.leading, 6)
+                .padding(.trailing, 8)
+                .frame(minHeight: 24)
+                .background(Palette.need.opacity(0.16))
+                .cornerRadius(6)
+            } else if let trailing {
+                Txt(trailing, color: Palette.text2, style: .footnote, weight: .medium).lineLimit(1)
+            }
         }
         .padding(.horizontal, 12)
         .frame(minHeight: 52)
@@ -45,6 +58,7 @@ struct NavGroup<Content: View>: View {
 
 struct NavRow: View {
     @Environment(\.navGrouped) private var grouped
+    @ScaledMetric private var iconBox: CGFloat = 28
     let title: String
     var icon: String?
     let action: () -> Void
@@ -56,7 +70,7 @@ struct NavRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                if let icon { Image(systemName: icon).foregroundColor(Palette.text2) }
+                if let icon { Image(systemName: icon).foregroundColor(Palette.text2).frame(width: iconBox) }
                 Txt(title).multilineTextAlignment(.leading)
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundColor(Palette.text3)
@@ -316,16 +330,24 @@ struct DetailsScreen: View {
 }
 
 struct LimitLines: View {
+    @Environment(\.dynamicTypeSize) private var size
     let limit: LimitSnapshot?
     var body: some View {
         if let window = limit?.fiveHour { line("5 Saatlik", window) }
         if let window = limit?.sevenDay { line("7 Günlük", window) }
     }
-    private func line(_ title: String, _ window: LimitWindow) -> some View {
-        HStack {
-            DimTxt("\(title) %\(Int(window.usedPercent))")
-            Spacer()
-            if let resets = window.resetsAt { DimTxt(resets.turkish()) }
+    @ViewBuilder private func line(_ title: String, _ window: LimitWindow) -> some View {
+        if size.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 2) {
+                DimTxt("\(title) %\(Int(window.usedPercent))")
+                if let resets = window.resetsAt { DimTxt(resets.turkish()) }
+            }
+        } else {
+            HStack {
+                DimTxt("\(title) %\(Int(window.usedPercent))")
+                Spacer()
+                if let resets = window.resetsAt { DimTxt(resets.turkish()) }
+            }
         }
     }
 }
@@ -855,7 +877,7 @@ struct CostScreen: View {
                         HStack {
                             Txt("Danışman")
                             Spacer()
-                            Txt("■ Ayrı Sayım Yok", color: Palette.limit)
+                            Txt("Ayrı Sayım Yok", color: Palette.text2, style: .subheadline)
                         }
                         DimTxt("Tüketim limit yüzdesine dahildir, ayrı okunamıyor. Toplam gerçek kullanımdan düşük görünebilir.")
                     }
@@ -1291,7 +1313,7 @@ struct ApprovalDetailScreen: View {
     let id: String
     var body: some View {
         VStack(spacing: 0) {
-            RouteHeader(back: "Onaylar", trailing: "◆ Onay İstiyor")
+            RouteHeader(back: "Onaylar", asksApproval: true)
             if let info = model.sessions.first(where: { $0.pendingApproval?.id == id }), let approval = info.pendingApproval {
                 VStack(alignment: .leading, spacing: 8) {
                     Txt("\(model.title(info)) İzin İstiyor", bold: true)

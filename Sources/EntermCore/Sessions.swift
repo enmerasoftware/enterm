@@ -116,21 +116,18 @@ public enum ToolPresence: Equatable {
     }
 }
 
-/// How a session is called. A name the user gave stands alone. Otherwise the program,
-/// with a number from the second one on, in opening order.
+/// How a session is called: the name the user gave, otherwise the program.
+/// A repeated one gets a number from the second on, in opening order.
 public enum SessionLabel {
     public static func names(_ sessions: [SessionInfo]) -> [UInt32: String] {
         var seen: [String: Int] = [:]
         var result: [UInt32: String] = [:]
         for info in sessions.sorted(by: { $0.number < $1.number }) {
-            if !info.name.isEmpty {
-                result[info.number] = info.name
-                continue
-            }
-            let program = info.tool.title
-            seen[program, default: 0] += 1
-            let count = seen[program] ?? 1
-            result[info.number] = count > 1 ? "\(program) \(count)" : program
+            // Two sessions given the same name get told apart the same way.
+            let base = info.name.isEmpty ? info.tool.title : info.name
+            seen[base, default: 0] += 1
+            let count = seen[base] ?? 1
+            result[info.number] = count > 1 ? "\(base) \(count)" : base
         }
         return result
     }

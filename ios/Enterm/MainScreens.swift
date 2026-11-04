@@ -99,6 +99,7 @@ struct MainTabs: View {
             VStack(spacing: 2) {
                 Image(systemName: icon)
                     .font(.system(size: tabIcon))
+                    .frame(height: tabIcon)
                     .foregroundColor(on ? Palette.text1 : Palette.text2)
                     .overlay(alignment: .topTrailing) {
                         if count > 0 {
@@ -348,14 +349,22 @@ struct SessionScreen: View {
             .overlay(alignment: .bottom) { Rectangle().fill(Palette.hair).frame(height: 1) }
             if let other = model.waitingApprovals.first(where: { $0.number != info.number }) {
                 Button { model.openSession = nil; model.tab = 2 } label: {
-                    Txt("◆ \(model.title(other)) onay istiyor ›", color: Palette.need)
-                        .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
-                        .padding(.horizontal, 12)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Image(systemName: "diamond.fill").font(.caption2).foregroundColor(Palette.need)
+                        Txt("\(model.title(other)) onay istiyor", color: Palette.need, style: .subheadline, weight: .medium)
+                            .multilineTextAlignment(.leading)
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundColor(Palette.need)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
             if let approval = info.pendingApproval {
-                ApprovalCard(info: info, approval: approval).padding(8)
+                ApprovalCard(info: info, approval: approval, showsName: false).padding(8)
             }
             if info.status == .limitReached {
                 ActionButton("■ Limit Doldu: Seçenekleri Gör") { model.route.append(.limit(info.number)) }.padding(8)
@@ -439,13 +448,18 @@ struct ApprovalCard: View {
     @EnvironmentObject var model: PhoneModel
     let info: SessionInfo
     let approval: ApprovalRequest
+    /// On the session's own screen the title above already says it.
+    var showsName = true
 
     var body: some View {
         Card {
             HStack {
-                Txt(model.title(info), bold: true).lineLimit(1)
-                Spacer()
+                if showsName {
+                    Txt(model.title(info), bold: true).lineLimit(1)
+                    Spacer(minLength: 8)
+                }
                 Txt("◆ Onay", color: Palette.need, bold: true)
+                if !showsName { Spacer(minLength: 0) }
             }
             Text(approval.summary).font(.mono).foregroundColor(Palette.text1).lineLimit(4)
             DimTxt("Yetki: \(approval.category.title)")
@@ -507,7 +521,10 @@ struct ApprovalsScreen: View {
 /// 2.2T: every box at a glance, with the decision on the box.
 struct CanvasScreen: View {
     @EnvironmentObject var model: PhoneModel
-    private let columns = [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
+    @Environment(\.dynamicTypeSize) private var size
+    private var columns: [GridItem] {
+        size.isAccessibilitySize ? [GridItem(.flexible())] : [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
+    }
     var body: some View {
         VStack(spacing: 0) {
             ConnectionBanner()
@@ -522,8 +539,8 @@ struct CanvasScreen: View {
                                 StatusText(info: info).lineLimit(1)
                                 Spacer(minLength: 0)
                                 if let approval = info.pendingApproval {
-                                    ActionButton("Reddet") { model.decide(id: approval.id, decision: "deny") }
                                     ActionButton("İzin Ver", style: .primary) { Approval.allow(id: approval.id) }
+                                    ActionButton("Reddet") { model.decide(id: approval.id, decision: "deny") }
                                 }
                             }
                             .padding(8)
