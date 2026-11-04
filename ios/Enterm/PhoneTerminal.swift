@@ -20,10 +20,11 @@ final class PhoneTerminal: NSObject, TerminalViewDelegate {
         view.inputAccessoryView = nil
     }
 
+    /// The terminal stays dark in both themes: SwiftTerm's iOS renderer keeps a black ground here, and dark text on it cannot be read.
     func applyTheme(dark: Bool) {
-        let background = Palette.terminalBackground(dark: dark)
+        let background = Palette.terminalBackground(dark: true)
         view.nativeBackgroundColor = background
-        view.nativeForegroundColor = Palette.terminalForeground(dark: dark)
+        view.nativeForegroundColor = Palette.terminalForeground(dark: true)
         view.backgroundColor = background
         view.superview?.backgroundColor = background
     }
@@ -93,8 +94,6 @@ struct TerminalSurface: UIViewRepresentable {
         return container
     }
     func updateUIView(_ view: UIView, context: Context) {
-        let dark = context.environment.colorScheme == .dark
-        view.backgroundColor = Palette.terminalBackground(dark: dark)
-        terminal.applyTheme(dark: dark)
+        terminal.applyTheme(dark: true)
     }
 }

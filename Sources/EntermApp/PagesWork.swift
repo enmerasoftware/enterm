@@ -402,7 +402,7 @@ enum Restore {
                 let log = EntermPaths.scrollbackDir.appendingPathComponent("\(info.id).log")
                 guard let data = try? Data(contentsOf: log), !data.isEmpty else { return }
                 let stamp = Date().formatted(date: .omitted, time: .shortened)
-                let banner = "\r\n\u{1B}[2mBilgisayar Yeniden Başladı · Yukarısı Eski Döküm · \(stamp)\u{1B}[0m\r\n"
+                let banner = "\r\n\u{1B}[2mBilgisayar yeniden başladı · Çalışan komutlar durdu · Yukarısı eski döküm · \(stamp)\u{1B}[0m\r\n"
                 model.hosts[created.number]?.feedOutput(data + Data(banner.utf8), replay: true)
                 try? FileManager.default.removeItem(at: log)
             }
