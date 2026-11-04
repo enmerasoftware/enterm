@@ -65,6 +65,7 @@ enum Overlay: Equatable {
     case remoteLost(UInt32)
     case resumeFailed(UInt32)
     case codexLimit(UInt32)
+    case installTool(ToolKind)
 }
 
 /// What the app remembers between launches. Everything else lives in the session service.
@@ -127,6 +128,7 @@ final class AppModel: ObservableObject {
         connection.onOutput = { [weak self] number, data, replay in self?.output(number, data, replay) }
         connection.onMessage = { [weak self] message in self?.handle(message) }
         connection.onDisconnect = { [weak self] in self?.lostService() }
+        ToolCatalog.shared.refresh()
         connection.connect { [weak self] ok in
             guard let self else { return }
             if ok {
@@ -135,6 +137,12 @@ final class AppModel: ObservableObject {
                 self.serviceLost = true
             }
         }
+    }
+
+    private func isServiceOutdated(_ stamp: String?) -> Bool {
+        guard let path = Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("entermd").path,
+              let current = EntermVersion.stamp(ofExecutable: path) else { return false }
+        return stamp != current
     }
 
     private func lostService() {
@@ -157,6 +165,11 @@ final class AppModel: ObservableObject {
         switch message.op {
         case "state":
             let list = (message.sessions ?? []).filter { $0.status != .exited }
+            // A service from before an update has nothing to lose when no session is open.
+            if list.isEmpty, isServiceOutdated(message.text) {
+                connection.send(WireMessage(op: "shutdown"))
+                return
+            }
             sessions = list
             list.forEach { ensureHost($0) }
             if list.isEmpty {
@@ -367,6 +380,9 @@ final class AppModel: ObservableObject {
         let changed = focused != number
         focused = number
         if changed, PowerCenter.shared.settings.lowPower { flushPending() }
+        if changed, let info = focusedInfo, info.status == .notFound, let command = info.tool.command {
+            notFound = NotFoundCard.make(number: info.number, command: command)
+        }
         onFocusChange?()
     }
 
@@ -435,6 +451,9 @@ final class AppModel: ObservableObject {
         if !info.name.isEmpty { return info.name }
         return displayPath(info.cwd)
     }
+
+    /// Labels for the bottom strip and the tabs, where a folder alone does not tell sessions apart.
+    var sessionLabels: [UInt32: String] { SessionLabel.labels(sessions) { self.toolLabel(for: $0) } }
 
     func toolLabel(for info: SessionInfo) -> String {
         if info.tool != .terminal { return info.tool.title }

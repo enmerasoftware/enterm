@@ -49,6 +49,7 @@ final class Service {
     var approvals: [String: ApprovalRequest] = [:]
     var lastNotFound: [String: String] = [:]
     let hostEnvironment = ProcessInfo.processInfo.environment
+    let buildStamp = Bundle.main.executablePath.flatMap(EntermVersion.stamp(ofExecutable:))
     let cliPath: String = {
         let exe = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
         return exe.deletingLastPathComponent().appendingPathComponent("enterm").path
@@ -214,6 +215,7 @@ final class Service {
             client.subscribed = true
             var reply = WireMessage(op: "state")
             reply.version = WireMessage.protocolVersion
+            reply.text = buildStamp
             reply.sessions = sessions.values.map(\.info).sorted { $0.number < $1.number }
             send(reply.frame(), to: client)
         case "create":
@@ -446,6 +448,14 @@ final class Service {
         }
         read.resume()
         session.readSource = read
+        if spec.tool != .terminal {
+            // A shell alias starts the program without the launch event: say so rather than stay on "starting".
+            queue.asyncAfter(deadline: .now() + 30) { [weak self, weak session] in
+                guard let self, let session, session.info.status == .starting else { return }
+                session.info.status = .unknown
+                self.publish(session)
+            }
+        }
         let process = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: queue)
         process.setEventHandler { [weak self, weak session] in
             guard let self, let session else { return }
@@ -549,9 +559,11 @@ final class Service {
             note.number = info.number
             note.text = event.text
             broadcast(note)
-            return
+            // A box opened for this program must not keep saying it is starting.
+            guard info.status == .starting, info.tool.command == event.text else { return }
+            info.status = .notFound
         case "start":
-            if info.status == .starting || info.status == .exited { info.status = .idle }
+            if info.status == .starting || info.status == .exited || info.status == .unknown { info.status = .idle }
             info.hooksTrusted = true
         case "launch":
             if let tool = ToolKind.fromCommand(event.text ?? "") { info.tool = tool }

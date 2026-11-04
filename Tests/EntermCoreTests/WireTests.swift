@@ -219,3 +219,35 @@ final class ScheduleExtraTests: XCTestCase {
         XCTAssertEqual(configs[0].command, "npm run dev")
     }
 }
+
+final class ToolPresenceTests: XCTestCase {
+    func testParsesOnlyBetweenMarkers() {
+        let output = "motd codex=/fake\n__ENTERM_BEGIN__\nclaude=/opt/homebrew/bin/claude\ncodex=\nagy=\n__ENTERM_END__\nmore"
+        let found = ToolPresence.parse(output) { $0.hasSuffix("/.local/bin/agy") }
+        XCTAssertEqual(found[.claude], .installed)
+        XCTAssertEqual(found[.codex], .missing)
+        XCTAssertEqual(found[.antigravity], .elsewhere(NSHomeDirectory() + "/.local/bin/agy"))
+        XCTAssertTrue(ToolPresence.parse("no markers") { _ in false }.isEmpty)
+    }
+
+    func testEveryProgramHasAnInstallCommand() {
+        for tool in ToolKind.allCases where tool != .terminal {
+            XCTAssertTrue(ToolPresence.installCommand(tool)?.hasPrefix("curl -fsSL https://") == true, tool.title)
+        }
+    }
+
+    func testStripLabelsTellSessionsApart() {
+        func info(_ number: UInt32, _ tool: ToolKind, _ cwd: String, name: String = "") -> SessionInfo {
+            SessionInfo(id: "\(number)", number: number, name: name, tool: tool, cwd: cwd, status: .running, startedAt: Date())
+        }
+        let home = NSHomeDirectory()
+        let list = [info(1, .terminal, home), info(2, .terminal, home), info(3, .codex, home),
+                    info(4, .claude, home + "/Projeler/Enterm"), info(5, .terminal, "/tmp", name: "Yedek")]
+        let labels = SessionLabel.labels(list) { $0.tool == .terminal ? "zsh" : $0.tool.title }
+        XCTAssertEqual(labels[1], "zsh ~ 1")
+        XCTAssertEqual(labels[2], "zsh ~ 2")
+        XCTAssertEqual(labels[3], "Codex ~")
+        XCTAssertEqual(labels[4], "Claude Code Enterm")
+        XCTAssertEqual(labels[5], "zsh Yedek")
+    }
+}

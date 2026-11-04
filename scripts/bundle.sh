@@ -1,5 +1,6 @@
 #!/bin/zsh
-# Builds Enterm.app from the Swift package. Usage: scripts/bundle.sh [debug|release]
+# Builds Enterm.app from the Swift package. Usage: scripts/bundle.sh [debug|release] [output folder]
+# Pass a folder to leave build/Enterm.app alone while it is open.
 set -e
 config=${1:-release}
 root=${0:A:h:h}
@@ -7,7 +8,7 @@ cd "$root"
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 swift build -c "$config" -j 2
 bin=$(swift build -c "$config" -j 2 --show-bin-path)
-app="$root/build/Enterm.app"
+app="${2:-$root/build}/Enterm.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin/EntermApp" "$app/Contents/MacOS/EntermApp"
 cp "$bin/entermd" "$app/Contents/MacOS/entermd"

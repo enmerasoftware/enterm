@@ -18,6 +18,7 @@ struct OverlayRouter: View {
         case .remoteLost(let number): Scrim(alignment: .top) { RemoteLostDialog(number: number) }
         case .limitOpened: Scrim(alignment: .top) { LimitOpenedDialog() }
         case .resumeFailed(let number): Scrim(alignment: .top) { ResumeFailedDialog(number: number) }
+        case .installTool(let tool): Scrim(alignment: .top) { InstallToolDialog(tool: tool) }
         case .codexLimit(let number): Scrim(alignment: .top) { CodexLimitDialog(number: number) }
         }
     }
@@ -147,15 +148,52 @@ struct KeyCatcher: NSViewRepresentable {
     }
 }
 
+/// A program that is not installed: the reason and the command, before any box opens.
+struct InstallToolDialog: View {
+    let tool: ToolKind
+    var body: some View {
+        Panel {
+            PanelHeader(title: "\(tool.title) Bu Bilgisayarda Kurulu Değil")
+            VStack(alignment: .leading, spacing: 8) {
+                let command = ToolPresence.installCommand(tool) ?? ""
+                HStack {
+                    T(command).lineLimit(1).textSelection(.enabled)
+                    Spacer()
+                    Btn("Kopyala", kind: .plain) { NotFoundActions.copy(command) }
+                }
+                Dim("\(tool.title)'in Resmî Kurulum Komutu. Siz Onaylamadan Çalışmaz, Onaylarsanız Yeni Terminalde Görünür Şekilde Çalışır.")
+                HStack {
+                    Btn("Yeni Terminalde Çalıştır", kind: .primary, key: "⏎") { InstallToolActions.run(tool) }
+                    Btn("Vazgeç", kind: .plain, key: "Esc") { AppModel.shared.overlay = nil }
+                }
+            }
+            .padding(12)
+        }
+        .frame(width: 560)
+    }
+}
+
+enum InstallToolActions {
+    static func run(_ tool: ToolKind) {
+        let model = AppModel.shared
+        model.overlay = nil
+        guard let command = ToolPresence.installCommand(tool) else { return }
+        var spec = SessionSpec(name: "\(tool.title) Kurulumu", tool: .terminal, cwd: NSHomeDirectory(), rows: 30, cols: 100)
+        spec.env = ["ENTERM_STARTUP": command]
+        model.create(spec)
+    }
+}
+
 struct NewSessionMenu: View {
     @ObservedObject var model = AppModel.shared
+    @ObservedObject var catalog = ToolCatalog.shared
     var body: some View {
         Panel {
             PanelHeader(title: "Yeni Oturum") { Dim(model.displayPath(model.focusedInfo?.cwd ?? NSHomeDirectory())) }
             MenuRow(title: "Terminal", key: "⌘T") { run("newTerminal") }
-            MenuRow(title: "Claude Code", key: "c") { run("newClaude") }
-            MenuRow(title: "Codex", key: "x") { run("newCodex") }
-            MenuRow(title: "Antigravity", note: "Gemini", key: "a") { run("newAntigravity") }
+            MenuRow(title: "Claude Code", note: catalog.note(.claude), key: "c") { run("newClaude") }
+            MenuRow(title: "Codex", note: catalog.note(.codex), key: "x") { run("newCodex") }
+            MenuRow(title: "Antigravity", note: catalog.note(.antigravity).isEmpty ? "Gemini" : "Gemini · \(catalog.note(.antigravity))", key: "a") { run("newAntigravity") }
             Line()
             MenuRow(title: "Seçeneklerle Aç", note: "Klasör, Hesap, Yetki, Model") { run("newSessionOptions") }
             Line()
@@ -163,6 +201,7 @@ struct NewSessionMenu: View {
         }
         .frame(width: 400)
         .background(LetterKeys(map: ["c": "newClaude", "x": "newCodex", "a": "newAntigravity"]))
+        .onAppear { catalog.refresh() }
     }
     private func run(_ id: String) {
         model.overlay = nil

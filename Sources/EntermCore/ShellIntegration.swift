@@ -110,7 +110,7 @@ public enum ShellIntegration {
     }
     PROMPT_COMMAND="_enterm_prompt${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
     for _enterm_tool in claude codex agy; do
-      eval "$_enterm_tool() { if type -P $_enterm_tool >/dev/null; then \"\$ENTERM_CLI\" event launch $_enterm_tool; \"\$ENTERM_CLI\" wrap $_enterm_tool \"\$@\"; local code=\$?; \"\$ENTERM_CLI\" event launchEnd $_enterm_tool; return \$code; else echo \"bash: $_enterm_tool: command not found\" >&2; return 127; fi; }"
+      eval "$_enterm_tool() { if type -P $_enterm_tool >/dev/null; then \"\$ENTERM_CLI\" event launch $_enterm_tool; \"\$ENTERM_CLI\" wrap $_enterm_tool \"\$@\"; local code=\$?; \"\$ENTERM_CLI\" event launchEnd $_enterm_tool; return \$code; else [ -n \"\$ENTERM_CLI\" ] && \"\$ENTERM_CLI\" event cnf $_enterm_tool >/dev/null 2>&1; echo \"bash: $_enterm_tool: command not found\" >&2; return 127; fi; }"
     done
     unset _enterm_tool
     """#

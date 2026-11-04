@@ -22,7 +22,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.isRestorable = false
         window.setFrameAutosaveName("EntermMain")
         if !window.setFrameUsingName("EntermMain") { window.center() }
+#if ENTERM_TEST_DRIVER
+        // A test run must not take the screen from whoever is working.
+        if ProcessInfo.processInfo.environment["ENTERM_DEBUG_DIR"] != nil {
+            window.orderBack(nil)
+        } else {
+            window.makeKeyAndOrderFront(nil)
+        }
+#else
         window.makeKeyAndOrderFront(nil)
+#endif
         AppModel.shared.start()
         Scheduler.shared.start()
 #if ENTERM_TEST_DRIVER

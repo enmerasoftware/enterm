@@ -34,6 +34,14 @@ final class DebugDriver {
             case "front":
                 NSApp.windows.first?.setFrame(NSRect(x: 40, y: 40, width: 760, height: 480), display: true)
                 NSApp.windows.first?.orderFrontRegardless()
+            case "ghost":
+                // On screen for the window server, invisible to the eye and to the mouse. It takes no focus.
+                if let window = NSApp.windows.first {
+                    window.alphaValue = rest == "on" ? 0.01 : 1
+                    window.ignoresMouseEvents = rest == "on"
+                    window.level = rest == "on" ? .floating : .normal
+                    if rest == "on" { window.orderFrontRegardless() } else { window.orderBack(nil) }
+                }
             case "tail":
                 var message = WireMessage(op: "tail")
                 message.number = AppModel.shared.focused
@@ -70,6 +78,35 @@ final class DebugDriver {
                 let model = AppModel.shared
                 let text = "overlay=\(String(describing: model.overlay)) page=\(String(describing: model.page)) focused=\(String(describing: model.focused)) maximized=\(String(describing: model.maximized)) mode=\(model.mode) sessions=\(model.sessions.count) details=\(model.detailsOpen) links=\(LinkStore.shared.links.count) pressure=\(PowerCenter.shared.pressure.title) visible=\(NSApp.windows.first?.occlusionState.contains(.visible) ?? false)\n"
                 try? text.write(toFile: rest, atomically: true, encoding: .utf8)
+            case "rawtool":
+                // Starts a program without the launcher's check, as a queued or restored session does.
+                if let tool = ToolKind.fromCommand(rest) {
+                    var spec = SessionSpec(tool: tool, rows: 30, cols: 100)
+                    spec.env = ["ENTERM_STARTUP": rest]
+                    AppModel.shared.create(spec)
+                }
+            case "status":
+                let model = AppModel.shared
+                let labels = model.sessionLabels
+                let text = model.sessions.map { "\($0.number) \($0.tool.rawValue) \($0.status.rawValue) [\(labels[$0.number] ?? "")]" }.joined(separator: "\n")
+                    + "\ncard=\(String(describing: model.notFound?.title))\npresence=\(ToolCatalog.shared.presence)\n"
+                try? text.write(toFile: rest, atomically: true, encoding: .utf8)
+            case "scroller":
+                var text = ""
+                for (number, host) in AppModel.shared.hosts.sorted(by: { $0.key < $1.key }) {
+                    let bars = host.subviews.compactMap { $0 as? NSScroller }
+                    for bar in bars {
+                        text += "\(number) canScroll=\(host.canScroll) position=\(host.scrollPosition) hidden=\(bar.isHidden) enabled=\(bar.isEnabled) value=\(bar.doubleValue) knob=\(bar.knobProportion) alpha=\(bar.alphaValue)\n"
+                    }
+                }
+                try? text.write(toFile: rest, atomically: true, encoding: .utf8)
+            case "wheel":
+                let lines = Int32(rest) ?? 0
+                if let host = AppModel.shared.hosts[AppModel.shared.focused ?? 0],
+                   let cg = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: lines, wheel2: 0, wheel3: 0),
+                   let event = NSEvent(cgEvent: cg) { host.scrollWheel(with: event) }
+            case "hover":
+                for box in Self.boxes(in: NSApp.windows.first?.contentView) { rest == "on" ? box.mouseEntered(with: NSEvent()) : box.mouseExited(with: NSEvent()) }
             case "theme":
                 SettingsStore.shared.settings.theme = rest
             case "flow":
@@ -181,6 +218,11 @@ final class DebugDriver {
             }
         }
         return context.makeImage()
+    }
+
+    private static func boxes(in view: NSView?) -> [SessionBox] {
+        guard let view else { return [] }
+        return view.subviews.flatMap { ($0 as? SessionBox).map { [$0] } ?? boxes(in: $0) }
     }
 
     private static func terminals(in view: NSView) -> [TerminalHost] {

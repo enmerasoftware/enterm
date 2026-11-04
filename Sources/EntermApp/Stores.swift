@@ -399,17 +399,17 @@ struct NotFoundCard: Equatable {
         case "claude":
             let local = home + "/.local/bin/claude"
             if fm.isExecutableFile(atPath: local) { return NotFoundCard(number: number, command: command, kind: .notInPath(path: local)) }
-            return NotFoundCard(number: number, command: command, kind: .notInstalled(install: "curl -fsSL https://claude.ai/install.sh | bash"))
+            return NotFoundCard(number: number, command: command, kind: .notInstalled(install: ToolPresence.installCommand(.claude) ?? ""))
         case "codex":
-            let app = "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"
-            if fm.isExecutableFile(atPath: app) { return NotFoundCard(number: number, command: command, kind: .inApp(path: app)) }
             let local = home + "/.local/bin/codex"
             if fm.isExecutableFile(atPath: local) { return NotFoundCard(number: number, command: command, kind: .notInPath(path: local)) }
-            return NotFoundCard(number: number, command: command, kind: .notInstalled(install: "curl -fsSL https://chatgpt.com/codex/install.sh | sh"))
+            let app = "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"
+            if fm.isExecutableFile(atPath: app) { return NotFoundCard(number: number, command: command, kind: .inApp(path: app)) }
+            return NotFoundCard(number: number, command: command, kind: .notInstalled(install: ToolPresence.installCommand(.codex) ?? ""))
         case "agy":
             let local = home + "/.local/bin/agy"
             if fm.isExecutableFile(atPath: local) { return NotFoundCard(number: number, command: command, kind: .notInPath(path: local)) }
-            return NotFoundCard(number: number, command: command, kind: .notInstalled(install: "curl -fsSL https://antigravity.google/cli/install.sh | bash"))
+            return NotFoundCard(number: number, command: command, kind: .notInstalled(install: ToolPresence.installCommand(.antigravity) ?? ""))
         default:
             return nil
         }

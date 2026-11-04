@@ -13,8 +13,9 @@ struct TopBar: View {
                 Btn("Tümünü Gör", kind: .plain, key: "⌘⏎") { model.toggleMaximize() }
             }
             if model.mode == .tabs && model.sessions.count > 1 {
+                let labels = model.sessionLabels
                 ForEach(model.sessions) { info in
-                    Btn(model.title(for: info), kind: info.number == model.focused ? .selected : .plain) {
+                    Btn(labels[info.number] ?? model.title(for: info), kind: info.number == model.focused ? .selected : .plain) {
                         model.setFocus(info.number)
                         model.onLayoutChange?()
                     }
@@ -82,9 +83,10 @@ struct BottomBars: View {
             }
             if model.footVisible {
                 HStack(spacing: 16) {
+                    let labels = model.sessionLabels
                     ForEach(model.sessions) { info in
                         Button { model.setFocus(info.number) } label: {
-                            T("\(info.status.symbol) \(model.title(for: info))", color: info.number == model.focused ? Theme.palette.fg : Theme.palette.dim)
+                            T("\(info.status.symbol) \(labels[info.number] ?? model.title(for: info))", color: info.number == model.focused ? Theme.palette.fg : Theme.palette.dim)
                                 .lineLimit(1)
                         }
                         .buttonStyle(.plain)

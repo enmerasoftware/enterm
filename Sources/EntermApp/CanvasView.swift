@@ -46,7 +46,7 @@ final class SessionBox: NSView {
         addSubview(details)
         addSubview(summaryLabel)
         grip.wantsLayer = true
-        grip.layer?.cornerRadius = 4
+        grip.layer?.cornerRadius = 5
         addSubview(grip)
         grip.toolTip = "Sürükleyerek Bağla"
     }
@@ -79,6 +79,8 @@ final class SessionBox: NSView {
         case .failed:
             badge.textColor = palette.err
             border = palette.err
+        case .notFound:
+            badge.textColor = palette.limit
         default:
             badge.textColor = info.status == .running ? palette.fg : palette.dim
         }
@@ -89,7 +91,7 @@ final class SessionBox: NSView {
         footer.textColor = palette.dim
         details.textColor = palette.dim
         footer.stringValue = SessionText.footer(info)
-        grip.isHidden = !canvasCanLink
+        updateGrip()
         grip.layer?.backgroundColor = palette.line2.cgColor
         summaryLabel.stringValue = "\(info.status.symbol) \(model.title(for: info))"
         summaryLabel.textColor = palette.fg
@@ -97,6 +99,29 @@ final class SessionBox: NSView {
     }
 
     var canvasCanLink: Bool { canvas?.linkingEnabled ?? false }
+
+    /// The grip is a small dot shown under the mouse. A bar at the edge would read as a scroller.
+    private var hovering = false
+
+    private func updateGrip() {
+        grip.isHidden = !(canvasCanLink && (hovering || linking))
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self))
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        hovering = true
+        updateGrip()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        hovering = false
+        updateGrip()
+    }
 
     func layoutContents(host: NSView?, fontScale: CGFloat) {
         let width = bounds.width
@@ -129,7 +154,7 @@ final class SessionBox: NSView {
         // The grip stays above the terminal, whose scroller reaches the box edge.
         let gripWidth: CGFloat = canvasCanLink ? 10 : 0
         host?.frame = NSRect(x: 8, y: headerHeight + 4, width: width - 16 - gripWidth, height: bounds.height - headerHeight - footerHeight - 8)
-        grip.frame = NSRect(x: width - 11, y: bounds.height / 2 - 16, width: 10, height: 32)
+        grip.frame = NSRect(x: width - 11, y: bounds.height / 2 - 5, width: 10, height: 10)
         addSubview(grip, positioned: .above, relativeTo: nil)
     }
 
@@ -173,6 +198,10 @@ final class SessionBox: NSView {
 
 enum SessionText {
     static func footer(_ info: SessionInfo) -> String {
+        if info.status == .notFound {
+            if case .elsewhere(let path)? = ToolCatalog.shared.presence[info.tool] { return "Bulundu: \(path)" }
+            if let command = ToolPresence.installCommand(info.tool) { return "Kurulum: \(command)" }
+        }
         var parts: [String] = []
         if let account = info.accountID, let name = AccountStore.shared.account(id: account)?.name { parts.append(name) }
         if let model = info.model { parts.append(model) }

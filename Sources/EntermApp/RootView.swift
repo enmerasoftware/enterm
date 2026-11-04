@@ -162,6 +162,10 @@ final class RootView: NSView {
             default: break
             }
         }
+        if case .installTool(let tool)? = model.overlay, flags.isEmpty, event.keyCode == 36 {
+            InstallToolActions.run(tool)
+            return nil
+        }
         if case .limit? = model.overlay, flags.isEmpty, let text = event.charactersIgnoringModifiers, let digit = Int(text) {
             LimitActions.perform(index: digit - 1)
             return nil

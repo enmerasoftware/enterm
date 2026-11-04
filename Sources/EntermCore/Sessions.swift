@@ -38,6 +38,7 @@ public enum SessionStatus: String, Codable {
     case failed
     case queued
     case unknown
+    case notFound
     case exited
 
     public var title: String {
@@ -50,6 +51,7 @@ public enum SessionStatus: String, Codable {
         case .failed: return "Hata"
         case .queued: return "Sırada"
         case .unknown: return "Durum Bilinmiyor"
+        case .notFound: return "Bulunamadı"
         case .exited: return "Bitti"
         }
     }
@@ -59,10 +61,81 @@ public enum SessionStatus: String, Codable {
         case .running: return "●"
         case .needsApproval: return "◆"
         case .limitReached: return "■"
-        case .failed: return "✕"
+        case .failed, .notFound: return "✕"
         case .queued: return "◷"
         case .exited: return "○"
         }
+    }
+}
+
+/// Whether a program can be started, as the user's shell sees it.
+public enum ToolPresence: Equatable {
+    case installed
+    /// On disk, in a folder the shell does not search.
+    case elsewhere(String)
+    case missing
+
+    /// Prints one line per program, between markers, so that anything a shell file prints is ignored.
+    public static let probeScript = """
+    printf '__ENTERM_BEGIN__\\n'; for t in claude codex agy; do printf '%s=%s\\n' "$t" "$(command -v "$t")"; done; printf '__ENTERM_END__\\n'
+    """
+
+    public static func parse(_ output: String, fileExists: (String) -> Bool) -> [ToolKind: ToolPresence] {
+        guard let begin = output.range(of: "__ENTERM_BEGIN__"), let end = output.range(of: "__ENTERM_END__"), begin.upperBound <= end.lowerBound else { return [:] }
+        var result: [ToolKind: ToolPresence] = [:]
+        for line in output[begin.upperBound..<end.lowerBound].split(whereSeparator: \.isNewline) {
+            let parts = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+            guard parts.count == 2, let tool = ToolKind.fromCommand(parts[0]) else { continue }
+            if !parts[1].isEmpty {
+                result[tool] = .installed
+            } else if let path = knownLocations(tool).first(where: fileExists) {
+                result[tool] = .elsewhere(path)
+            } else {
+                result[tool] = .missing
+            }
+        }
+        return result
+    }
+
+    public static func knownLocations(_ tool: ToolKind) -> [String] {
+        guard let command = tool.command else { return [] }
+        let home = NSHomeDirectory()
+        if tool == .codex { return [home + "/.local/bin/codex", "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"] }
+        return [home + "/.local/bin/" + command]
+    }
+
+    /// The maker's own install command. Enterm shows it and runs it only when the user asks.
+    public static func installCommand(_ tool: ToolKind) -> String? {
+        switch tool {
+        case .terminal: return nil
+        case .claude: return "curl -fsSL https://claude.ai/install.sh | bash"
+        case .codex: return "curl -fsSL https://chatgpt.com/codex/install.sh | sh"
+        case .antigravity: return "curl -fsSL https://antigravity.google/cli/install.sh | bash"
+        }
+    }
+}
+
+/// How a session reads in a one line list: program and folder, or the name the user gave it.
+/// A number is added only when two sessions would otherwise look the same.
+public enum SessionLabel {
+    public static func base(_ info: SessionInfo, program: String) -> String {
+        if !info.name.isEmpty { return "\(program) \(info.name)" }
+        let home = NSHomeDirectory()
+        let folder = info.cwd == home ? "~" : URL(fileURLWithPath: info.cwd).lastPathComponent
+        return "\(program) \(folder)"
+    }
+
+    public static func labels(_ sessions: [SessionInfo], program: (SessionInfo) -> String) -> [UInt32: String] {
+        var seen: [String: Int] = [:]
+        var counts: [String: Int] = [:]
+        for info in sessions { counts[base(info, program: program(info)), default: 0] += 1 }
+        var result: [UInt32: String] = [:]
+        for info in sessions {
+            let text = base(info, program: program(info))
+            seen[text, default: 0] += 1
+            result[info.number] = (counts[text] ?? 0) > 1 ? "\(text) \(seen[text] ?? 1)" : text
+        }
+        return result
     }
 }
 

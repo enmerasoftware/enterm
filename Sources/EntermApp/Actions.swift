@@ -123,6 +123,12 @@ enum ToolLauncher {
             AppModel.shared.newTerminal(cwd: cwd)
             return
         }
+        // Nothing starts for a program that is not there. The user sees why, and the command that fixes it.
+        ToolCatalog.shared.refresh()
+        if ToolCatalog.shared.isMissing(tool) {
+            AppModel.shared.overlay = .installTool(tool)
+            return
+        }
         var spec = SessionSpec(name: name, tool: tool, cwd: cwd ?? AppModel.shared.focusedInfo?.cwd, rows: 30, cols: 100, group: group, accountID: accountID)
         var env = AccountStore.shared.environment(for: accountID)
         let resolvedPlan = plan ?? SettingsStore.shared.settings.defaultPlan
@@ -132,7 +138,8 @@ enum ToolLauncher {
             env["CLAUDE_CODE_SUBAGENT_MODEL"] = resolvedPlan.subagents
             if resolvedPlan.useAdvisor { env["ENTERM_ADVISOR"] = resolvedPlan.advisor }
         }
-        env["ENTERM_STARTUP"] = extraArguments.isEmpty ? command : "\(command) \(extraArguments)"
+        let start = ToolCatalog.shared.startCommand(tool, command: command)
+        env["ENTERM_STARTUP"] = extraArguments.isEmpty ? start : "\(start) \(extraArguments)"
         spec.env = env
         if let reason = PowerCenter.shared.blockReason() {
             PowerCenter.shared.enqueue(spec, reason: reason, then: then)

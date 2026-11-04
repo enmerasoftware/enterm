@@ -56,7 +56,7 @@ struct TeamSetupPage: View {
                         EntermField(placeholder: "Ad", text: $member.name).frame(width: 110)
                         EntermField(placeholder: "Rol", text: $member.role).frame(width: 130)
                         Picker("", selection: $member.tool) {
-                            ForEach([ToolKind.claude, .codex, .antigravity], id: \.self) { Text($0.title).font(Theme.swiftFont()).tag($0) }
+                            ForEach([ToolKind.claude, .codex, .antigravity], id: \.self) { Text(ToolCatalog.shared.pickerTitle($0)).font(Theme.swiftFont()).tag($0) }
                         }
                         .frame(width: 140)
                         EntermField(placeholder: "Model", text: $member.model).frame(width: 100)

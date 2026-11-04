@@ -565,7 +565,7 @@ struct NewSessionOptions: View {
                     }
                 }
                 if let error { T(error, color: Theme.palette.err) }
-                field("Araç") { Seg(options: ToolKind.allCases.map { ($0, $0.title) }, value: $tool) }
+                field("Araç") { Seg(options: ToolKind.allCases.map { ($0, ToolCatalog.shared.pickerTitle($0)) }, value: $tool) }
                 if tool != .terminal {
                     field("Hesap") {
                         Picker("", selection: $accountID) {
