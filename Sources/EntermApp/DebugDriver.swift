@@ -78,6 +78,19 @@ final class DebugDriver {
                 let model = AppModel.shared
                 let text = "overlay=\(String(describing: model.overlay)) page=\(String(describing: model.page)) focused=\(String(describing: model.focused)) maximized=\(String(describing: model.maximized)) mode=\(model.mode) sessions=\(model.sessions.count) details=\(model.detailsOpen) links=\(LinkStore.shared.links.count) pressure=\(PowerCenter.shared.pressure.title) visible=\(NSApp.windows.first?.occlusionState.contains(.visible) ?? false)\n"
                 try? text.write(toFile: rest, atomically: true, encoding: .utf8)
+            case "pair":
+                PhoneStore.shared.start(relay: rest)
+            case "pairoffer":
+                if case .waiting(let offer, _) = PhoneStore.shared.pairing { try? offer.write(toFile: rest, atomically: true, encoding: .utf8) }
+                if case .compare(let offer, _, _) = PhoneStore.shared.pairing { try? offer.write(toFile: rest, atomically: true, encoding: .utf8) }
+            case "pairstate":
+                try? "\(PhoneStore.shared.pairing)\n\(PhoneStore.shared.devices)\n".write(toFile: rest, atomically: true, encoding: .utf8)
+            case "pairremove":
+                if let device = PhoneStore.shared.devices.first { PhoneStore.shared.remove(device.id) }
+            case "sleepsim":
+                AppModel.shared.connection.send(WireMessage(op: "testSleep"))
+            case "pairconfirm":
+                PhoneStore.shared.confirm()
             case "rawtool":
                 // Starts a program without the launcher's check, as a queued or restored session does.
                 if let tool = ToolKind.fromCommand(rest) {

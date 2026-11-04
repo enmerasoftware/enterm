@@ -28,3 +28,11 @@ Kurallar: `.zshrc`, `~/.claude`, `~/.codex` değişmez. Entegrasyon başlatma ar
 ## Test Sürücüsü
 
 `ENTERM_DEBUG_DIR` verilirse uygulama `SIGUSR1` ile `<dir>/cmd` dosyasındaki komutları çalıştırır (`do <komut>`, `type <metin>`, `shot <dosya>`). Bkz. `scripts/run-test.sh`, `scripts/drive.sh`, `scripts/test-bridge.sh`. Testler sahte `claude` ve geçici `HOME` ile çalışır.
+
+## Telefon
+
+- `ios/`: iOS uygulaması. `scripts/build-ios.sh <simülatör kimliği>` ile derlenir, `ios/project.yml` xcodegen ile projeye dönüşür.
+- `relay/`: aktarım ve bildirim servisi, bağımlılığı yok. Canlıda değil, ayrıntı `relay/README.md`.
+- Eşleşme: QR kodunda geçici açık anahtar var, iki taraf X25519 ile ortak sır üretir, kişi altı haneli sayıyı karşılaştırır. Aktarım yalnız şifreli bayt görür, her bağlantı yeni anahtar kullanır.
+- Eşleşen cihazlar `devices.json` içinde, 0600 izinle. Telefonda anahtar Anahtar Zinciri'nde.
+

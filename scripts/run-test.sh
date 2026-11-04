@@ -9,6 +9,6 @@ if [[ "$1" == "fresh" ]]; then
   rm -rf /tmp/et/home
 fi
 mkdir -p /tmp/et /tmp/et/bin
-mkdir -p /tmp/et/fakehome; ENTERM_SSH=/tmp/et/bin/ssh CFFIXED_USER_HOME=/tmp/et/fakehome HOME=/tmp/et/fakehome PATH=/tmp/et/bin:$PATH ENTERM_DEBUG_DIR=/tmp/et ENTERM_HOME=/tmp/et/home ENTERM_SOCKET=/tmp/et/e.sock nohup ${0:A:h:h}/build/test/Enterm.app/Contents/MacOS/EntermApp > /tmp/et/app.log 2>&1 &
+mkdir -p /tmp/et/fakehome; ENTERM_RELAY=ws://127.0.0.1:8787 ENTERM_SSH=/tmp/et/bin/ssh CFFIXED_USER_HOME=/tmp/et/fakehome HOME=/tmp/et/fakehome PATH=/tmp/et/bin:$PATH ENTERM_DEBUG_DIR=/tmp/et ENTERM_HOME=/tmp/et/home ENTERM_SOCKET=/tmp/et/e.sock nohup ${0:A:h:h}/build/test/Enterm.app/Contents/MacOS/EntermApp > /tmp/et/app.log 2>&1 &
 echo $! > /tmp/et/pid
 sleep ${2:-3}

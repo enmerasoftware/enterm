@@ -19,6 +19,7 @@ final class Client {
     var attached = Set<UInt32>()
     var subscribed = false
     var waitingApproval: String?
+    var isPhone = false
     init(fd: Int32) { self.fd = fd }
 }
 
@@ -30,6 +31,8 @@ final class Session {
     var ring = Data()
     var dirty = false
     var replayedOldLog = false
+    var rows = 24
+    var cols = 80
     init(info: SessionInfo, master: Int32) {
         self.info = info
         self.master = master
@@ -253,6 +256,10 @@ final class Service {
             guard let number = message.number, let session = sessions[number],
                   let rows = message.rows, let cols = message.cols else { return }
             _ = cpty_resize(session.master, UInt16(rows), UInt16(cols))
+            if !client.isPhone {
+                session.rows = rows
+                session.cols = cols
+            }
         case "kill":
             guard let number = message.number, let session = sessions[number] else { return }
             if session.info.status == .exited {
@@ -450,6 +457,8 @@ final class Service {
         info.accountID = spec.accountID
         info.toolSessionID = spec.resumeID
         let session = Session(info: info, master: master)
+        session.rows = spec.rows
+        session.cols = spec.cols
         sessions[number] = session
         let read = DispatchSource.makeReadSource(fileDescriptor: master, queue: queue)
         read.setEventHandler { [weak self, weak session] in

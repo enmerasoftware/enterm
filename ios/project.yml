@@ -1,0 +1,80 @@
+name: EntermPhone
+options:
+  bundleIdPrefix: tr.com.enmera
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+packages:
+  SwiftTerm:
+    path: ../.build/checkouts/SwiftTerm
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  EntermCore:
+    type: framework
+    platform: iOS
+    sources:
+      - path: ../Sources/EntermCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tr.com.enmera.enterm.core
+        GENERATE_INFOPLIST_FILE: YES
+        DEFINES_MODULE: YES
+  Enterm:
+    type: application
+    platform: iOS
+    sources:
+      - path: Enterm
+    dependencies:
+      - target: EntermCore
+      - target: EntermNotify
+      - package: SwiftTerm
+    entitlements:
+      path: Enterm/Enterm.entitlements
+      properties:
+        aps-environment: development
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)tr.com.enmera.enterm.shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tr.com.enmera.enterm.ios
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Enterm
+        INFOPLIST_KEY_NSCameraUsageDescription: Bilgisayardaki kodu okutmak için.
+        INFOPLIST_KEY_NSFaceIDUsageDescription: İzin vermeden önce sizi doğrulamak için.
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+    info:
+      path: Enterm/Info.plist
+      properties:
+        CFBundleURLTypes:
+          - CFBundleURLName: tr.com.enmera.enterm.pair
+            CFBundleURLSchemes: [enterm]
+        UIBackgroundModes: [remote-notification]
+  EntermNotify:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: EntermNotify
+    dependencies:
+      - target: EntermCore
+    entitlements:
+      path: EntermNotify/EntermNotify.entitlements
+      properties:
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)tr.com.enmera.enterm.shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tr.com.enmera.enterm.ios.notify
+        GENERATE_INFOPLIST_FILE: YES
+    info:
+      path: EntermNotify/Info.plist
+      properties:
+        CFBundleDisplayName: EntermNotify
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.usernotifications.service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService

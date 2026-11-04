@@ -23,7 +23,7 @@ let package = Package(
         .target(name: "CPTY"),
         // No AppKit, UIKit or SwiftUI here: the core stays portable.
         .target(name: "EntermCore"),
-        .executableTarget(name: "entermd", dependencies: ["EntermCore", "CPTY"]),
+        .executableTarget(name: "entermd", dependencies: ["EntermCore", "CPTY"], swiftSettings: driverSettings),
         .executableTarget(name: "enterm", dependencies: ["EntermCore"]),
         .executableTarget(name: "EntermApp", dependencies: [
             "EntermCore",

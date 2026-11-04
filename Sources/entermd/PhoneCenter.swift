@@ -1,3 +1,4 @@
+import CPTY
 import EntermCore
 import Foundation
 import IOKit.pwr_mgt
@@ -92,6 +93,10 @@ final class PhoneCenter {
             reply.id = message.id
             reply.text = devicesJSON()
             service.send(reply.frame(), to: client)
+#if ENTERM_TEST_DRIVER
+        case "testSleep":
+            tellSleeping()
+#endif
         case "deviceRemove":
             guard let id = message.text else { return true }
             links[id]?.tell(WireMessage(op: "unpaired"))
@@ -218,6 +223,7 @@ final class DeviceLink {
     private var bridge: Int32 = -1
     private var bridgeSource: DispatchSourceRead?
     private var decoder = WireDecoder()
+    private var resized = Set<UInt32>()
     private(set) var isConnected = false
 
     init(peer: PairedPeer, service: Service, onSeen: @escaping (String) -> Void, onToken: @escaping (String, String) -> Void) {
@@ -264,13 +270,29 @@ final class DeviceLink {
         bridge = fds[1]
         _ = fcntl(bridge, F_SETFL, fcntl(bridge, F_GETFL) | O_NONBLOCK)
         client = service.adopt(fds[0])
+        client?.isPhone = true
         let source = DispatchSource.makeReadSource(fileDescriptor: bridge, queue: service.queue)
         source.setEventHandler { [weak self] in self?.pump() }
         source.resume()
         bridgeSource = source
     }
 
+    /// The phone's narrower size lasts only while it looks. The window gets its own size back.
+    private func restoreSize(_ number: UInt32) {
+        guard resized.remove(number) != nil, let session = service.sessions[number] else { return }
+        var message = WireMessage(op: "resize")
+        message.number = number
+        message.rows = session.rows
+        message.cols = session.cols
+        if let client { service.handleMessage(message, from: client) }
+    }
+
     private func closeBridge() {
+        resized.forEach { number in
+            guard let session = service.sessions[number] else { return }
+            _ = cpty_resize(session.master, UInt16(session.rows), UInt16(session.cols))
+        }
+        resized.removeAll()
         bridgeSource?.cancel()
         bridgeSource = nil
         if bridge >= 0 {
@@ -304,7 +326,9 @@ final class DeviceLink {
                 if message.op == "pushToken", let token = message.text {
                     onToken(id, token)
                 } else if PhoneCenter.allowedOperations.contains(message.op) {
+                    if message.op == "resize", let number = message.number { resized.insert(number) }
                     service.handleMessage(message, from: client)
+                    if message.op == "detach", let number = message.number { restoreSize(number) }
                 }
             default:
                 break
