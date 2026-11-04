@@ -60,6 +60,7 @@ final class Service {
         let exe = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
         return exe.deletingLastPathComponent().appendingPathComponent("enterm").path
     }()
+    var reportedCLI: String?
 
     func start() {
         let path = EntermPaths.socket.path
@@ -228,6 +229,7 @@ final class Service {
         switch message.op {
         case "hello":
             client.subscribed = true
+            if !client.isPhone, let path = message.text { reportedCLI = path }
             var reply = WireMessage(op: "state")
             reply.version = WireMessage.protocolVersion
             reply.text = buildStamp
@@ -421,7 +423,7 @@ final class Service {
         env["ENTERM_SESSION_ID"] = id
         env["ENTERM_SOCKET"] = EntermPaths.socket.path
         env["ENTERM_HOME"] = EntermPaths.support.path
-        env["ENTERM_CLI"] = cliPath
+        env["ENTERM_CLI"] = CompanionPath.choose(own: cliPath, reported: reportedCLI)
         env["LANG"] = env["LANG"] ?? "tr_TR.UTF-8"
         env["LC_CTYPE"] = env["LC_CTYPE"] ?? "UTF-8"
         env["PWD"] = cwd

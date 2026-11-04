@@ -65,7 +65,7 @@ public enum ShellIntegration {
       local tool
       for tool in claude codex agy; do
         (( ${+aliases[$tool]} )) && continue
-        eval "$tool() { if builtin whence -p $tool >/dev/null; then \"\$ENTERM_CLI\" event launch $tool; \"\$ENTERM_CLI\" wrap $tool \"\$@\"; local code=\$?; \"\$ENTERM_CLI\" event launchEnd $tool; return \$code; else command_not_found_handler $tool \"\$@\"; fi }"
+        eval "$tool() { if builtin whence -p $tool >/dev/null; then if [[ ! -x \"\$ENTERM_CLI\" ]]; then command $tool \"\$@\"; return \$?; fi; \"\$ENTERM_CLI\" event launch $tool; \"\$ENTERM_CLI\" wrap $tool \"\$@\"; local code=\$?; \"\$ENTERM_CLI\" event launchEnd $tool; return \$code; else command_not_found_handler $tool \"\$@\"; fi }"
       done
       if [[ -n "${ENTERM_STARTUP-}" ]]; then
         (( ${+widgets[zle-line-init]} )) && zle -A zle-line-init _enterm_prior_line_init
@@ -110,8 +110,19 @@ public enum ShellIntegration {
     }
     PROMPT_COMMAND="_enterm_prompt${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
     for _enterm_tool in claude codex agy; do
-      eval "$_enterm_tool() { if type -P $_enterm_tool >/dev/null; then \"\$ENTERM_CLI\" event launch $_enterm_tool; \"\$ENTERM_CLI\" wrap $_enterm_tool \"\$@\"; local code=\$?; \"\$ENTERM_CLI\" event launchEnd $_enterm_tool; return \$code; else [ -n \"\$ENTERM_CLI\" ] && \"\$ENTERM_CLI\" event cnf $_enterm_tool >/dev/null 2>&1; echo \"bash: $_enterm_tool: command not found\" >&2; return 127; fi; }"
+      eval "$_enterm_tool() { if type -P $_enterm_tool >/dev/null; then if [ ! -x \"\$ENTERM_CLI\" ]; then command $_enterm_tool \"\$@\"; return \$?; fi; \"\$ENTERM_CLI\" event launch $_enterm_tool; \"\$ENTERM_CLI\" wrap $_enterm_tool \"\$@\"; local code=\$?; \"\$ENTERM_CLI\" event launchEnd $_enterm_tool; return \$code; else [ -n \"\$ENTERM_CLI\" ] && \"\$ENTERM_CLI\" event cnf $_enterm_tool >/dev/null 2>&1; echo \"bash: $_enterm_tool: command not found\" >&2; return 127; fi; }"
     done
     unset _enterm_tool
     """#
+}
+
+/// A service outlives its window, so the app can move while the service still knows the old place.
+public enum CompanionPath {
+    /// The service's own companion while it exists, otherwise the one the window reported.
+    public static func choose(own: String, reported: String?,
+                              isExecutable: (String) -> Bool = FileManager.default.isExecutableFile(atPath:)) -> String {
+        if isExecutable(own) { return own }
+        guard let reported, URL(fileURLWithPath: reported).lastPathComponent == "enterm", isExecutable(reported) else { return own }
+        return reported
+    }
 }

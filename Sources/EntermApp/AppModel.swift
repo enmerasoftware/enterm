@@ -144,11 +144,18 @@ final class AppModel: ObservableObject {
         connection.connect { [weak self] ok in
             guard let self else { return }
             if ok {
-                self.connection.send(WireMessage(op: "hello"))
+                self.connection.send(self.helloMessage())
             } else {
                 self.serviceLost = true
             }
         }
+    }
+
+    /// Tells the service where this copy's companion is, in case the app has moved since it started.
+    private func helloMessage() -> WireMessage {
+        var hello = WireMessage(op: "hello")
+        hello.text = Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("enterm").path
+        return hello
     }
 
     private func isServiceOutdated(_ stamp: String?) -> Bool {
@@ -168,7 +175,7 @@ final class AppModel: ObservableObject {
                 self.serviceLost = false
                 self.hosts.values.forEach { $0.removeFromSuperview() }
                 self.hosts.removeAll()
-                self.connection.send(WireMessage(op: "hello"))
+                self.connection.send(self.helloMessage())
             }
         }
     }
