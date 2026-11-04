@@ -432,7 +432,7 @@ struct RestorePage: View {
                     let exists = FileManager.default.fileExists(atPath: info.cwd)
                     Row {
                         VStack(alignment: .leading) {
-                            T(info.name.isEmpty ? model.displayPath(info.cwd) : info.name, bold: true)
+                            T(info.name.isEmpty ? info.tool.title : info.name, bold: true)
                             Dim("\(info.tool.title) · \(model.displayPath(info.cwd))")
                         }
                         Spacer()
