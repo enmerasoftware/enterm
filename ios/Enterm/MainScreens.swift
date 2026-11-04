@@ -258,10 +258,10 @@ struct SessionScreen: View {
         let terminal = model.host(for: info.number)
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Button { model.openSession = nil } label: { Txt("‹ Oturumlar").frame(minHeight: 44).contentShape(Rectangle()) }
-                Spacer()
+                Button { model.openSession = nil } label: { Txt("‹ Oturumlar").lineLimit(1).fixedSize().frame(minHeight: 44).contentShape(Rectangle()) }
+                Spacer(minLength: 0)
                 Txt(model.title(info), bold: true).lineLimit(1)
-                StatusText(info: info).lineLimit(1)
+                Txt(info.status.symbol, color: info.status == .needsApproval ? Palette.need : Palette.dim).accessibilityLabel(info.status.title)
                 Button { model.route.append(.details(info.number)) } label: {
                     Txt("Ayrıntılar").frame(minHeight: 44).contentShape(Rectangle())
                 }

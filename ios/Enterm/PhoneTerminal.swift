@@ -92,5 +92,9 @@ struct TerminalSurface: UIViewRepresentable {
         ])
         return container
     }
-    func updateUIView(_ view: UIView, context: Context) {}
+    func updateUIView(_ view: UIView, context: Context) {
+        let dark = context.environment.colorScheme == .dark
+        view.backgroundColor = Palette.terminalBackground(dark: dark)
+        terminal.applyTheme(dark: dark)
+    }
 }
