@@ -34,12 +34,13 @@ final class NotchCenter: ObservableObject {
     }
 
     private func makePanel() {
-        let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.level = .statusBar
+        let panel = NotchPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.isFloatingPanel = true
+        // After the line above: it sets the floating level, and a floating window is pushed below the menu bar.
+        panel.level = .statusBar
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
@@ -109,6 +110,11 @@ final class NotchCenter: ObservableObject {
         if model.maximized != nil { model.maximized = number }
         model.onLayoutChange?()
     }
+}
+
+/// Sits on the top edge of the screen, in the menu bar's band, around the notch.
+private final class NotchPanel: NSPanel {
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
 }
 
 private struct NotchView: View {

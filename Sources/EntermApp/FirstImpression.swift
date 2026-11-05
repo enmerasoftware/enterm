@@ -193,6 +193,13 @@ private struct WelcomeCover: View {
                         .position(x: width * 0.62, y: y)
                         .opacity(drawn ? 1 : 0)
                         .animation(.easeOut(duration: 0.4).delay(0.95), value: drawn)
+                    HStack(spacing: 8) {
+                        Text("Bitti").font(.system(size: 12)).foregroundColor(Color(palette.add))
+                        Text("Antigravity").font(.system(size: 13, weight: .semibold)).foregroundColor(Color(palette.text1))
+                    }
+                    .fixedSize()
+                    .position(x: width * 0.62, y: y - 24)
+                    .rise(drawn, delay: 0.95)
                 }
                 HStack(spacing: 10) {
                     Text("enterm")

@@ -170,6 +170,11 @@ final class DebugDriver {
                     board.cards.append(card)
                 }
             case "type": typeText?(rest.replacingOccurrences(of: "\\r", with: "\r"))
+            case "lights":
+                if let window = NSApp.windows.first(where: { $0.contentView is RootView }), let close = window.standardWindowButton(.closeButton), let zoom = window.standardWindowButton(.zoomButton) {
+                    let text = "close \(close.convert(close.bounds, to: nil)) zoom \(zoom.convert(zoom.bounds, to: nil)) window \(window.frame.size)"
+                    try? text.write(toFile: rest, atomically: true, encoding: .utf8)
+                }
             case "openproject":
                 AppModel.shared.startingFromHome = true
                 AppModel.shared.newTerminal(cwd: rest)

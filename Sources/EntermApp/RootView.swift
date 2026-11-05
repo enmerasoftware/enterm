@@ -150,6 +150,7 @@ final class RootView: NSView {
     override func layout() {
         super.layout()
         layoutBars()
+        (NSApp.delegate as? AppDelegate)?.placeWindowButtons()
         cover?.frame = bounds
     }
 

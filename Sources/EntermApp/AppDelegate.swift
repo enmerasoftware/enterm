@@ -29,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.minSize = NSSize(width: 560, height: 360)
         window.contentView = root
         window.delegate = self
+        placeWindowButtons()
         window.isRestorable = false
         window.setFrameAutosaveName("EntermMain")
         if !window.setFrameUsingName("EntermMain") { window.center() }
@@ -61,6 +62,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     /// Everything that depends on the look, after a setting changed.
+    /// The window buttons sit in the middle of the top bar, in line with what is beside them. AppKit puts them back on some
+    /// window changes, so this runs after those too. Full screen has its own title bar and is left alone.
+    func placeWindowButtons() {
+        guard let window, !window.styleMask.contains(.fullScreen),
+              let close = window.standardWindowButton(.closeButton),
+              let minimize = window.standardWindowButton(.miniaturizeButton),
+              let zoom = window.standardWindowButton(.zoomButton),
+              let bar = close.superview, let container = bar.superview else { return }
+        let height: CGFloat = AppModel.shared.focusMode ? 28 : 44
+        let frame = NSRect(x: 0, y: window.frame.height - height, width: window.frame.width, height: height)
+        if container.frame != frame { container.frame = frame }
+        if bar.frame.size != frame.size { bar.frame = NSRect(origin: .zero, size: frame.size) }
+        for (index, button) in [close, minimize, zoom].enumerated() {
+            let origin = NSPoint(x: 16 + CGFloat(index) * 20, y: ((height - button.frame.height) / 2).rounded())
+            if button.frame.origin != origin { button.setFrameOrigin(origin) }
+        }
+    }
+
+    func windowDidResize(_ notification: Notification) { placeWindowButtons() }
+    func windowDidBecomeKey(_ notification: Notification) { placeWindowButtons() }
+    func windowDidResignKey(_ notification: Notification) { placeWindowButtons() }
+    func windowDidExitFullScreen(_ notification: Notification) { placeWindowButtons() }
+
     func applyAppearance() {
         applyTheme()
         Theme.refreshPalette()
