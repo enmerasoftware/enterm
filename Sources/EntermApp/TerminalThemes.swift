@@ -134,6 +134,7 @@ struct Wallpaper: Identifiable {
 
 /// A small pop-up list that looks like the rest of the controls.
 struct ChoiceMenu<Value: Hashable>: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let options: [(Value, String)]
     @Binding var value: Value
     var body: some View {

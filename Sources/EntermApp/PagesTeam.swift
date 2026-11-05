@@ -5,6 +5,7 @@ import SwiftUI
 // MARK: Team setup
 
 struct TeamSetupPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @State private var step = 1
     @State private var brief = ""
@@ -149,6 +150,7 @@ enum TeamBuilder {
 }
 
 struct ManagerPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = TeamStore.shared
     @ObservedObject var model = AppModel.shared
     var body: some View {
@@ -232,6 +234,7 @@ struct ReportCard: View {
 // MARK: Board
 
 struct BoardPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = BoardStore.shared
     @ObservedObject var model = AppModel.shared
     @State private var selected: String?
@@ -389,6 +392,7 @@ extension BoardColumn {
 }
 
 struct BoardCardView: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let card: BoardCard
     @ObservedObject var model = AppModel.shared
     var body: some View {
@@ -413,6 +417,7 @@ struct BoardCardView: View {
 }
 
 struct CardDrawer: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let cardID: String
     let close: () -> Void
     @ObservedObject var store = BoardStore.shared

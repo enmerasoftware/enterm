@@ -86,6 +86,7 @@ enum Approvals {
 }
 
 struct ApprovalDialog: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let id: String
     @ObservedObject var model = AppModel.shared
     var body: some View {
@@ -215,6 +216,7 @@ struct LinkDetailDialog: View {
 }
 
 struct MessagesPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     private let mails = MailBox.all().reversed()
     var body: some View {
         PageFrame(title: "Ajanlar Arası Mesaj Geçmişi") {
@@ -240,6 +242,7 @@ struct MessagesPage: View {
 // MARK: Detail pane
 
 struct DetailTabs: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let info: SessionInfo
     @ObservedObject var model = AppModel.shared
     var body: some View {
@@ -274,6 +277,7 @@ struct DetailTabs: View {
 }
 
 struct LimitBars: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let snapshot: LimitSnapshot?
     var body: some View {
         if let snapshot {
@@ -307,6 +311,7 @@ enum TimeText {
 }
 
 struct ModelTab: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let info: SessionInfo
     @ObservedObject var settings = SettingsStore.shared
     @State private var flowOpen = SettingsStore.shared.settings.flowStartsOpen
@@ -376,6 +381,7 @@ struct ModelTab: View {
 
 /// Antigravity reads hooks only from files. Enterm writes one small file, in this folder, after asking.
 struct AntigravityHookCard: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let cwd: String
     @State private var written = false
     var body: some View {
@@ -413,6 +419,7 @@ enum AntigravityHooks {
 }
 
 struct ModelPlanEditor: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let info: SessionInfo
     @ObservedObject var settings = SettingsStore.shared
     @State private var manual = false
@@ -459,6 +466,7 @@ struct ModelPlanEditor: View {
 }
 
 struct LinksTab: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let info: SessionInfo
     @ObservedObject var links = LinkStore.shared
     @ObservedObject var model = AppModel.shared
@@ -551,6 +559,7 @@ struct PermissionsTab: View {
 // MARK: New session with options
 
 struct NewSessionOptions: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @ObservedObject var accounts = AccountStore.shared
     @State private var name = ""
@@ -733,6 +742,7 @@ enum LimitActions {
 }
 
 struct LimitDialog: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let number: UInt32
     @ObservedObject var model = AppModel.shared
     @ObservedObject var accounts = AccountStore.shared
@@ -781,6 +791,7 @@ struct LimitDialog: View {
 // MARK: SSH list
 
 struct SSHListDialog: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let sessionID: String
     @ObservedObject var model = AppModel.shared
     @State private var book = PermissionBook.load()

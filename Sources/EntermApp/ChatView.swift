@@ -63,6 +63,7 @@ final class ChatFeed: ObservableObject {
 }
 
 struct ChatView: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let number: UInt32
     @ObservedObject var model = AppModel.shared
     @StateObject private var feed = ChatFeed()
@@ -167,6 +168,7 @@ struct ChatView: View {
 
 /// What a program asks, at the foot of its own box. Enter and Y do nothing here: only a click answers, so typing elsewhere never can.
 struct ApprovalBar: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let request: ApprovalRequest
     let number: UInt32
     var body: some View {
@@ -191,6 +193,7 @@ struct ApprovalBar: View {
 }
 
 private struct ChatRow: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let item: ChatItem
     var body: some View {
         let palette = Theme.palette
@@ -223,6 +226,7 @@ private struct ChatRow: View {
 
 /// Headings, lists, code blocks and inline marks. Enough to read an answer, without a web view.
 private struct ChatMarkdown: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let text: String
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

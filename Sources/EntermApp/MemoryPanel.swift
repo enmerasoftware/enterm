@@ -13,6 +13,7 @@ func memoryFootprintKB(_ pid: Int32) -> Int? {
 
 /// Where the memory goes, session by session. It measures once when opened and again only when asked.
 struct MemoryPanel: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @ObservedObject var power = PowerCenter.shared
     @State private var rows: [Row] = []

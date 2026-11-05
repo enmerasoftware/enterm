@@ -47,6 +47,7 @@ extension View {
 
 /// Two faint lights in opposite corners, and nothing else on the ground.
 struct CornerGlows: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     var first: UnitPoint = .topTrailing
     var second: UnitPoint = .bottomLeading
     var body: some View {
@@ -62,6 +63,7 @@ struct CornerGlows: View {
 
 /// The main action everywhere: the title and the key that does the same thing.
 private struct EnterButton: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let title: String
     let action: () -> Void
     @State private var hovering = false
@@ -93,6 +95,7 @@ private struct EnterButton: View {
 }
 
 private struct QuietButton: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let title: String
     let action: () -> Void
     @State private var hovering = false
@@ -114,6 +117,7 @@ private struct QuietButton: View {
 }
 
 private struct BlinkingCursor: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let width: CGFloat
     let height: CGFloat
     @State private var dim = false
@@ -151,6 +155,7 @@ private struct EnterLine: Shape {
 }
 
 private struct WelcomeCover: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let begin: () -> Void
     let finish: () -> Void
     @State private var drawn = false
@@ -341,6 +346,7 @@ enum TourStep: Int, CaseIterable {
 }
 
 private struct TourView: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = SettingsStore.shared
     @ObservedObject var catalog = ToolCatalog.shared
     @ObservedObject var whisper = WhisperCenter.shared
@@ -707,6 +713,7 @@ private struct TourView: View {
 }
 
 private struct VoiceBars: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     var body: some View {
         // Four frames a second, and only while this step is on screen.
         TimelineView(.periodic(from: .now, by: Motion.allowed ? 0.25 : 3600)) { context in
@@ -726,6 +733,7 @@ private struct VoiceBars: View {
 }
 
 struct WelcomeFlow: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = SettingsStore.shared
     @State private var inTour = false
     var body: some View {
@@ -758,6 +766,7 @@ struct WelcomeFlow: View {
 
 /// With no session open the window is one command line: type and press Enter.
 struct HomeView: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @ObservedObject var store = SettingsStore.shared
     @ObservedObject var power = PowerCenter.shared
@@ -963,6 +972,7 @@ struct HomeView: View {
 }
 
 private struct ActionRow: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let title: String
     let key: String
     var strong = false
@@ -1026,6 +1036,7 @@ struct RecentsPage: View {
 }
 
 private struct RecentRow: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let item: RecentConversation
     @State private var hovering = false
     private static let relative: RelativeDateTimeFormatter = {
@@ -1060,6 +1071,7 @@ private struct RecentRow: View {
 }
 
 struct MemoryLabel: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var power = PowerCenter.shared
     var body: some View {
         if power.enterm.memoryMB > 0 {
@@ -1075,6 +1087,7 @@ struct MemoryLabel: View {
 
 /// The sessions as a line with stops. Whoever needs the person comes first. No panel behind it.
 struct SessionRail: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     var body: some View {
         let palette = Theme.palette
@@ -1131,6 +1144,7 @@ struct SessionRail: View {
 
 /// One line instead of a row of icons: everything the app does is a word away.
 struct CommandBar: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @State private var hovering = false
     var body: some View {
         let palette = Theme.palette
@@ -1168,6 +1182,7 @@ struct CommandBar: View {
 
 /// The slim line under the canvas. A plain terminal never sees it.
 struct StatusLine: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     let summary: String
     // Once when it appears, then rarely and only while the app is in use: it starts a process.

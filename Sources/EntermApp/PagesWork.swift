@@ -5,6 +5,7 @@ import SwiftUI
 // MARK: Session list
 
 struct SessionListPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     var body: some View {
         PageFrame(title: "\(model.sessions.count) Oturum", wide: true) {
@@ -71,6 +72,7 @@ enum ConversationIndex {
 }
 
 struct HistoryPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @State private var items: [PastConversation] = []
     var body: some View {
@@ -121,6 +123,7 @@ struct NewViewPage: View {
 }
 
 struct FilesPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @State private var path = ""
     @State private var items: [(name: String, directory: Bool)] = []
@@ -151,6 +154,7 @@ struct FilesPage: View {
 }
 
 struct EditorPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let path: String
     @ObservedObject var model = AppModel.shared
     @State private var text = ""
@@ -185,6 +189,7 @@ struct EditorPage: View {
 }
 
 struct NotePage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @State private var text = ""
     @State private var file = ""
@@ -260,6 +265,7 @@ struct GitFile: Identifiable, Hashable {
 }
 
 struct ChangesPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @State private var branch = ""
     @State private var files: [GitFile] = []
@@ -473,6 +479,7 @@ enum Restore {
 }
 
 struct RestorePage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @State private var pending: [SessionInfo] = []
     var body: some View {

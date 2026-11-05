@@ -255,6 +255,7 @@ struct SharedWebView: NSViewRepresentable {
 }
 
 struct BrowserPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @Environment(\.boxedPage) private var boxed
     @ObservedObject var center = BrowserCenter.shared
     @ObservedObject var model = AppModel.shared

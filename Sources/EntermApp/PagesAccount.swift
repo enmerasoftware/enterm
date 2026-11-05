@@ -3,6 +3,7 @@ import EntermCore
 import SwiftUI
 
 struct AccountsPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = AccountStore.shared
     @ObservedObject var model = AppModel.shared
     var body: some View {
@@ -89,6 +90,7 @@ struct AccountAddPage: View {
 }
 
 struct ApiKeyPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @State private var tool = ToolKind.claude
     @State private var name = ""
@@ -138,6 +140,7 @@ struct ApiKeyPage: View {
 }
 
 struct InboxPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @ObservedObject var inbox = Inbox.shared
     @ObservedObject var power = PowerCenter.shared
@@ -229,6 +232,7 @@ struct InboxPage: View {
 }
 
 struct CostPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     var body: some View {
         PageFrame(title: "Model Ve Maliyet") {
@@ -252,6 +256,7 @@ struct CostPage: View {
 }
 
 struct SettingsPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @State var tab: SettingsTab
     @State private var search = ""
     @ObservedObject var store = SettingsStore.shared
@@ -430,6 +435,7 @@ struct SettingsPage: View {
 }
 
 struct ShortcutEditor: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @State private var book = ShortcutBook.load()
     @State private var capturing: String?
     @State private var message = ""

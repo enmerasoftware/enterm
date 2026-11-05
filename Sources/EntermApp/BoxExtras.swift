@@ -109,6 +109,7 @@ struct VideoBox: View {
 
 /// A short game for the wait. The enter key jumps over the lines coming at it. It draws only while you play.
 struct RunnerGame: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @State private var playing = false
     @State private var y: CGFloat = 0
     @State private var velocity: CGFloat = 0

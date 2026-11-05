@@ -68,6 +68,13 @@ enum TextStyle {
     }
 }
 
+/// The palette is a plain value, so a view that takes nothing but text would keep its old colours.
+/// Every view that uses a colour watches this. It only fires when the look changes, so it costs nothing otherwise.
+final class AppearanceTick: ObservableObject {
+    static let shared = AppearanceTick()
+    func fire() { objectWillChange.send() }
+}
+
 enum Theme {
     static var isLight = false { didSet { refreshPalette() } }
     /// Read many times a frame, so it is kept ready and rebuilt only when the look changes.

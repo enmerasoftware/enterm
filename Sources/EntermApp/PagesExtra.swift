@@ -6,6 +6,7 @@ import SwiftUI
 
 /// The tree of a session's subagents. It only moves while one of them is really running.
 struct FlowView: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let info: SessionInfo
     private var running: Bool { info.subagents?.contains { $0.running } ?? false }
     private var animate: Bool {
@@ -120,6 +121,7 @@ final class LimitWatch {
 }
 
 struct LimitOpenedDialog: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     var body: some View {
         Panel(border: Theme.palette.add) {
@@ -143,6 +145,7 @@ struct LimitOpenedDialog: View {
 }
 
 struct ResumeFailedDialog: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let number: UInt32
     @ObservedObject var model = AppModel.shared
     var body: some View {
@@ -165,6 +168,7 @@ struct ResumeFailedDialog: View {
 }
 
 struct CodexLimitDialog: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let number: UInt32
     @ObservedObject var model = AppModel.shared
     var body: some View {
@@ -298,6 +302,7 @@ final class Scheduler: ObservableObject {
 }
 
 struct SchedulerPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var scheduler = Scheduler.shared
     @ObservedObject var model = AppModel.shared
     @State private var name = ""

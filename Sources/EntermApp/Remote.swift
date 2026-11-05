@@ -113,6 +113,7 @@ extension AppModel {
 }
 
 struct RemoteLostDialog: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let number: UInt32
     @ObservedObject var model = AppModel.shared
     var body: some View {
@@ -141,6 +142,7 @@ struct RemoteLostDialog: View {
 // MARK: Run configurations
 
 struct RunPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @State private var configs: [RunConfig] = []
     @State private var pendingConfirm: RunConfig?
@@ -241,6 +243,7 @@ struct BoardShape: Codable, Identifiable, Equatable {
 }
 
 struct WhiteboardPage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @Environment(\.boxedPage) private var boxed
     @State private var shapes: [BoardShape] = []

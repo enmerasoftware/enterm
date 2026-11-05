@@ -118,6 +118,7 @@ private final class NotchPanel: NSPanel {
 }
 
 private struct NotchView: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var center = NotchCenter.shared
     @ObservedObject var model = AppModel.shared
 

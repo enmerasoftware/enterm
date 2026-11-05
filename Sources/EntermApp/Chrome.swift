@@ -3,6 +3,7 @@ import EntermCore
 import SwiftUI
 
 struct TopBar: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @ObservedObject var inbox = Inbox.shared
     @ObservedObject var power = PowerCenter.shared
@@ -133,6 +134,7 @@ extension AppModel {
 
 /// A project on the bar: its name, what it is doing, and a lit line under the one on screen.
 struct ProjectTab: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let name: String
     @ObservedObject var model = AppModel.shared
     @State private var hovering = false
@@ -176,6 +178,7 @@ struct ProjectTab: View {
 
 /// The project being started on the home screen. Esc or the cross goes back.
 private struct NewProjectTab: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     var body: some View {
         let palette = Theme.palette
@@ -200,6 +203,7 @@ private struct NewProjectTab: View {
 }
 
 struct ToolItem: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let title: String
     let icon: String
     let key: String
@@ -230,6 +234,7 @@ struct ToolItem: View {
 }
 
 struct ToolSeparator: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     var body: some View {
         Rectangle().fill(Color(Theme.palette.hair2)).frame(width: 1, height: 16).padding(.horizontal, 6)
     }
@@ -237,6 +242,7 @@ struct ToolSeparator: View {
 
 /// One line per session at the bottom. What does not fit becomes a count that opens the list.
 struct SessionStrip: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     let summary: String
 
@@ -309,6 +315,7 @@ struct SessionStrip: View {
 
 /// The right pane behind ⌘I.
 struct DetailPane: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     var body: some View {
         if let info = model.focusedInfo {
@@ -323,6 +330,7 @@ struct DetailPane: View {
 
 /// The card that appears at the bottom of the terminal when a program is not found.
 struct InlineCards: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     var body: some View {
         if let card = model.notFound {

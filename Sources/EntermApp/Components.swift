@@ -8,6 +8,7 @@ extension Color {
 
 /// All text outside the terminal. Sizes come from the scale, never from a number here.
 struct T: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let text: String
     var color: NSColor?
     var bold = false
@@ -30,6 +31,7 @@ struct T: View {
 }
 
 struct Dim: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let text: String
     init(_ text: String) { self.text = text }
     var body: some View { T(text, color: Theme.palette.text2, style: .secondary) }
@@ -37,6 +39,7 @@ struct Dim: View {
 
 /// What a program wrote, or what will be typed into one.
 struct Mono: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let text: String
     var color: NSColor?
     init(_ text: String, color: NSColor? = nil) {
@@ -49,6 +52,7 @@ struct Mono: View {
 }
 
 struct Key: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let text: String
     init(_ text: String) { self.text = text }
     var body: some View { T(Self.label(text), color: Theme.palette.text3, style: .hint) }
@@ -61,6 +65,7 @@ struct Key: View {
 
 /// A command to read in full before it runs: it wraps, it never gets cut.
 struct CommandBox: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let text: String
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -79,6 +84,7 @@ struct CommandBox: View {
 
 /// A long request stays short until asked. Nothing in it is hidden without saying so.
 struct ApprovalCommand: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let text: String
     var lines = 6
     @State private var expanded = false
@@ -104,6 +110,7 @@ struct ApprovalCommand: View {
 
 /// The row at the foot of a dialog. The main action is the last one, on the right.
 struct DialogButtons<Content: View>: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ViewBuilder var content: () -> Content
     var body: some View {
         HStack(spacing: 8) {
@@ -131,6 +138,7 @@ extension View {
 enum BtnKind { case plain, outline, primary, danger, selected }
 
 struct Btn: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let title: String
     var kind: BtnKind = .outline
     var key: String?
@@ -198,6 +206,7 @@ struct Btn: View {
 
 /// An SF Symbol at the two sizes the design uses.
 struct Symbol: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let name: String
     var color: NSColor
     var size: CGFloat
@@ -216,6 +225,7 @@ struct Symbol: View {
 
 /// 28 square, no frame.
 struct IconBtn: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let icon: String
     let label: String
     var action: () -> Void
@@ -241,6 +251,7 @@ struct IconBtn: View {
 
 /// Segmented choice with the one selection style of the design.
 struct Seg<Value: Hashable>: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let options: [(Value, String)]
     @Binding var value: Value
     var body: some View {
@@ -306,6 +317,7 @@ struct StatusLook {
 }
 
 struct StatusBadge: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let status: SessionStatus
     var body: some View {
         let look = StatusLook(status)
@@ -352,6 +364,7 @@ extension EnvironmentValues {
 }
 
 struct Panel<Content: View>: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     var border: NSColor?
     @ViewBuilder var content: () -> Content
     @Environment(\.floatingPanel) private var floating
@@ -392,6 +405,7 @@ extension PanelHeader where Trailing == EmptyView {
 }
 
 struct Row<Content: View>: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     var selected = false
     var action: (() -> Void)?
     @ViewBuilder var content: () -> Content
@@ -411,11 +425,13 @@ struct Row<Content: View>: View {
 }
 
 struct Line: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     var body: some View { Rectangle().fill(Color(Theme.palette.hair)).frame(height: 1) }
 }
 
 /// The title of a page: a short lit line under it, the only ornament a page has.
 struct PageTitle: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let text: String
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -435,6 +451,7 @@ struct PageTitle: View {
 
 /// A full page with the same back bar everywhere.
 struct PageFrame<Content: View>: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     var title: String?
     var wide = false
     @ViewBuilder var content: () -> Content
@@ -478,6 +495,7 @@ struct PageFrame<Content: View>: View {
 }
 
 struct Meter: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let percent: Double
     var warn = false
     var body: some View {
@@ -494,6 +512,7 @@ struct Meter: View {
 }
 
 struct EntermField: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let placeholder: String
     @Binding var text: String
     @FocusState private var focused: Bool

@@ -3,6 +3,7 @@ import EntermCore
 import SwiftUI
 
 struct OverlayRouter: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let overlay: Overlay
     var body: some View {
         switch overlay {
@@ -28,6 +29,7 @@ struct OverlayRouter: View {
 }
 
 struct Scrim<Content: View>: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     var alignment: Alignment
     @ViewBuilder var content: () -> Content
     var body: some View {
@@ -46,6 +48,7 @@ struct Scrim<Content: View>: View {
 }
 
 struct MenuRow: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let title: String
     var note = ""
     var key = ""
@@ -76,6 +79,7 @@ struct MenuRow: View {
 
 /// ⌘K: type to filter, arrows to move, Enter to run.
 struct CommandPalette: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @State private var query = ""
     @State private var index = 0
     @FocusState private var focus: Bool
@@ -206,6 +210,7 @@ enum InstallToolActions {
 }
 
 struct NewSessionMenu: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @ObservedObject var catalog = ToolCatalog.shared
     @ObservedObject var store = SettingsStore.shared
@@ -274,6 +279,7 @@ struct LetterKeys: NSViewRepresentable {
 }
 
 struct MainMenuPanel: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     var body: some View {
         Panel {
             VStack(spacing: 0) {

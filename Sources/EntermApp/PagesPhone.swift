@@ -71,6 +71,7 @@ final class PhoneStore: ObservableObject {
 }
 
 struct PhonePage: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = PhoneStore.shared
     @ObservedObject var settings = SettingsStore.shared
     @State private var removing: DeviceSummary?

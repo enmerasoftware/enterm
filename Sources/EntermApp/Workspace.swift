@@ -331,6 +331,7 @@ struct ConfirmRequest {
 }
 
 struct InputDialog: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     @State private var text = ""
     @FocusState private var focus: Bool
@@ -547,6 +548,7 @@ final class ItemBox: NSView {
 }
 
 struct ItemFrame: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let item: CanvasItem
     @State private var dragStart: NSPoint?
     @State private var sizeStart: NSRect?

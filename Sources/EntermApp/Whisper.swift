@@ -158,6 +158,7 @@ final class WhisperRecorder {
 }
 
 struct VoiceSettings: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = SettingsStore.shared
     @ObservedObject var whisper = WhisperCenter.shared
     var body: some View {

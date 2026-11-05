@@ -92,6 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         AppModel.shared.hosts.values.forEach { $0.applyTheme() }
         root.layer?.backgroundColor = Theme.palette.surface0.cgColor
         root.canvas.needsDisplay = true
+        AppearanceTick.shared.fire()
         AppModel.shared.objectWillChange.send()
         SettingsStore.shared.objectWillChange.send()
         AppModel.shared.onLayoutChange?()

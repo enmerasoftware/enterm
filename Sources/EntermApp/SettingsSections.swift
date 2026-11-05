@@ -37,6 +37,7 @@ struct SettingsLine<Content: View>: View {
 // MARK: Programs
 
 struct ProgramsSettings: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = SettingsStore.shared
     @ObservedObject var catalog = ToolCatalog.shared
     var body: some View {
@@ -114,6 +115,7 @@ struct CustomProgramsSettings: View {
 }
 
 private struct EnvironmentEditor: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @Binding var environment: [String: String]
     @State private var text = ""
     var body: some View {
@@ -224,6 +226,7 @@ enum Gateway {
 // MARK: Usage
 
 struct UsageSettings: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = SettingsStore.shared
     @ObservedObject var accounts = AccountStore.shared
     var body: some View {
@@ -268,6 +271,7 @@ struct CommitSettings: View {
 // MARK: Terminal
 
 struct TerminalSettings: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = SettingsStore.shared
 
     private static let fonts: [String] = {
@@ -367,6 +371,7 @@ enum TerminalThemes {
 // MARK: Shell and sessions
 
 struct ShellSettings: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = SettingsStore.shared
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -517,6 +522,7 @@ struct BehaviorSettings: View {
 // MARK: Appearance
 
 struct AppearanceSettings: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = SettingsStore.shared
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -581,7 +587,7 @@ struct AppearanceSettings: View {
                 } else {
                     LinearGradient(colors: wallpaper.colors.map { Color(NSColor.hex($0)) }, startPoint: .bottomLeading, endPoint: .topTrailing)
                 }
-                T(wallpaper.title, color: .white, style: .secondary, weight: .medium).padding(8)
+                T(wallpaper.title, color: wallpaper.colors.isEmpty ? Theme.palette.text1 : .white, style: .secondary, weight: .medium).padding(8)
             }
             .frame(maxWidth: .infinity, minHeight: 64)
             .cornerRadius(Theme.cornerCard)
