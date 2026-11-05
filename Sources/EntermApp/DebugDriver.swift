@@ -3,7 +3,11 @@ import AppKit
 import CoreGraphics
 import EntermCore
 import QuartzCore
+#if DEBUG
 @testable import SwiftTerm
+#else
+import SwiftTerm
+#endif
 import SwiftUI
 
 /// A test hook, active only when `ENTERM_DEBUG_DIR` is set. On SIGUSR1 it runs the lines of `<dir>/cmd`.
@@ -178,12 +182,14 @@ final class DebugDriver {
                 NotchCenter.shared.hover(rest == "on")
             case "screen":
                 // What the terminal holds, to compare with what is drawn.
+#if DEBUG
                 if let host = AppModel.shared.focusedHost {
                     let lines = host.withTerminal { terminal in
                         (0..<terminal.rows).map { row in terminal.getLine(row: row).map { $0.translateToString(trimRight: true) } ?? "" }
                     }
                     try? lines.joined(separator: "\n").write(toFile: rest, atomically: true, encoding: .utf8)
                 }
+#endif
             case "pastetext":
                 // Through the terminal's own paste, without touching the person's clipboard.
                 MainActor.assumeIsolated { AppModel.shared.focusedHost?.pasteText(rest.replacingOccurrences(of: "\\n", with: "\n")) }
@@ -274,7 +280,9 @@ final class DebugDriver {
         window.displayIfNeeded()
         for host in terminals {
             // A window that is not on a lit screen stops its terminal's frames. The picture still needs the latest one.
+#if DEBUG
             host.drawFrameOnUnhide()
+#endif
             guard let picture = Self.picture(of: host) else { continue }
             let rect = host.convert(host.bounds, to: view)
             let y = view.isFlipped ? size.height - rect.maxY : rect.minY

@@ -106,15 +106,19 @@ struct ChatView: View {
                 .overlay(alignment: .top) { Rectangle().fill(Color(palette.need).opacity(0.5)).frame(height: 1) }
             }
             // The program asked on its own screen: its first choice is yes, Esc is no.
+            // Its folder question comes before it can report anything, and there the first choice is no: that one is answered in the terminal.
             if let info, info.status == .needsApproval, info.pendingApproval == nil {
+                let trusted = info.hooksTrusted == true
                 VStack(alignment: .leading, spacing: 8) {
-                    T("Şu izni istiyor:", color: palette.need, style: .secondary, weight: .semibold)
-                    if let last = info.lastActivity { Mono(last).lineLimit(4).textSelection(.enabled) }
+                    T(trusted ? "Şu izni istiyor:" : "Program terminalde yanıtınızı bekliyor", color: palette.need, style: .secondary, weight: .semibold)
+                    if trusted, let last = info.lastActivity { Mono(last).lineLimit(4).textSelection(.enabled) }
                     HStack {
-                        Btn("İzin Ver", kind: .primary) { model.hosts[number]?.type("\r") }
-                        Btn("Reddet", kind: .outline) { model.hosts[number]?.type("\u{1b}") }
+                        if trusted {
+                            Btn("İzin Ver", kind: .primary) { model.hosts[number]?.type("\r") }
+                            Btn("Reddet", kind: .outline) { model.hosts[number]?.type("\u{1b}") }
+                        }
                         Spacer()
-                        Btn("Terminali Aç", kind: .plain) { model.toggleChat(number) }
+                        Btn("Terminali Aç", kind: trusted ? .plain : .primary) { model.toggleChat(number) }
                     }
                 }
                 .padding(12)
