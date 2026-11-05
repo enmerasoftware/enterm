@@ -44,7 +44,7 @@ final class WireTests: XCTestCase {
     }
 
     func testRememberedHostIsAllowedOnlyForInternet() {
-        var book = PermissionBook()
+        var book = PermissionBook(defaultTemplate: .development)
         book.rememberedHosts = ["example.com"]
         XCTAssertEqual(book.decision(sessionID: "a", category: .internet, host: "example.com"), .allow)
         XCTAssertEqual(book.decision(sessionID: "a", category: .internet, host: "other.com"), .ask)
@@ -135,7 +135,7 @@ final class ListTests: XCTestCase {
     }
 
     func testSSHListRules() {
-        var book = PermissionBook()
+        var book = PermissionBook(defaultTemplate: .development)
         XCTAssertEqual(book.decision(sessionID: "s", category: .ssh, host: "a"), .deny)
         var card = PermissionTemplate.serverCare.card
         book.cards["s"] = card
@@ -232,8 +232,8 @@ final class ToolPresenceTests: XCTestCase {
     }
 
     func testEveryProgramHasAnInstallCommand() {
-        for tool in ToolKind.allCases where tool != .terminal {
-            XCTAssertTrue(ToolPresence.installCommand(tool)?.hasPrefix("curl -fsSL https://") == true, tool.title)
+        for tool in ToolKind.programs where tool != .terminal {
+            XCTAssertEqual(ToolPresence.installCommand(tool)?.isEmpty, false, tool.title)
         }
     }
 

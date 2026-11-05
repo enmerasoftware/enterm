@@ -191,6 +191,9 @@ func handleClaudeHook() {
             done.event = event
             _ = WireSocket.send(done)
         }
+        // The program went on after a question it asked itself.
+        event.kind = "working"
+        sendEvent(event)
     default:
         break
     }
@@ -213,6 +216,7 @@ func handlePreToolUse(_ input: [String: Any], base: AgentEvent) {
     var activity = base
     activity.kind = "working"
     activity.text = classified.summary
+    sendEvent(activity)
     if classified.category == .editFiles, let path = toolInput["file_path"] as? String {
         var lock = base
         lock.kind = "lock"
@@ -265,7 +269,7 @@ func handlePermissionRequest(_ input: [String: Any], base: AgentEvent) {
     }
     // With the program deciding, the card waits a short while and then its own prompt takes over.
     let free = PermissionBook.load().card(for: sessionID).passThrough
-    if free, JSONStore.load(AppSettings.self, from: EntermPaths.settingsFile)?.oneClickApprovals == false { return }
+    if free, JSONStore.load(AppSettings.self, from: EntermPaths.settingsFile)?.oneClickApprovals != true { return }
     let classified = PermissionClassifier.classify(tool: tool, input: toolInput)
     var request = base
     request.kind = "approval"

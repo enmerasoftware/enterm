@@ -287,6 +287,8 @@ final class PowerCenter: ObservableObject {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/ps")
         process.arguments = ["-axo", "pid=,%cpu=,rss=,comm="]
+        // Under a Turkish locale ps writes 0,5 and the number would not read.
+        process.environment = ["LC_ALL": "C"]
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
@@ -298,11 +300,11 @@ final class PowerCenter: ObservableObject {
             var agent = (cpu: 0.0, memoryMB: 0.0)
             for line in text.split(separator: "\n") {
                 let parts = line.split(separator: " ", maxSplits: 3, omittingEmptySubsequences: true)
-                guard parts.count == 4, let cpu = Double(parts[1]), let rss = Double(parts[2]) else { continue }
+                guard parts.count == 4, let pid = Int32(parts[0]), let cpu = Double(parts[1]), let rss = Double(parts[2]) else { continue }
                 let name = URL(fileURLWithPath: String(parts[3])).lastPathComponent
                 if name == "EntermApp" || name == "entermd" {
                     own.cpu += cpu
-                    own.memoryMB += rss / 1024
+                    own.memoryMB += memoryFootprintKB(pid).map { Double($0) / 1024 } ?? rss / 1024
                 } else if ["claude", "codex", "agy", "node"].contains(name) {
                     agent.cpu += cpu
                     agent.memoryMB += rss / 1024
@@ -342,11 +344,10 @@ final class ExtensionsHub {
             PowerCenter.shared.updateSampling()
             NotchCenter.shared.update()
         }
-        if current.pendingApproval != nil, previous.pendingApproval == nil, let id = current.pendingApproval?.id {
+        if current.status == .needsApproval, previous.status != .needsApproval {
             let model = AppModel.shared
-            _ = id
             NotifySound.play(.needsYou)
-            Notifier.shared.post(title: "\(model.title(for: current)) İzin İstiyor", body: current.pendingApproval?.summary ?? "", onlyWhenInactive: true)
+            Notifier.shared.post(title: "\(model.title(for: current)) İzin İstiyor", body: current.pendingApproval?.summary ?? current.lastActivity ?? "", onlyWhenInactive: true)
         }
     }
 
@@ -381,10 +382,12 @@ final class Inbox: ObservableObject {
 
     func statusChanged(previous: SessionInfo, current: SessionInfo) {
         let name = AppModel.shared.title(for: current)
+        if current.status == .running { AppModel.shared.unread.remove(current.number) }
         switch current.status {
         case .idle where previous.status == .running && current.tool.reportsStatus:
             Notifier.shared.post(title: "\(name): İş Bitti", body: current.lastActivity ?? "", onlyWhenInactive: true)
             if !NSApp.isActive { NotifySound.play(.finished) }
+            if current.number != AppModel.shared.focused || !NSApp.isActive { AppModel.shared.unread.insert(current.number) }
             finished.insert(InboxItem(symbol: "✓", title: name, detail: current.lastActivity ?? "İş Bitti", at: Date(), sessionNumber: current.number), at: 0)
         case .failed:
             finished.insert(InboxItem(symbol: "✕", title: name, detail: "Hata", at: Date(), sessionNumber: current.number), at: 0)

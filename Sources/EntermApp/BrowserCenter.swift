@@ -4,7 +4,7 @@ import SwiftUI
 import WebKit
 
 /// One system web view, shared by the user and the agents. It exists only while someone uses it.
-/// A session's logins are not kept and are not shared with agents.
+/// Logins are kept only when the person turned that on.
 final class BrowserCenter: NSObject, ObservableObject, WKNavigationDelegate {
     static let shared = BrowserCenter()
     @Published var address = "http://localhost:3000"
@@ -22,7 +22,7 @@ final class BrowserCenter: NSObject, ObservableObject, WKNavigationDelegate {
     func ensure() -> WKWebView {
         if let webView { return webView }
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
+        configuration.websiteDataStore = SettingsStore.shared.settings.browserKeepLogins ? .default() : .nonPersistent()
         let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 1100, height: 760), configuration: configuration)
         view.navigationDelegate = self
         webView = view
@@ -126,6 +126,11 @@ final class BrowserCenter: NSObject, ObservableObject, WKNavigationDelegate {
         if let sessionID = message.event?.sessionID, let info = AppModel.shared.sessions.first(where: { $0.id == sessionID }) {
             agentName = AppModel.shared.title(for: info)
         }
+        if SettingsStore.shared.settings.safariForAgents {
+            note(Self.stepTitle(name, args))
+            SafariBridge.shared.handle(name: name, args: args) { reply($0, $1) }
+            return
+        }
         closeIfUnused()
         switch name {
         case "tarayici_ac":
@@ -170,13 +175,30 @@ final class BrowserCenter: NSObject, ObservableObject, WKNavigationDelegate {
         }
     }
 
+    private static func stepTitle(_ name: String, _ args: [String: Any]) -> String {
+        switch name {
+        case "tarayici_ac": return "Safari: \(args["adres"] as? String ?? "") açılıyor"
+        case "tarayici_tikla": return "Safari: \"\(args["hedef"] as? String ?? "")\" tıklanıyor"
+        case "tarayici_yaz": return "Safari: \"\(args["hedef"] as? String ?? "")\" alanına yazılıyor"
+        default: return "Safari: Sayfa okundu"
+        }
+    }
+
+    /// Opens an address in the person's own Safari. Nothing to allow, nothing is read back.
+    static func openInSafari(_ address: String) {
+        guard let url = URL(string: address), let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") else { return }
+        NSWorkspace.shared.open([url], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+    }
+
     private func note(_ text: String) {
         steps.insert(text, at: 0)
         if steps.count > 12 { steps.removeLast() }
     }
 
+    static let readScript = "document.title + '\\n' + location.href + '\\n\\n' + (document.body ? document.body.innerText : '').slice(0, 8000)"
+
     private func readPage(_ done: @escaping (String) -> Void) {
-        run("document.title + '\\n' + location.href + '\\n\\n' + (document.body ? document.body.innerText : '').slice(0, 8000)", done)
+        run(Self.readScript, done)
     }
 
     private func run(_ script: String, _ done: @escaping (String) -> Void) {
@@ -246,6 +268,7 @@ struct BrowserPage: View {
                 Btn("↻", kind: .plain) { center.webView?.reload() }
                 EntermField(placeholder: "Adres", text: $center.address).onSubmit { center.load(center.address) }
                 Btn("Git", kind: .primary) { center.load(center.address) }
+                Btn("Safari'de Aç", kind: .plain) { BrowserCenter.openInSafari(center.address) }
                 if center.userHasControl {
                     T("◆ Kontrol Sizde", color: Theme.palette.need, bold: true)
                     Btn("Ajana Geri Ver", kind: .outline, key: "⌘⇧D") { giveBack() }
@@ -298,5 +321,146 @@ struct BrowserPage: View {
               let info = model.sessions.first(where: { model.title(for: $0) == name }) else { return }
         model.connection.sendInput(number: info.number, bytes: Data("[Kullanıcı Tarayıcıyı Geri Verdi] \(returnNote)\r".utf8))
         returnNote = ""
+    }
+}
+
+/// The agents' window in the person's Safari. It is off until they turn it on, so macOS asks nothing before that.
+/// Their open tabs are not touched, and a page outside the sites they allowed is not read.
+final class SafariBridge {
+    static let shared = SafariBridge()
+    private let queue = DispatchQueue(label: "enterm.safari", qos: .userInitiated)
+    private var windowID: Int?
+    private var allowed: Set<String> = []
+
+    func handle(name: String, args: [String: Any], reply: @escaping (String?, String?) -> Void) {
+        queue.async { [self] in
+            let result: (String?, String?)
+            do {
+                result = (try perform(name: name, args: args), nil)
+            } catch {
+                result = (nil, "\(error)")
+            }
+            DispatchQueue.main.async { reply(result.0, result.1) }
+        }
+    }
+
+    /// A harmless call, made when the person presses the button. macOS asks its question here the first time.
+    func check(_ done: @escaping (String?) -> Void) {
+        queue.async { [self] in
+            do {
+                _ = try script("""
+                tell application "Safari"
+                    make new document with properties {URL:"about:blank"}
+                    set probe to front window
+                    try
+                        do JavaScript "1" in current tab of probe
+                        close probe
+                    on error message
+                        close probe
+                        error message
+                    end try
+                end tell
+                """)
+                DispatchQueue.main.async { done(nil) }
+            } catch {
+                DispatchQueue.main.async { done("\(error)") }
+            }
+        }
+    }
+
+    private func perform(name: String, args: [String: Any]) throws -> String {
+        switch name {
+        case "tarayici_ac":
+            let address = args["adres"] as? String ?? ""
+            guard let url = URL(string: address), url.scheme == "http" || url.scheme == "https", let host = url.host else {
+                throw Failure(text: "Geçersiz adres.")
+            }
+            allowed.insert(Self.site(host))
+            try open(address)
+            try waitForLoad()
+            return try javascript(BrowserCenter.readScript)
+        case "tarayici_oku":
+            try requireAllowedPage()
+            return try javascript(BrowserCenter.readScript)
+        case "tarayici_tikla":
+            try requireAllowedPage()
+            let target = args["hedef"] as? String ?? ""
+            let result = try javascript(BrowserCenter.clickScript(target))
+            if result == "Bulunamadı" { throw Failure(text: "Öğe bulunamadı: \(target)") }
+            return result
+        case "tarayici_yaz":
+            try requireAllowedPage()
+            let target = args["hedef"] as? String ?? ""
+            let result = try javascript(BrowserCenter.typeScript(target, args["metin"] as? String ?? ""))
+            if result == "Bulunamadı" { throw Failure(text: "Alan bulunamadı: \(target)") }
+            return result
+        case "tarayici_goruntu":
+            throw Failure(text: "Safari'de ekran görüntüsü için ayrı izin gerekir. Sayfayı tarayici_oku ile okuyun.")
+        default:
+            throw Failure(text: "Bilinmeyen komut.")
+        }
+    }
+
+    /// A click may leave the site that was allowed. What comes next asks again.
+    private func requireAllowedPage() throws {
+        guard windowID != nil else { throw Failure(text: "Önce tarayici_ac ile bir adres açın.") }
+        let host = try javascript("location.hostname")
+        let local = ["localhost", "127.0.0.1"].contains(host)
+        if !local, !allowed.contains(Self.site(host)) {
+            throw Failure(text: "Sayfa izin verilen siteden çıktı: \(host). tarayici_ac ile açın, izin sorulur.")
+        }
+    }
+
+    /// The last two labels of a host: accounts.example.com belongs to example.com.
+    static func site(_ host: String) -> String {
+        host.split(separator: ".").suffix(2).joined(separator: ".").lowercased()
+    }
+
+    private func open(_ address: String) throws {
+        let quoted = Self.quote(address)
+        if let id = windowID, (try? script("tell application \"Safari\" to set URL of current tab of window id \(id) to \"\(quoted)\"")) != nil { return }
+        let reply = try script("tell application \"Safari\"\nmake new document with properties {URL:\"\(quoted)\"}\nreturn id of front window\nend tell")
+        windowID = Int(reply.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private func waitForLoad() throws {
+        Thread.sleep(forTimeInterval: 0.5)
+        for _ in 0..<60 {
+            if try javascript("document.readyState") == "complete" { return }
+            Thread.sleep(forTimeInterval: 0.25)
+        }
+    }
+
+    private func javascript(_ code: String) throws -> String {
+        guard let id = windowID else { throw Failure(text: "Önce tarayici_ac ile bir adres açın.") }
+        return try script("tell application \"Safari\" to do JavaScript \"\(Self.quote(code))\" in current tab of window id \(id)")
+    }
+
+    private static func quote(_ text: String) -> String {
+        text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+    }
+
+    struct Failure: Error, CustomStringConvertible {
+        let text: String
+        var description: String { text }
+    }
+
+    private func script(_ source: String) throws -> String {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", source]
+        let output = Pipe(), failure = Pipe()
+        process.standardOutput = output
+        process.standardError = failure
+        try process.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        let problem = String(decoding: failure.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            if problem.contains("-1743") { throw Failure(text: "macOS, Enterm'in Safari'yi kullanmasına izin vermedi. Sistem Ayarları → Gizlilik → Otomasyon'dan açılır.") }
+            if problem.contains("Allow JavaScript") || problem.contains("JavaScript") { throw Failure(text: "Safari'nin Geliştir menüsünde Apple Olaylarından JavaScript'e izin verilmeli.") }
+            throw Failure(text: "Safari yanıt vermedi.")
+        }
+        return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .newlines)
     }
 }

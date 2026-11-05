@@ -49,6 +49,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         DebugDriver.shared.typeText = { AppModel.shared.focusedHost?.type($0) }
         DebugDriver.shared.start()
 #endif
+        DistributedNotificationCenter.default().addObserver(forName: Notification.Name("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
+            if SettingsStore.shared.settings.theme == "system" { self?.applyAppearance() }
+        }
         NotificationCenter.default.addObserver(forName: NSWindow.didChangeOcclusionStateNotification, object: window, queue: .main) { [weak self] _ in
             let visible = self?.window.occlusionState.contains(.visible) ?? true
             AppModel.shared.setWindowVisible(visible)
@@ -73,7 +76,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applyTheme() {
         switch SettingsStore.shared.settings.theme {
         case "light": Theme.isLight = true
-        case "system": Theme.isLight = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .aqua
+        // The app's own appearance is forced below, so the system's answer is read from its setting.
+        case "system": Theme.isLight = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") != "Dark"
         default: Theme.isLight = false
         }
         NSApp.appearance = NSAppearance(named: Theme.isLight ? .aqua : .darkAqua)

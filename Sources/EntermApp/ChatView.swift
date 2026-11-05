@@ -105,6 +105,22 @@ struct ChatView: View {
                 .background(Color(palette.need).opacity(0.08))
                 .overlay(alignment: .top) { Rectangle().fill(Color(palette.need).opacity(0.5)).frame(height: 1) }
             }
+            // The program asked on its own screen: its first choice is yes, Esc is no.
+            if let info, info.status == .needsApproval, info.pendingApproval == nil {
+                VStack(alignment: .leading, spacing: 8) {
+                    T("Şu izni istiyor:", color: palette.need, style: .secondary, weight: .semibold)
+                    if let last = info.lastActivity { Mono(last).lineLimit(4).textSelection(.enabled) }
+                    HStack {
+                        Btn("İzin Ver", kind: .primary) { model.hosts[number]?.type("\r") }
+                        Btn("Reddet", kind: .outline) { model.hosts[number]?.type("\u{1b}") }
+                        Spacer()
+                        Btn("Terminali Aç", kind: .plain) { model.toggleChat(number) }
+                    }
+                }
+                .padding(12)
+                .background(Color(palette.need).opacity(0.08))
+                .overlay(alignment: .top) { Rectangle().fill(Color(palette.need).opacity(0.5)).frame(height: 1) }
+            }
             HStack(spacing: 10) {
                 Text("❯").font(Theme.swiftFont(size: 14)).foregroundColor(Color(palette.need))
                 TextField("", text: $draft, prompt: Text("Yanıt yazın").foregroundColor(Color(palette.text3)), axis: .vertical)

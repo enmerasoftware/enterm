@@ -8,6 +8,9 @@ final class NotchCenter: ObservableObject {
     static let shared = NotchCenter()
     @Published var expanded = false
     private var panel: NSPanel?
+#if ENTERM_TEST_DRIVER
+    var debugView: NSView? { panel?.contentView }
+#endif
     private var collapseWork: DispatchWorkItem?
 
     private var wanted: Bool {

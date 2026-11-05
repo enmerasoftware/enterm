@@ -16,6 +16,9 @@ struct WebBox: View {
                 EntermField(placeholder: "Adres ya da dosya yolu", text: $address)
                     .onSubmit(go)
                 Btn("Git", kind: .plain) { go() }
+                if !loaded.isEmpty, !loaded.hasPrefix("/"), !loaded.hasPrefix("~") {
+                    IconBtn("safari", label: "Safari'de Aç") { BrowserCenter.openInSafari(loaded) }.help("Safari'de Aç")
+                }
             }
             .padding(EdgeInsets(top: 8, leading: 8, bottom: 0, trailing: 8))
             if loaded.isEmpty {
@@ -46,7 +49,7 @@ private struct WebBoxView: NSViewRepresentable {
     let address: String
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
+        configuration.websiteDataStore = SettingsStore.shared.settings.browserKeepLogins ? .default() : .nonPersistent()
         let view = WKWebView(frame: .zero, configuration: configuration)
         load(view)
         return view

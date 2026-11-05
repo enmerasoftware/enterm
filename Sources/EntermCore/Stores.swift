@@ -16,8 +16,8 @@ public struct AppSettings: Codable, Equatable {
     public var defaultTemplate = PermissionTemplate.free
     /// False until this version has set the default once, or the person has chosen.
     public var templateChosen = false
-    /// Answers a program's question from a card for 45 seconds, then its own prompt appears.
-    public var oneClickApprovals = true
+    /// Also shows a program's question on a card. Its own prompt then waits up to 45 seconds, so this is off by default.
+    public var oneClickApprovals = false
     public var voiceEnabled = true
     public var voiceEngine = "system"
     public var voiceLanguage = "tr-TR"
@@ -55,6 +55,10 @@ public struct AppSettings: Codable, Equatable {
     public var showRail = true
     public var showMiniMap = true
     public var whisperModel = "tiny"
+    /// Keeps the logins of Enterm's own browser between runs. Agents use the same browser.
+    public var browserKeepLogins = false
+    /// Agents work in a window of the person's Safari, one permission per site.
+    public var safariForAgents = false
     public init() {}
 
     // Settings written by an older version keep working: a missing key takes its default.
@@ -111,6 +115,8 @@ public struct AppSettings: Codable, Equatable {
         showRail = try c.decodeIfPresent(Bool.self, forKey: .showRail) ?? d.showRail
         showMiniMap = try c.decodeIfPresent(Bool.self, forKey: .showMiniMap) ?? d.showMiniMap
         whisperModel = try c.decodeIfPresent(String.self, forKey: .whisperModel) ?? d.whisperModel
+        browserKeepLogins = try c.decodeIfPresent(Bool.self, forKey: .browserKeepLogins) ?? d.browserKeepLogins
+        safariForAgents = try c.decodeIfPresent(Bool.self, forKey: .safariForAgents) ?? d.safariForAgents
         templateChosen = try c.decodeIfPresent(Bool.self, forKey: .templateChosen) ?? d.templateChosen
         oneClickApprovals = try c.decodeIfPresent(Bool.self, forKey: .oneClickApprovals) ?? d.oneClickApprovals
     }

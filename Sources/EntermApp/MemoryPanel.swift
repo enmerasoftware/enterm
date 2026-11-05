@@ -2,6 +2,15 @@ import AppKit
 import EntermCore
 import SwiftUI
 
+/// What Activity Monitor calls memory. Under pressure the resident size that ps shows falls while the load stays.
+func memoryFootprintKB(_ pid: Int32) -> Int? {
+    var info = rusage_info_current()
+    let result = withUnsafeMutablePointer(to: &info) { pointer in
+        pointer.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { proc_pid_rusage(pid, RUSAGE_INFO_CURRENT, $0) }
+    }
+    return result == 0 ? Int(info.ri_phys_footprint / 1024) : nil
+}
+
 /// Where the memory goes, session by session. It measures once when opened and again only when asked.
 struct MemoryPanel: View {
     @ObservedObject var model = AppModel.shared
@@ -85,13 +94,16 @@ struct MemoryPanel: View {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/ps")
             process.arguments = ["-axo", "pid=,ppid=,rss=,comm="]
+            process.environment = ["LC_ALL": "C"]
             let pipe = Pipe()
             process.standardOutput = pipe
             process.standardError = FileHandle.nullDevice
             guard (try? process.run()) != nil else { return }
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
-            let entries = ProcessTree.parse(String(decoding: data, as: UTF8.self))
+            let entries = ProcessTree.parse(String(decoding: data, as: UTF8.self)).map {
+                ProcessTree.Entry(pid: $0.pid, parent: $0.parent, rssKB: memoryFootprintKB($0.pid) ?? $0.rssKB, name: $0.name)
+            }
             let rows = labels.compactMap { label -> Row? in
                 guard let pid = label.pid else { return nil }
                 let total = ProcessTree.total(root: pid, in: entries)

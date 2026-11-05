@@ -1,6 +1,7 @@
 import AppKit
 import EntermCore
 import SwiftUI
+import WebKit
 
 // The settings that came with the new design. Every line here does what it says.
 
@@ -396,6 +397,74 @@ struct SessionSettings: View {
             }
             Dim("Pencereyi kapatsanız da oturumlar Enterm servisinde çalışmaya devam eder. Bilgisayar yeniden başlarsa oturumları tek tıkla geri getirebilirsiniz.")
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+// MARK: Browser
+
+struct BrowserSettings: View {
+    @ObservedObject var store = SettingsStore.shared
+    @State private var checking = false
+    @State private var result: String?
+    @State private var checked = false
+    @State private var cleared = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Panel {
+                SettingsLine(title: "Girişleri Hatırla", note: "Enterm'in tarayıcısında girdiğiniz hesaplar kapanınca da kalır. Ajanlar da bu hesapları kullanabilir.") {
+                    Seg(options: [(false, "Kapalı"), (true, "Açık")], value: keepLogins)
+                }
+                if store.settings.browserKeepLogins {
+                    SettingsLine(title: "Kayıtlı Girişler", note: cleared ? "Silindi." : "Bu tarayıcıdaki tüm hesaplardan çıkılır.") {
+                        Btn("Sil", kind: .outline) { clearLogins() }
+                    }
+                }
+            }
+            SectionHead(title: "Safari", note: "Ajanlar sayfaları Safari'nizde, kendi penceresinde açar. Girişleriniz hazır olur. Her site için bir kez izin sorulur, açık sekmelerinize dokunulmaz.")
+            Panel {
+                SettingsLine(title: "Ajanlar Safari'yi Kullansın", note: "Kapalıyken macOS hiçbir şey sormaz.") {
+                    Seg(options: [(false, "Kapalı"), (true, "Açık")], value: $store.settings.safariForAgents)
+                }
+                if store.settings.safariForAgents {
+                    SettingsLine(title: "Bağlantı", note: note) {
+                        Btn(checking ? "Deneniyor" : "Dene", kind: .outline) { check() }
+                    }
+                }
+            }
+            if store.settings.safariForAgents {
+                Dim("Önce Safari'nin Geliştir menüsünde Apple Olaylarından JavaScript'e izin verin. Bu menü yoksa Safari Ayarları → Gelişmiş'ten açılır. İlk denemede macOS izin sorar.")
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var note: String {
+        if let result { return result }
+        return checked ? "Safari'ye bağlanıldı." : "Bir pencere açıp kapatır."
+    }
+
+    private var keepLogins: Binding<Bool> {
+        Binding(get: { store.settings.browserKeepLogins }, set: {
+            store.settings.browserKeepLogins = $0
+            // The next page opens with the chosen store.
+            BrowserCenter.shared.close()
+        })
+    }
+
+    private func clearLogins() {
+        BrowserCenter.shared.close()
+        let store = WKWebsiteDataStore.default()
+        store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) { cleared = true }
+    }
+
+    private func check() {
+        checking = true
+        SafariBridge.shared.check { problem in
+            checking = false
+            result = problem
+            checked = problem == nil
         }
     }
 }

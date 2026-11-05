@@ -61,6 +61,8 @@ enum Commands {
         Command(id: "link", title: "Kutuları Bağla", key: ""),
         Command(id: "messages", title: "Ajanlar Arası Mesaj Geçmişi", key: ""),
         Command(id: "fit", title: "Sığdır", key: "0"),
+        Command(id: "arrange", title: "Kutuları Diz", key: ""),
+        Command(id: "home", title: "Ana Ekran", key: ""),
         Command(id: "zoomIn", title: "Yakınlaştır", key: "⌘="),
         Command(id: "zoomOut", title: "Uzaklaştır", key: "⌘-"),
         Command(id: "accounts", title: "Hesaplar", key: ""),
@@ -190,6 +192,8 @@ enum Commands {
         case "stop": model.interrupt()
         case "toggleCanvas": model.toggleCanvas()
         case "fit": model.fitCanvas?()
+        case "arrange": model.arrangeCanvas?()
+        case "home": model.showHomeScreen()
         case "zoomIn": model.setZoom(model.zoom + 0.1)
         case "zoomOut": model.setZoom(model.zoom - 0.1)
         case "settings": model.page = .settings(.appearance)
@@ -209,7 +213,16 @@ enum Commands {
         case "phone": model.page = .phone
         case "voice": model.page = .settings(.voice)
         case "escape":
-            if model.overlay != nil { model.overlay = nil } else if model.page != nil { model.goBack() } else { model.notFound = nil }
+            if model.overlay != nil {
+                model.overlay = nil
+            } else if model.page != nil {
+                model.goBack()
+            } else if model.showHome, !model.sessions.isEmpty {
+                model.showHome = false
+                model.onLayoutChange?()
+            } else {
+                model.notFound = nil
+            }
         case "link":
             model.detailTab = 1
             model.detailsOpen = true

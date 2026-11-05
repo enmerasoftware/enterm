@@ -3,6 +3,7 @@ import AppKit
 import CoreGraphics
 import EntermCore
 import QuartzCore
+@testable import SwiftTerm
 import SwiftUI
 
 /// A test hook, active only when `ENTERM_DEBUG_DIR` is set. On SIGUSR1 it runs the lines of `<dir>/cmd`.
@@ -152,6 +153,7 @@ final class DebugDriver {
                 for box in Self.boxes(in: NSApp.windows.first?.contentView) { rest == "on" ? box.mouseEntered(with: NSEvent()) : box.mouseExited(with: NSEvent()) }
             case "theme":
                 SettingsStore.shared.settings.theme = rest
+                (NSApp.delegate as? AppDelegate)?.applyAppearance()
             case "flow":
                 SettingsStore.shared.settings.flowStartsOpen = rest == "on"
             case "team":
@@ -164,6 +166,32 @@ final class DebugDriver {
                     board.cards.append(card)
                 }
             case "type": typeText?(rest.replacingOccurrences(of: "\\r", with: "\r"))
+            case "openproject":
+                AppModel.shared.startingFromHome = true
+                AppModel.shared.newTerminal(cwd: rest)
+            case "notchshot":
+                if let view = NotchCenter.shared.debugView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: rep)
+                    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: rest))
+                }
+            case "notchopen":
+                NotchCenter.shared.hover(rest == "on")
+            case "screen":
+                // What the terminal holds, to compare with what is drawn.
+                if let host = AppModel.shared.focusedHost {
+                    let lines = host.withTerminal { terminal in
+                        (0..<terminal.rows).map { row in terminal.getLine(row: row).map { $0.translateToString(trimRight: true) } ?? "" }
+                    }
+                    try? lines.joined(separator: "\n").write(toFile: rest, atomically: true, encoding: .utf8)
+                }
+            case "pastetext":
+                // Through the terminal's own paste, without touching the person's clipboard.
+                MainActor.assumeIsolated { AppModel.shared.focusedHost?.pasteText(rest.replacingOccurrences(of: "\\n", with: "\n")) }
+            case "pasteimage":
+                let board = NSPasteboard(name: NSPasteboard.Name("enterm.test"))
+                board.clearContents()
+                if let image = NSImage(contentsOfFile: rest) { board.writeObjects([image]) }
+                _ = AppModel.shared.focusedHost?.pasteFilesOrImage(from: board)
             case "shot": capture(to: rest)
             default: break
             }
@@ -181,14 +209,31 @@ final class DebugDriver {
                 key.removeFirst(prefix.count)
             }
         }
-        let codes: [String: UInt16] = ["esc": 53, "enter": 36, "down": 125, "up": 126]
-        let characters = key == "enter" ? "\r" : key == "esc" ? "\u{1b}" : key
-        guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
+        let arrows: NSEvent.ModifierFlags = [.numericPad, .function]
+        let named: [String: (code: UInt16, text: String, flags: NSEvent.ModifierFlags)] = [
+            "esc": (53, "\u{1b}", []), "enter": (36, "\r", []), "tab": (48, "\t", []), "delete": (51, "\u{7f}", []),
+            "left": (123, "\u{F702}", arrows), "right": (124, "\u{F703}", arrows), "down": (125, "\u{F701}", arrows), "up": (126, "\u{F700}", arrows),
+        ]
+        let letters: [String: UInt16] = ["a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8, "v": 9, "b": 11, "q": 12, "w": 13, "e": 14,
+                                         "r": 15, "y": 16, "t": 17, "o": 31, "u": 32, "i": 34, "p": 35, "l": 37, "j": 38, "k": 40, "n": 45, "m": 46]
+        var characters = named[key]?.text ?? key
+        let plain = characters
+        // Control turns a letter into its control code, the way the keyboard does.
+        if flags.contains(.control), let scalar = key.unicodeScalars.first, key.count == 1, scalar.isASCII, scalar.properties.isAlphabetic {
+            characters = String(UnicodeScalar(UInt8(scalar.value & 0x1F)))
+        }
+        guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags.union(named[key]?.flags ?? []), timestamp: ProcessInfo.processInfo.systemUptime,
                                            windowNumber: NSApp.windows.first?.windowNumber ?? 0, context: nil, characters: characters,
-                                           charactersIgnoringModifiers: characters, isARepeat: false, keyCode: codes[key] ?? 0) else { return }
-        if flags.contains(.command), NSApp.mainMenu?.performKeyEquivalent(with: event) == true { return }
-        // Posted, not sent: a real key press passes the app's key handling first.
-        NSApp.postEvent(event, atStart: false)
+                                           charactersIgnoringModifiers: plain, isARepeat: false, keyCode: named[key]?.code ?? letters[key.lowercased()] ?? 0) else { return }
+        // The same order as a real key press, but the window takes no focus from the person: the app's key handling, the menu, the view.
+        guard let window = NSApp.windows.first, let root = window.contentView as? RootView else { return }
+        // A real window that has the keyboard has its terminal in focus already.
+        if let host = AppModel.shared.focusedHost, AppModel.shared.page == nil, AppModel.shared.overlay == nil, !AppModel.shared.showHome, window.firstResponder !== host {
+            window.makeFirstResponder(host)
+        }
+        guard let rest = root.debugKey(event) else { return }
+        if flags.contains(.command), NSApp.mainMenu?.performKeyEquivalent(with: rest) == true { return }
+        window.sendEvent(rest)
     }
 
     /// Coordinates are from the window's top left corner.
@@ -228,6 +273,8 @@ final class DebugDriver {
         cover?.isHidden = false
         window.displayIfNeeded()
         for host in terminals {
+            // A window that is not on a lit screen stops its terminal's frames. The picture still needs the latest one.
+            host.drawFrameOnUnhide()
             guard let picture = Self.picture(of: host) else { continue }
             let rect = host.convert(host.bounds, to: view)
             let y = view.isFlipped ? size.height - rect.maxY : rect.minY

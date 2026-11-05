@@ -143,10 +143,24 @@ struct InboxPage: View {
     @ObservedObject var power = PowerCenter.shared
     var body: some View {
         let pending = model.sessions.compactMap(\.pendingApproval)
+        let asking = model.sessions.filter { $0.status == .needsApproval && $0.pendingApproval == nil }
         PageFrame(title: "Onay Kutusu") {
             T("Sizi Bekleyenler", bold: true)
-            if pending.isEmpty && inbox.limits.isEmpty && power.queue.isEmpty {
+            if pending.isEmpty && asking.isEmpty && inbox.limits.isEmpty && power.queue.isEmpty {
                 Dim("Bekleyen Bir Şey Yok")
+            }
+            ForEach(asking) { info in
+                Panel(border: Theme.palette.need) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            T("◆ \(model.title(for: info))", color: Theme.palette.need, bold: true)
+                            Dim(info.lastActivity ?? "Terminalde Yanıtınızı Bekliyor").lineLimit(2)
+                        }
+                        Spacer()
+                        Btn("Terminale Git", kind: .primary) { Commands.perform("goto:\(info.number)") }
+                    }
+                    .padding(12)
+                }
             }
             ForEach(pending) { request in
                 let info = model.sessions.first { $0.id == request.sessionID }
@@ -312,6 +326,7 @@ struct SettingsPage: View {
         case .shell: ShellSettings()
         case .session: SessionSettings()
         case .behavior: BehaviorSettings()
+        case .browser: BrowserSettings()
         case .appearance: AppearanceSettings()
         case .notch: NotchSettings()
         case .notifications: NotificationSettings()
@@ -366,7 +381,7 @@ struct SettingsPage: View {
                         AppModel.shared.connection.send(WireMessage(op: "reloadPermissions"))
                     }))
             }
-            line("Tek Tık Onay", "Program izin isteyince kutunun altında sorulur. 45 saniye yanıt gelmezse programın kendi sorusu açılır.") {
+            line("Tek Tık Onay", "Program izin isteyince soru kutunun altında da çıkar. Programın kendi sorusu en çok 45 saniye bekler. Kapalıyken düz terminaldeki gibi hemen sorar.") {
                 Seg(options: [(true, "Açık"), (false, "Kapalı")], value: $store.settings.oneClickApprovals)
             }
             line("Program Mesajı Onay Sayılmaz", "Bir programın başka programa yazdığı mesaj sizin onayınızın yerine geçmez") { T("Zorunlu", color: Theme.palette.text2) }

@@ -52,6 +52,7 @@ final class RootView: NSView {
             self?.model.refocusTerminal()
         }
         model.fitCanvas = { [weak self] in self?.canvas.fit() }
+        model.arrangeCanvas = { [weak self] in self?.canvas.arrange() }
         model.$overlay.combineLatest(model.$page)
             .receive(on: RunLoop.main)
             .sink { [weak self] overlay, page in self?.updateCover(overlay: overlay, page: page) }
@@ -108,11 +109,11 @@ final class RootView: NSView {
         updateHome()
         let railWidth: CGFloat = model.railVisible(width: bounds.width) && !model.focusMode ? 200 : 0
         rail.frame = NSRect(x: 0, y: barHeight, width: railWidth, height: bounds.height - barHeight - foot)
-        rail.isHidden = railWidth == 0
+        rail.isHidden = railWidth == 0 || home != nil
         top.frame = NSRect(x: 0, y: 0, width: bounds.width, height: barHeight)
         if model.focusMode { top.isHidden = true }
         bottom.frame = NSRect(x: 0, y: bounds.height - foot - toolbar, width: bounds.width, height: foot + toolbar)
-        bottom.isHidden = foot + toolbar == 0
+        bottom.isHidden = foot + toolbar == 0 || home != nil
         side.frame = NSRect(x: bounds.width - sideWidth, y: barHeight, width: sideWidth, height: bounds.height - barHeight - foot)
         side.isHidden = sideWidth == 0
         let canvasRect = NSRect(x: railWidth, y: barHeight, width: bounds.width - sideWidth - railWidth, height: bounds.height - barHeight - foot - toolbar)
@@ -132,6 +133,8 @@ final class RootView: NSView {
         let nothingOpen = model.sessions.isEmpty && model.state.items.isEmpty
         let empty = model.started && (nothingOpen || model.showHome)
         top.isHidden = model.started && nothingOpen
+        // The boxes keep receiving their programs' output behind the home screen, they only leave the screen.
+        canvas.isHidden = empty
         if empty, home == nil {
             let view = NSHostingView(rootView: HomeView())
             view.safeAreaRegions = []
@@ -160,6 +163,10 @@ final class RootView: NSView {
     }
 
     // MARK: Keys
+
+#if ENTERM_TEST_DRIVER
+    func debugKey(_ event: NSEvent) -> NSEvent? { handleKey(event) }
+#endif
 
     /// Single keys belong to the terminal when it has focus. They only act when no terminal is typing.
     private func handleKey(_ event: NSEvent) -> NSEvent? {

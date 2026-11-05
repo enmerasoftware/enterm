@@ -12,12 +12,16 @@ struct TopBar: View {
             if model.maximized != nil {
                 Btn("Tümünü Gör", kind: .plain, key: "⌘⏎") { model.toggleMaximize() }
             }
-            if model.showsProjectTabs {
+            if model.showsProjectTabs || model.showHome {
                 ForEach(model.projectNames, id: \.self) { name in
                     ProjectTab(name: name)
                 }
-                IconBtn("plus", label: "Yeni Proje") { Commands.perform("newProject") }
-                    .help("Yeni Proje (⌘⇧N)")
+                if model.showHome {
+                    NewProjectTab()
+                } else {
+                    IconBtn("plus", label: "Yeni Proje") { Commands.perform("newProject") }
+                        .help("Yeni Proje (⌘⇧N)")
+                }
             }
             if model.mode == .tabs && model.visibleSessions.count > 1 {
                 if model.showsProjectTabs { Rectangle().fill(Color(palette.hair2)).frame(width: 1, height: 16).padding(.horizontal, 4) }
@@ -28,7 +32,7 @@ struct TopBar: View {
                         model.onLayoutChange?()
                     }
                 }
-            } else if !model.showsProjectTabs, let info = model.focusedInfo {
+            } else if !model.showsProjectTabs, !model.showHome, let info = model.focusedInfo {
                 HStack(spacing: 8) {
                     T(model.name(for: info), bold: true).lineLimit(1)
                     Dim(model.displayPath(info.cwd)).lineLimit(1).truncationMode(.head)
@@ -41,13 +45,30 @@ struct TopBar: View {
             if model.serviceLost {
                 T("■ Koptu", color: palette.err, bold: true)
             }
+            if model.serviceOutdated {
+                Button {
+                    model.confirm(title: "Yeni Sürüme Geçilsin mi?",
+                                  detail: "Arka plan servisi yeniden başlar, açık oturumlar kapanır. Hemen ardından Hepsini Sürdür ile konuşmalarınıza dönersiniz.",
+                                  action: "Geç") {
+                        model.connection.send(WireMessage(op: "shutdown"))
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Circle().fill(Color(palette.need)).frame(width: 7, height: 7).neon(palette.need, radius: 3)
+                        T("Yeni Sürüm Hazır", color: palette.need, style: .secondary, weight: .semibold)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Arka plan servisi eski sürümden kalma. Oturumlar kapanana kadar eski servis çalışır.")
+            }
             if power.settings.lowPower {
                 Btn("Düşük Güçlü Açık", kind: .plain) { Commands.perform("power") }
             }
             if !power.queue.isEmpty {
                 Btn("◷ Sırada \(power.queue.count)", kind: .outline) { Commands.perform("inbox") }
             }
-            let waiting = model.sessions.filter { $0.pendingApproval != nil }.count
+            let waiting = model.sessions.filter { $0.status == .needsApproval }.count
             if waiting > 0 {
                 Button { Commands.perform("inbox") } label: {
                     HStack(spacing: 6) {
@@ -121,7 +142,8 @@ struct ProjectTab: View {
         let members = model.sessions.filter { model.project(of: $0) == name }
         let attention = members.first { $0.status == .needsApproval || $0.status == .limitReached || $0.status == .failed }
         let running = members.contains { $0.status == .running && $0.tool != .terminal }
-        let dot: NSColor? = attention.flatMap { Neon.color($0.status) } ?? (running ? palette.g1 : nil)
+        let unread = members.contains { model.unread.contains($0.number) }
+        let dot: NSColor? = attention.flatMap { Neon.color($0.status) } ?? (running ? palette.g1 : (unread ? palette.add : nil))
         Button { model.switchProject(name) } label: {
             HStack(spacing: 6) {
                 if let dot { Circle().fill(Color(dot)).frame(width: 7, height: 7).neon(dot, radius: 3) }
@@ -149,6 +171,31 @@ struct ProjectTab: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
+    }
+}
+
+/// The project being started on the home screen. Esc or the cross goes back.
+private struct NewProjectTab: View {
+    @ObservedObject var model = AppModel.shared
+    var body: some View {
+        let palette = Theme.palette
+        HStack(spacing: 6) {
+            T("Yeni Proje", weight: .semibold).lineLimit(1)
+            Button {
+                model.showHome = false
+                model.onLayoutChange?()
+                model.refocusTerminalLater()
+            } label: {
+                Symbol("xmark", color: palette.text3, size: 10).frame(width: 14, height: 14).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Vazgeç (Esc)")
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 44)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color(palette.need)).frame(height: 2).neon(palette.need, radius: 3).padding(.horizontal, 10)
+        }
     }
 }
 

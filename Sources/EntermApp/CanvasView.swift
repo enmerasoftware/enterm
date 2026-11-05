@@ -174,7 +174,7 @@ final class SessionBox: NSView {
         folderLabel.stringValue = model.displayPath(info.cwd)
         folderLabel.textColor = focused ? palette.text2 : palette.text3
         programIcon.image = symbolImage(isAgent ? "sparkle" : "terminal", size: 14)
-        programIcon.contentTintColor = Neon.color(info) ?? (focused ? palette.text2 : palette.text3)
+        programIcon.contentTintColor = Neon.color(info) ?? (model.unread.contains(info.number) ? palette.add : (focused ? palette.text2 : palette.text3))
         panel.layer?.backgroundColor = TerminalTheme.current.backgroundColor.cgColor
         header.layer?.backgroundColor = (focused ? palette.surface2 : palette.surface1).cgColor
         footerBar.layer?.backgroundColor = palette.surface1.cgColor
@@ -304,7 +304,7 @@ final class SessionBox: NSView {
         let model = AppModel.shared
         // A program that is working is not closed by a stray click.
         if info.tool != .terminal, info.status == .running {
-            model.confirm(title: "\(model.name(for: info)) Kapatılsın mı?", detail: "Çalışan program da kapanır. Konuşma programın kendi geçmişinde kalır.", action: "Kapat") { model.close(number) }
+            model.confirm(title: "\(model.name(for: info)) Kapatılsın mı?", detail: "Çalışan program da kapanır. Konuşma programın kendi geçmişinde kalır.", action: "Kapat") { [number] in model.close(number) }
         } else {
             model.close(number)
         }
@@ -877,7 +877,31 @@ final class CanvasView: NSView {
         return NSRect(x: rect.minX * zoom + pan.x, y: rect.minY * zoom + pan.y, width: rect.width * zoom, height: rect.height * zoom)
     }
 
+    /// Everything in view, nothing moved. Automatic tiles always fit, so only a free surface needs a new scale.
     func fit() {
+        let keys = model.visibleSessions.map(\.id) + model.visibleItems.map(\.id)
+        guard model.state.freeLayout || keys.count > 6 else {
+            pan = .zero
+            model.setZoom(1)
+            return
+        }
+        let fallback = NSSize(width: 520, height: 320)
+        var content = NSRect.null
+        for (index, id) in keys.enumerated() {
+            let size = model.state.sizes[id] ?? fallback
+            let origin = model.state.positions[id] ?? CGPoint(x: 16 + CGFloat(index % 3) * (size.width + 24), y: 16 + CGFloat(index / 3) * (size.height + 24))
+            content = content.union(NSRect(origin: origin, size: size))
+        }
+        guard !content.isNull, content.width > 0, content.height > 0 else { return }
+        let margin: CGFloat = 24
+        let zoom = max(0.3, min(1, (bounds.width - margin * 2) / content.width, (bounds.height - margin * 2) / content.height))
+        pan = NSPoint(x: (bounds.width - content.width * zoom) / 2 - content.minX * zoom,
+                      y: (bounds.height - content.height * zoom) / 2 - content.minY * zoom)
+        model.setZoom(zoom)
+    }
+
+    /// Back to tidy rows. The old arrangement can be restored with undo.
+    func arrange() {
         model.pushLayoutUndo()
         pan = .zero
         model.state.freeLayout = false

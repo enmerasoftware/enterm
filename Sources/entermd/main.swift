@@ -36,6 +36,8 @@ final class Session {
     var wasResized = false
     var lastOutput = Date.distantPast
     var quietCheck = false
+    /// The program's first screen asked whether to trust the folder.
+    var trustScreen = false
     init(info: SessionInfo, master: Int32) {
         self.info = info
         self.master = master
@@ -221,6 +223,12 @@ final class Service {
         case .input:
             guard let (number, bytes) = frame.splitSession(), let session = sessions[number] else { return }
             bytes.withUnsafeBytes { _ = write(session.master, $0.baseAddress, $0.count) }
+            // The person answered the program's own question in the terminal.
+            if session.info.status == .needsApproval, session.info.pendingApproval == nil, !session.trustScreen,
+               bytes.contains(13) || bytes == Data([27]) || (bytes.count == 1 && (0x31...0x39).contains(bytes[bytes.startIndex])) {
+                session.info.status = .running
+                publish(session)
+            }
             // Codex only reports the end of a turn. Enter starts the next one.
             if session.info.tool == .codex, session.info.status == .idle || session.info.status == .unknown, bytes.contains(13) {
                 session.info.status = .running
@@ -567,6 +575,13 @@ final class Service {
         }
         session.dirty = true
         if !session.info.tool.reportsStatus, session.info.tool != .terminal { noteActivity(session) }
+        // Claude Code's hooks wait until the folder is trusted, so its question can only be read from the screen.
+        if session.info.status == .starting, session.info.tool == .claude,
+           String(decoding: bytes, as: UTF8.self).lowercased().contains("trust") {
+            session.trustScreen = true
+            session.info.status = .needsApproval
+            publish(session)
+        }
         persistSoon()
         let frame = WireFrame.session(.output, number: session.info.number, bytes: bytes)
         for client in clients.values where client.attached.contains(session.info.number) {
@@ -641,7 +656,8 @@ final class Service {
             guard info.status == .starting, info.tool.command == event.text else { return }
             info.status = .notFound
         case "start":
-            if info.status == .starting || info.status == .exited || info.status == .unknown { info.status = .idle }
+            if info.status == .starting || info.status == .exited || info.status == .unknown || session.trustScreen { info.status = .idle }
+            session.trustScreen = false
             info.hooksTrusted = true
         case "launch":
             if let tool = ToolKind.fromCommand(event.text ?? "") { info.tool = tool }
@@ -699,7 +715,8 @@ final class Service {
         let category = PermissionCategory(rawValue: event.errorKind ?? "") ?? .command
         let host = event.model
         // When the program decides, it asked because its own rules said so: the answer is the person's.
-        let mode = permissions.card(for: session.info.id).passThrough ? .ask : permissions.decision(sessionID: session.info.id, category: category, host: host)
+        let remembered = host.map { permissions.rememberedHosts.contains($0) } == true
+        let mode: PermissionMode = permissions.card(for: session.info.id).passThrough ? (remembered ? .allow : .ask) : permissions.decision(sessionID: session.info.id, category: category, host: host)
         switch mode {
         case .allow:
             send(decisionReply(event: event.agentID, decision: "allow"), to: client)

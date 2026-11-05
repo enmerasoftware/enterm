@@ -448,6 +448,7 @@ enum CanvasMenus {
         ]))
         menu.addItem(.separator())
         menu.addItem(ActionMenuItem("Tümünü Sığdır") { Commands.perform("fit") })
+        menu.addItem(ActionMenuItem("Kutuları Diz") { Commands.perform("arrange") })
         menu.addItem(ActionMenuItem("Düzeni Geri Al", enabled: !model.layoutUndo.isEmpty) { model.undoLayout() })
         menu.addItem(ActionMenuItem("Düzeni Yinele", enabled: !model.layoutRedo.isEmpty) { model.redoLayout() })
         var layouts: [NSMenuItem] = [ActionMenuItem("Bu Yerleşimi Kaydet") { Commands.perform("saveLayout") }]
@@ -637,6 +638,9 @@ private struct StickyNote: View {
                 .font(.system(size: 14))
                 .scrollContentBackground(.hidden)
                 .onChange(of: text) { AppModel.shared.updateItem(item.id, text: $0) }
+                .overlay(alignment: .topLeading) {
+                    if text.isEmpty { Dim("Bir not yazın").padding(.leading, 5).allowsHitTesting(false) }
+                }
             HStack {
                 Spacer()
                 Btn("Odaktaki Oturuma Yaz", kind: .plain, icon: "arrow.turn.down.left") {

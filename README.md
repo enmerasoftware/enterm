@@ -38,6 +38,13 @@ Kurallar: `.zshrc`, `~/.claude`, `~/.codex` değişmez. Entegrasyon başlatma ar
 - **Yerel dikte:** `Whisper.swift`. `whisper-cli` yalnız dikte sırasında çalışır, model isteyince iner.
 - **Hareket kuralı:** Hareket yalnız bir şey olduğunda çalışır, boşta sıfır. Pencere görünmüyorsa, Düşük Güçlü modda ya da "hareketi azalt" açıksa kapanır (`MotionPolicy`).
 
+## İzinler Ve Tarayıcı
+
+- Varsayılan şablon **Serbest**: program düz terminaldeki gibi kendi kurallarıyla çalışır, sorusu hemen ekrana gelir. Kutu "Onay İstiyor" diye yanar. Daha sıkı şablonlar (Salt Okuma, Geliştirme, Yönetici, Sunucu Bakımı) Enterm'in kartıyla karar verir.
+- **Tek Tık Onay** (Ayarlar → Güvenlik, kapalı) soruyu kutunun altında da gösterir, programın kendi sorusu en çok 45 saniye bekler.
+- **Safari** (Ayarlar → Tarayıcı, kapalı): ajanlar kendi penceresinde Safari'yi kullanır, site başına izin sorulur, izinli siteden çıkan sayfa okunmaz. macOS'un sorusu yalnız bu ayar açıkken ve "Dene" ile gelir.
+- **Girişleri Hatırla** (kapalı): Enterm'in kendi tarayıcısı hesapları kapanınca da tutar.
+
 ## Test Sürücüsü
 
 `ENTERM_DEBUG_DIR` verilirse uygulama `SIGUSR1` ile `<dir>/cmd` dosyasındaki komutları çalıştırır (`do <komut>`, `type <metin>`, `shot <dosya>`). Bkz. `scripts/run-test.sh`, `scripts/drive.sh`, `scripts/test-bridge.sh`. Testler sahte `claude` ve geçici `HOME` ile çalışır. `ENTERM_START_TERMINAL=1` turu atlayıp terminalle başlatır. Sürücüye sinyal göndermeden önce uygulamanın açılmasını bekleyin: hazır olmadan gelen `SIGUSR1` süreci kapatır.

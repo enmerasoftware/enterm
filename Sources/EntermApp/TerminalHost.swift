@@ -10,6 +10,7 @@ enum TerminalKeys {
         case (123, [.option]), (123, [.option, .numericPad, .function]): return [0x1B, 0x62] // word back
         case (124, [.option]), (124, [.option, .numericPad, .function]): return [0x1B, 0x66] // word forward
         case (51, [.option]): return [0x1B, 0x7F] // delete word
+        case (36, [.option]): return [0x1B, 0x0D] // a new line in programs like Claude Code
         case (123, [.command]), (123, [.command, .numericPad, .function]): return [0x01] // start of line
         case (124, [.command]), (124, [.command, .numericPad, .function]): return [0x05] // end of line
         case (51, [.command]): return [0x15] // delete line
@@ -127,20 +128,40 @@ final class TerminalHost: TerminalView, TerminalViewDelegate {
 
     /// A picture on the clipboard goes in as a file, which is what these programs read. Text pastes as it always did.
     override func paste(_ sender: Any) {
-        let board = NSPasteboard.general
-        if board.string(forType: .string) == nil, let urls = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
-            typeQuoted(urls.map(\.path))
-            return
-        }
-        if board.string(forType: .string) == nil, let image = NSImage(pasteboard: board), let path = Self.saveTemporary(image) {
-            typeQuoted([path])
-            return
-        }
+        if pasteFilesOrImage(from: .general) { return }
         super.paste(sender)
     }
 
+    /// A file or a picture has no text of its own: its path goes in, the way a program like Claude Code reads an image.
+    func pasteFilesOrImage(from board: NSPasteboard) -> Bool {
+        guard board.string(forType: .string) == nil else { return false }
+        if let urls = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
+            typeQuoted(urls.map(\.path))
+            return true
+        }
+        if let image = NSImage(pasteboard: board), let path = Self.saveTemporary(image) {
+            typeQuoted([path])
+            return true
+        }
+        return false
+    }
+
+    /// As a paste and escaped the way Terminal does on a drop, so programs read it as a path, not as typing.
     private func typeQuoted(_ paths: [String]) {
-        type(paths.map { NotFoundActions.shellQuote($0) }.joined(separator: " ") + " ")
+        pasteText(paths.map(Self.escapedPath).joined(separator: " ") + " ")
+    }
+
+    static func escapedPath(_ path: String) -> String {
+        var result = ""
+        for character in path {
+            if character.isLetter || character.isNumber || "/._-+@%:,=~".contains(character) {
+                result.append(character)
+            } else {
+                result.append("\\")
+                result.append(character)
+            }
+        }
+        return result
     }
 
     private static func saveTemporary(_ image: NSImage) -> String? {

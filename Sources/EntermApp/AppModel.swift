@@ -40,7 +40,7 @@ enum Page: Equatable {
 
 enum SettingsTab: String, CaseIterable, Identifiable {
     case programs, accounts, custom, gateway, usage, commits
-    case terminal, shell, session, behavior
+    case terminal, shell, session, behavior, browser
     case appearance, notch, notifications, voice, shortcuts
     case phone, ssh
     case power, security, about
@@ -48,7 +48,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 
     static let groups: [(title: String, tabs: [SettingsTab])] = [
         ("Programlar", [.programs, .accounts, .custom, .gateway, .usage, .commits]),
-        ("Çalışma Alanı", [.terminal, .shell, .session, .behavior]),
+        ("Çalışma Alanı", [.terminal, .shell, .session, .behavior, .browser]),
         ("Arayüz", [.appearance, .notch, .notifications, .voice, .shortcuts]),
         ("Uzak", [.phone, .ssh]),
         ("Uygulama", [.power, .security, .about]),
@@ -66,6 +66,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .shell: return "Kabuk"
         case .session: return "Oturum Koruma"
         case .behavior: return "Davranış"
+        case .browser: return "Tarayıcı"
         case .appearance: return "Görünüm"
         case .notch: return "Çentik"
         case .notifications: return "Bildirimler"
@@ -90,6 +91,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .shell: return "chevron.right"
         case .session: return "shield"
         case .behavior: return "slider.horizontal.3"
+        case .browser: return "safari"
         case .appearance: return "circle.lefthalf.filled"
         case .notch: return "rectangle.topthird.inset.filled"
         case .notifications: return "bell"
@@ -112,6 +114,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .terminal: words = "tema renk yazı tipi font imleç kopyala geçmiş"
         case .appearance: words = "neon hareket vurgu duvar kağıdı tema ızgara"
         case .behavior: words = "uyku uyanık odak ızgara harita durak çıkış"
+        case .browser: words = "safari webkit giriş hesap çerez site"
         case .notifications: words = "ses bildirim betik"
         case .programs: words = "claude codex gemini grok cursor copilot opencode antigravity varsayılan"
         case .gateway: words = "model sunucu anahtar api"
@@ -193,6 +196,10 @@ final class AppModel: ObservableObject {
     @Published var chatSessions = Set<UInt32>()
     /// One terminal and nothing around it.
     @Published var focusMode = false
+    /// Finished while the person was looking elsewhere. Gone as soon as they look.
+    @Published var unread: Set<UInt32> = []
+    /// The running service is from another copy of the app.
+    @Published var serviceOutdated = false
     /// Boxes stay where they are until this is off.
     @Published var canvasLocked = false
     var lastFocus: [String: UInt32] = [:]
@@ -213,6 +220,7 @@ final class AppModel: ObservableObject {
     var windowVisible = true
     var sparseTimer: Timer?
     var fitCanvas: (() -> Void)?
+    var arrangeCanvas: (() -> Void)?
     var onReload: (() -> Void)?
     var restorable: [SessionInfo] = []
     var codexWarned = Set<UInt32>()
@@ -285,6 +293,7 @@ final class AppModel: ObservableObject {
                 connection.send(WireMessage(op: "shutdown"))
                 return
             }
+            serviceOutdated = isServiceOutdated(message.text)
             sessions = list
             started = true
             list.forEach { ensureHost($0) }
@@ -382,6 +391,7 @@ final class AppModel: ObservableObject {
     private func closeLocally(_ number: UInt32) {
         guard let index = sessions.firstIndex(where: { $0.number == number }) else { return }
         closedSessions.append(sessions[index])
+        unread.remove(number)
         if closedSessions.count > 20 { closedSessions.removeFirst() }
         chatSessions.remove(number)
         sessions.remove(at: index)
@@ -538,6 +548,7 @@ final class AppModel: ObservableObject {
     func setFocus(_ number: UInt32?) {
         let changed = focused != number
         focused = number
+        if let number, unread.contains(number) { unread.remove(number) }
         followFocus(number)
         if changed, PowerCenter.shared.settings.lowPower { flushPending() }
         if changed, let info = focusedInfo, info.status == .notFound, let command = info.tool.command {

@@ -209,7 +209,11 @@ private struct WelcomeCover: View {
                         .foregroundColor(Color(palette.text1))
                     HStack(spacing: 12) {
                         EnterButton(title: "Bir Dakikada Kur", action: begin)
-                        QuietButton(title: "Doğrudan Terminali Aç", action: finish)
+                        QuietButton(title: "Doğrudan Terminali Aç") {
+                            finish()
+                            // With sessions open from before, the canvas is what they came back to.
+                            if AppModel.shared.sessions.isEmpty { AppModel.shared.newTerminal() }
+                        }
                     }
                 }
                 .padding(.leading, 96)
@@ -776,13 +780,16 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity)
             }
             VStack {
-                HStack(spacing: 2) {
-                    Spacer()
-                    IconBtn("iphone", label: "Telefon") { Commands.perform("phone") }
-                    IconBtn("gearshape", label: "Ayarlar") { Commands.perform("settings") }
+                // With sessions open the top bar is above this and has them already.
+                if model.sessions.isEmpty && model.state.items.isEmpty {
+                    HStack(spacing: 2) {
+                        Spacer()
+                        IconBtn("iphone", label: "Telefon") { Commands.perform("phone") }
+                        IconBtn("gearshape", label: "Ayarlar") { Commands.perform("settings") }
+                    }
+                    .padding(.horizontal, 8)
+                    .frame(height: 40)
                 }
-                .padding(.horizontal, 8)
-                .frame(height: 40)
                 Spacer()
                 HStack(spacing: 16) {
                     MemoryLabel()
@@ -797,6 +804,7 @@ struct HomeView: View {
             }
         }
         .onAppear {
+            PowerCenter.shared.measureUsage()
             typing = true
             power.measureUsage()
             ToolCatalog.shared.refresh()
@@ -929,7 +937,8 @@ struct HomeView: View {
         }
         text = ""
         switch intent {
-        case .open: open(cwd: nil)
+        // With a project already open, a plain start is a new project, not one more box in it.
+        case .open: open(cwd: model.sessions.isEmpty ? nil : NSHomeDirectory())
         case .folder(let path): open(cwd: path)
         case .command(let line):
             model.startingFromHome = true
@@ -1081,7 +1090,8 @@ struct SessionRail: View {
 
     private func stop(_ info: SessionInfo) -> some View {
         let palette = Theme.palette
-        let light = Neon.color(info)
+        let unread = model.unread.contains(info.number)
+        let light = Neon.color(info) ?? (unread ? palette.add : nil)
         let color = light ?? palette.text3
         let on = info.number == model.focused
         let attention = info.status == .needsApproval || info.status == .limitReached || info.status == .failed
@@ -1097,7 +1107,7 @@ struct SessionRail: View {
                         .font(.system(size: 12, weight: on || attention ? .semibold : .regular))
                         .foregroundColor(Color(on || attention ? palette.text1 : palette.text2))
                         .lineLimit(1)
-                    Text(info.tool == .terminal ? AppModel.projectName(for: info.cwd) : info.status.title)
+                    Text(info.tool == .terminal ? AppModel.projectName(for: info.cwd) : (unread ? "Yeni Yanıt" : info.status.title))
                         .font(.system(size: 11))
                         .foregroundColor(Color(info.tool == .terminal ? palette.text3 : color))
                         .lineLimit(1)
@@ -1153,6 +1163,8 @@ struct CommandBar: View {
 struct StatusLine: View {
     @ObservedObject var model = AppModel.shared
     let summary: String
+    // Once when it appears, then rarely and only while the app is in use: it starts a process.
+    @State private var ticker = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
     var body: some View {
         let palette = Theme.palette
         HStack(spacing: 16) {
@@ -1179,5 +1191,9 @@ struct StatusLine: View {
         .frame(height: 36)
         .background(Color(palette.surface0))
         .overlay(alignment: .top) { Line() }
+        .onAppear { PowerCenter.shared.measureUsage() }
+        .onReceive(ticker) { _ in
+            if NSApp.isActive { PowerCenter.shared.measureUsage() }
+        }
     }
 }
