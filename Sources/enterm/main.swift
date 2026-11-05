@@ -223,25 +223,27 @@ func handlePreToolUse(_ input: [String: Any], base: AgentEvent) {
         }
     }
     let book = PermissionBook.load()
-    let mode = book.decision(sessionID: sessionID, category: classified.category, host: classified.host)
-    switch mode {
-    case .deny:
-        preToolOutput("deny", reason: "Enterm yetki kartı: \(classified.category.title) kapalı.")
-        return
-    case .ask where [.ssh, .pushDeploy, .deleteFiles, .internet].contains(classified.category):
-        var request = base
-        request.kind = "approval"
-        request.tool = tool
-        request.text = classified.summary
-        request.errorKind = classified.category.rawValue
-        request.model = classified.host
-        switch askService(request, op: "approval", timeout: 590) {
-        case "allow": preToolOutput("allow", reason: "Kullanıcı Enterm'de izin verdi.")
-        case "deny": preToolOutput("deny", reason: "Kullanıcı Enterm'de reddetti.")
-        default: break
+    if !book.card(for: sessionID).passThrough {
+        let mode = book.decision(sessionID: sessionID, category: classified.category, host: classified.host)
+        switch mode {
+        case .deny:
+            preToolOutput("deny", reason: "Enterm yetki kartı: \(classified.category.title) kapalı.")
+            return
+        case .ask where [.ssh, .pushDeploy, .deleteFiles, .internet].contains(classified.category):
+            var request = base
+            request.kind = "approval"
+            request.tool = tool
+            request.text = classified.summary
+            request.errorKind = classified.category.rawValue
+            request.model = classified.host
+            switch askService(request, op: "approval", timeout: 590) {
+            case "allow": preToolOutput("allow", reason: "Kullanıcı Enterm'de izin verdi.")
+            case "deny": preToolOutput("deny", reason: "Kullanıcı Enterm'de reddetti.")
+            default: break
+            }
+        default:
+            break
         }
-    default:
-        break
     }
     // After the permissions, a heavy command waits for its turn. If the wait runs out it still goes ahead.
     if classified.category == .command, HeavyWork.matches(classified.summary) {
@@ -261,6 +263,9 @@ func handlePermissionRequest(_ input: [String: Any], base: AgentEvent) {
         permissionOutput(allow: true)
         return
     }
+    // With the program deciding, the card waits a short while and then its own prompt takes over.
+    let free = PermissionBook.load().card(for: sessionID).passThrough
+    if free, JSONStore.load(AppSettings.self, from: EntermPaths.settingsFile)?.oneClickApprovals == false { return }
     let classified = PermissionClassifier.classify(tool: tool, input: toolInput)
     var request = base
     request.kind = "approval"
@@ -268,7 +273,7 @@ func handlePermissionRequest(_ input: [String: Any], base: AgentEvent) {
     request.text = classified.summary
     request.errorKind = classified.category.rawValue
     request.model = classified.host
-    switch askService(request, op: "approval", timeout: 590) {
+    switch askService(request, op: "approval", timeout: free ? 45 : 590) {
     case "allow": permissionOutput(allow: true)
     case "deny": permissionOutput(allow: false)
     default: break
@@ -304,6 +309,7 @@ func handleStatusLine() {
         if let window = input["context_window"] as? [String: Any] {
             event.inputTokens = window["total_input_tokens"] as? Int
             event.outputTokens = window["total_output_tokens"] as? Int
+            event.contextPercent = (window["used_percentage"] as? NSNumber)?.intValue
             if let usage = window["current_usage"] as? [String: Any] {
                 let parts = ["input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"].compactMap { usage[$0] as? Int }
                 event.contextTokens = parts.reduce(0, +)

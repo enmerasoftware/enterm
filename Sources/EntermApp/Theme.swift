@@ -7,7 +7,10 @@ struct Palette {
     let surface0, surface1, surface2, surface3: NSColor
     let text1, text2, text3: NSColor
     let hair, hair2, focus, fill, fillSelected, knob: NSColor
-    let need, limit, err, add, btn, btnfg, g1, g2: NSColor
+    var need: NSColor
+    let limit, err, add: NSColor
+    var btn: NSColor
+    let btnfg, g1, g2: NSColor
     let scrim: NSColor
     let shadowBox, shadowFloat: NSColor
 
@@ -47,7 +50,7 @@ enum TextStyle {
 
     var size: CGFloat {
         switch self {
-        case .title: return 20
+        case .title: return 26
         case .section: return 15
         case .body: return 13
         case .secondary: return 12
@@ -56,7 +59,7 @@ enum TextStyle {
     }
     var line: CGFloat {
         switch self {
-        case .title: return 26
+        case .title: return 32
         case .section: return 20
         case .body: return 18
         case .secondary: return 16
@@ -66,13 +69,25 @@ enum TextStyle {
 }
 
 enum Theme {
-    static var isLight = false
-    static var palette: Palette { isLight ? .light : .dark }
+    static var isLight = false { didSet { refreshPalette() } }
+    /// Read many times a frame, so it is kept ready and rebuilt only when the look changes.
+    private(set) static var palette: Palette = .dark
+
+    static func refreshPalette() {
+        var result: Palette = isLight ? .light : .dark
+        if let accent = AccentChoice.all.first(where: { $0.id == SettingsStore.shared.settings.accent }), accent.id != "lime" {
+            result.need = .hex(isLight ? accent.light : accent.dark)
+            result.btn = .hex(accent.dark)
+        }
+        palette = result
+    }
     static let fontSize: CGFloat = 13.333
     static let lineHeight: CGFloat = 20
 
     /// Terminal and commands only: what a program wrote or what will be typed into one.
     static func font(size: CGFloat = fontSize, bold: Bool = false) -> NSFont {
+        let family = SettingsStore.shared.settings.fontName
+        if !family.isEmpty, let font = NSFontManager.shared.font(withFamily: family, traits: bold ? .boldFontMask : [], weight: bold ? 9 : 5, size: size) { return font }
         let name = bold ? "JetBrainsMono-SemiBold" : "JetBrainsMono-Regular"
         if let font = NSFont(name: name, size: size) { return font }
         return NSFont.monospacedSystemFont(ofSize: size, weight: bold ? .semibold : .regular)

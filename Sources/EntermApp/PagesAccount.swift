@@ -7,8 +7,8 @@ struct AccountsPage: View {
     @ObservedObject var model = AppModel.shared
     var body: some View {
         PageFrame(title: nil) {
-            HStack {
-                T("Hesaplar", bold: true, style: .title)
+            HStack(alignment: .top) {
+                PageTitle(text: "Hesaplar")
                 Spacer()
                 Btn("API Anahtarı Ekle") { model.page = .apiKey }
                 Btn("Hesap Ekle", kind: .primary) { model.page = .accountAdd }
@@ -239,66 +239,101 @@ struct CostPage: View {
 
 struct SettingsPage: View {
     @State var tab: SettingsTab
+    @State private var search = ""
     @ObservedObject var store = SettingsStore.shared
     @ObservedObject var power = PowerCenter.shared
+
+    private var groups: [(title: String, tabs: [SettingsTab])] {
+        let needle = search.lowercased(with: Locale(identifier: "tr_TR")).trimmingCharacters(in: .whitespaces)
+        if needle.isEmpty { return SettingsTab.groups }
+        return SettingsTab.groups.compactMap { group in
+            let tabs = group.tabs.filter { $0.searchText.contains(needle) }
+            return tabs.isEmpty ? nil : (group.title, tabs)
+        }
+    }
+
     var body: some View {
         let palette = Theme.palette
-        VStack(spacing: 0) {
-            HStack {
-                Btn("Geri", kind: .plain, key: "Esc", icon: "chevron.left") { AppModel.shared.page = nil }
-                Spacer()
-            }
-            .padding(.leading, 80)
-            .padding(.trailing, 16)
-            .frame(height: 44)
-            .background(Color(palette.surface1))
-            Line()
-            HStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(SettingsTab.allCases) { item in
-                        sideItem(item.title, icon: item.icon, selected: tab == item) { tab = item }
-                    }
-                    Line().padding(8)
-                    sideItem("Cihazlar", icon: "iphone", selected: false) { AppModel.shared.page = .phone }
-                    sideItem("Hesaplar", icon: "person", selected: false) { AppModel.shared.page = .accounts }
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Btn("Geri", kind: .plain, key: "Esc", icon: "chevron.left") { AppModel.shared.goBack() }
                     Spacer()
                 }
-                .padding(.vertical, 12)
-                .padding(.horizontal, 8)
-                .frame(width: 220)
-                .background(Color(palette.surface1))
-                .overlay(alignment: .trailing) { Rectangle().fill(Color(palette.hair)).frame(width: 1) }
-                ScrollView {
+                .padding(.leading, 72)
+                .frame(height: 44)
+                EntermField(placeholder: "Ayarlarda Ara", text: $search)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+                ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 16) {
-                        T(tab.title, bold: true, style: .title)
-                        switch tab {
-                        case .appearance: appearance
-                        case .shortcuts: shortcuts
-                        case .security: security
-                        case .power: powerSection
-                        case .voice: voice
-                        case .sleep: sleep
-                        case .notify: notify
+                        ForEach(groups, id: \.title) { group in
+                            VStack(alignment: .leading, spacing: 2) {
+                                T(group.title, color: palette.text3, style: .hint, weight: .semibold).padding(.horizontal, 8).padding(.bottom, 4)
+                                ForEach(group.tabs) { item in
+                                    sideItem(item.title, icon: item.icon, selected: tab == item) { tab = item }
+                                }
+                            }
                         }
+                        if groups.isEmpty { Dim("Sonuç Yok").padding(.horizontal, 8) }
                     }
-                    .padding(32)
-                    .frame(maxWidth: 744, alignment: .leading)
-                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
                 }
             }
+            .frame(width: 240)
+            .background(Color(palette.surface1))
+            .overlay(alignment: .trailing) { Rectangle().fill(Color(palette.hair)).frame(width: 1) }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if !tab.bringsOwnTitle { PageTitle(text: tab.title) }
+                    detail
+                }
+                .padding(EdgeInsets(top: 44, leading: 32, bottom: 40, trailing: 32))
+                .frame(maxWidth: 760, alignment: .leading)
+                .frame(maxWidth: .infinity)
+            }
+            .background(ZStack { Color(palette.surface0); CornerGlows(second: .bottomTrailing) })
         }
+        .environment(\.embeddedPage, true)
         .background(Color(palette.surface0))
+    }
+
+    @ViewBuilder
+    private var detail: some View {
+        switch tab {
+        case .programs: ProgramsSettings()
+        case .accounts: AccountsPage()
+        case .custom: CustomProgramsSettings()
+        case .gateway: GatewaySettings()
+        case .usage: UsageSettings()
+        case .commits: CommitSettings()
+        case .terminal: TerminalSettings()
+        case .shell: ShellSettings()
+        case .session: SessionSettings()
+        case .behavior: BehaviorSettings()
+        case .appearance: AppearanceSettings()
+        case .notch: NotchSettings()
+        case .notifications: NotificationSettings()
+        case .voice: VoiceSettings()
+        case .shortcuts: ShortcutEditor()
+        case .phone: PhonePage()
+        case .ssh: RemotePage()
+        case .power: powerSection
+        case .security: security
+        case .about: AboutSettings()
+        }
     }
 
     private func sideItem(_ title: String, icon: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Symbol(icon, color: selected ? Theme.palette.text1 : Theme.palette.text2)
+                Symbol(icon, color: selected ? Theme.palette.need : Theme.palette.text2)
                 T(title, weight: selected ? .medium : .regular)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 8)
-            .frame(height: 28)
+            .frame(height: 30)
             .background(selected ? Color(Theme.palette.fillSelected) : .clear)
             .cornerRadius(Theme.cornerControl)
             .contentShape(Rectangle())
@@ -318,44 +353,9 @@ struct SettingsPage: View {
         .settingsRow()
     }
 
-    private var appearance: some View {
-        Panel {
-            line("Program Açılınca", "Son görünüm: kapattığınız ekranla açılır") {
-                Seg(options: [(true, "Son Görünüm"), (false, "Tek Terminal")], value: $store.settings.openWithLastView)
-            }
-            line("Yeni Terminal", "İkinci terminal nasıl açılsın") {
-                Seg(options: [(false, "Yan Yana"), (true, "Sekme")], value: $store.settings.newTerminalAsTab)
-            }
-            line("Tema", "Yeniden açınca tam uygulanır") {
-                Seg(options: [("dark", "Koyu"), ("light", "Açık"), ("system", "Sistem")], value: $store.settings.theme)
-            }
-            line("Terminal Yazı Boyutu") {
-                HStack {
-                    Btn("−", kind: .plain) { changeFont(-1) }
-                    T("\(Int(store.settings.fontSize))")
-                    Btn("+", kind: .plain) { changeFont(1) }
-                }
-            }
-            line("Tuval Noktaları") {
-                Seg(options: [(true, "Açık"), (false, "Kapalı")], value: $store.settings.canvasDots)
-            }
-        }
-    }
-
-    private func changeFont(_ delta: Double) {
-        store.settings.fontSize = min(max(store.settings.fontSize + delta, 9), 28)
-        AppModel.shared.hosts.values.forEach { $0.applyTheme() }
-        AppModel.shared.onLayoutChange?()
-    }
-
-    private var shortcuts: some View { ShortcutEditor() }
-
     private var security: some View {
         Panel {
-            line("Terminal Dökümünü Sakla", "Yeniden açılışta geri gelir, diske şifresiz yazılır") {
-                Seg(options: [(true, "Açık"), (false, "Kapalı")], value: $store.settings.keepTranscript)
-            }
-            line("Yeni Oturumda Varsayılan Şablon") {
+            line("Yeni Oturumda Varsayılan Şablon", "Serbest: programın kendi kuralları geçerli, düz terminaldeki gibi") {
                 Seg(options: PermissionTemplate.allCases.map { ($0, $0.title) }, value: Binding(
                     get: { PermissionBook.load().defaultTemplate },
                     set: { value in
@@ -366,10 +366,10 @@ struct SettingsPage: View {
                         AppModel.shared.connection.send(WireMessage(op: "reloadPermissions"))
                     }))
             }
-            line("Ajan Mesajı Onay Sayılmaz", "Kapatılamaz") { T("Zorunlu") }
-            line("Bağlı Cihazlar", "Oturumları telefonda görün, onay verin") {
-                Btn("Cihazlar") { AppModel.shared.page = .phone }
+            line("Tek Tık Onay", "Program izin isteyince kutunun altında sorulur. 45 saniye yanıt gelmezse programın kendi sorusu açılır.") {
+                Seg(options: [(true, "Açık"), (false, "Kapalı")], value: $store.settings.oneClickApprovals)
             }
+            line("Program Mesajı Onay Sayılmaz", "Bir programın başka programa yazdığı mesaj sizin onayınızın yerine geçmez") { T("Zorunlu", color: Theme.palette.text2) }
         }
     }
 
@@ -411,47 +411,6 @@ struct SettingsPage: View {
             }
         }
         .onAppear { power.measureUsage() }
-    }
-
-    private var voice: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Panel {
-            line("Konuşarak Yazma", "Basılı tutun, konuşun, bırakın. Kullanılmadıkça yük bindirmez.") {
-                HStack {
-                    Key("⌃⌘")
-                    Seg(options: [(true, "Açık"), (false, "Kapalı")], value: $store.settings.voiceEnabled)
-                }
-            }
-            Row { VStack(alignment: .leading) { T("Sistem Diktesi"); Dim("İşletim sisteminin hizmeti. İndirme yok, bellek yükü Enterm'de yok. Mümkünse cihazda işlenir.") }; Spacer(); T("Seçili", bold: true) }.overlay(alignment: .top) { Line() }
-            Row { VStack(alignment: .leading) { T("Yerel Whisper Modeli"); Dim("Küçük, Orta, Büyük. Ses bilgisayardan çıkmaz.") }; Spacer(); Dim("Henüz Yok") }.overlay(alignment: .top) { Line() }
-            line("Dil") {
-                Seg(options: [("tr-TR", "Türkçe"), ("en-US", "English")], value: $store.settings.voiceLanguage)
-            }
-            }
-            Dim("Metni siz gönderirsiniz: Enter'a siz basarsınız. Tuş bırakılınca mikrofon hemen kapanır.")
-        }
-    }
-
-    private var sleep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Panel {
-            line("Ajan Çalışırken Bilgisayar Uyumasın", "Ajan bitince engel kalkar. Düz terminal için çalışmaz.") {
-                Seg(options: [(false, "Kapalı"), (true, "Açık")], value: $store.settings.keepAwakeWhileAgents)
-            }
-            HStack { T("Şu An"); Spacer(); Dim(ExtensionsHub.shared.isHoldingAwake ? "Uyku Engelleniyor" : "Engel Yok") }.settingsRow()
-            }
-            Dim("Kapak kapanırsa macOS yine uyuyabilir.")
-        }
-    }
-
-    /// A script tells the phone something. The command goes through the session service.
-    private var notify: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            T("Kendi betiğiniz telefona bildirim göndersin:")
-            CommandBox(text: "enterm notify \"Derleme bitti\"")
-            Dim("Bu bilgisayarda anahtar gerekmez. Bildirim içeriği yolda şifreli gider. Komutun başarılı dönmesi telefona ulaştı demek değildir. Çok sık gönderim sınırlanır.")
-                .fixedSize(horizontal: false, vertical: true)
-        }
     }
 }
 

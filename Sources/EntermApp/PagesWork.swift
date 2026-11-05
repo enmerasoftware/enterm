@@ -75,7 +75,8 @@ struct HistoryPage: View {
     @State private var items: [PastConversation] = []
     var body: some View {
         let cwd = model.focusedInfo?.cwd ?? NSHomeDirectory()
-        PageFrame(title: "Geçmiş Konuşmalar: \(model.displayPath(cwd))") {
+        PageFrame(title: "Geçmiş Konuşmalar") {
+            Dim(model.displayPath(cwd)).lineLimit(1).truncationMode(.head)
             if items.isEmpty { Dim("Bu klasörde Claude Code konuşması bulunamadı. Codex ve Antigravity listesi bu sürümde yok.") }
             Panel {
                 ForEach(items) { item in
@@ -125,7 +126,8 @@ struct FilesPage: View {
     @State private var items: [(name: String, directory: Bool)] = []
     @State private var failed = false
     var body: some View {
-        PageFrame(title: model.displayPath(path)) {
+        PageFrame(title: "Dosyalar") {
+            Dim(model.displayPath(path)).lineLimit(1).truncationMode(.head)
             if let remote = model.focused.flatMap({ model.remotes[$0] }) { Dim("Uzak: \(remote.host). Dosyalar sunucuda, görünüm burada.") }
             Btn("‹ Üst Klasör", kind: .plain) { open((path as NSString).deletingLastPathComponent) }
             if failed { T("✕ Liste Alınamadı", color: Theme.palette.err) }
@@ -267,13 +269,24 @@ struct ChangesPage: View {
     @State private var notice = ""
     @State private var isRepository = true
     @State private var ahead = 0
+    @State private var writing = false
     var cwd: String { model.focusedInfo?.cwd ?? NSHomeDirectory() }
     var runner: CommandRunner { model.currentRunner }
     var body: some View {
-        PageFrame(title: nil, wide: true) {
+        PageFrame(title: "Değişiklikler", wide: isRepository) {
             if let remote = model.focused.flatMap({ model.remotes[$0] }) { Dim("Uzak: \(remote.host):\(remote.folder)") }
             if !isRepository {
-                Dim("Bu klasör bir git deposu değil ya da sunucuya ulaşılamadı: \(model.displayPath(runner.folder))")
+                Panel {
+                    VStack(alignment: .leading, spacing: 12) {
+                        T("Bu Klasör Bir Git Deposu Değil", bold: true)
+                        Dim(model.displayPath(runner.folder)).lineLimit(1).truncationMode(.head)
+                        Btn("Burada Git Başlat") {
+                            Git.run(["init"], runner: runner)
+                            refresh()
+                        }
+                    }
+                    .padding(16)
+                }
             } else {
                 HStack {
                     T("Dal: \(branch)", bold: true)
@@ -288,6 +301,9 @@ struct ChangesPage: View {
                         EntermField(placeholder: "Commit İletisi", text: $message)
                         HStack {
                             Btn("Commit", kind: .primary) { commit() }
+                            Btn(writing ? "Yazıyor" : "İleti Yaz", kind: .plain, icon: "sparkle") { writeMessage() }
+                                .disabled(writing || !files.contains { $0.staged })
+                                .help("Hazırlanan değişikliği \(SettingsStore.shared.settings.commitProgram == "codex" ? "Codex" : "Claude Code") okur ve ileti önerir")
                             if ahead > 0 { Btn("Push: \(ahead) Commit") { push() } }
                         }
                         if !notice.isEmpty { T(notice).lineLimit(3) }
@@ -297,7 +313,7 @@ struct ChangesPage: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(diff.split(separator: "\n", omittingEmptySubsequences: false).prefix(2000).enumerated()), id: \.offset) { _, line in
-                                T(String(line), color: color(for: line)).lineLimit(1)
+                                Mono(String(line), color: color(for: line)).lineLimit(1)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -353,6 +369,37 @@ struct ChangesPage: View {
         ahead = Int(Git.run(["rev-list", "--count", "@{u}..HEAD"], runner: runner).output.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
         if let first = selected ?? found.first { show(first) } else { diff = "" }
     }
+    /// Runs only on this click, with the person's own program and account.
+    private func writeMessage() {
+        let diff = String(Git.run(["diff", "--cached"], runner: runner).output.prefix(40000))
+        let settings = SettingsStore.shared.settings
+        writing = true
+        notice = ""
+        let folder = runner.folder
+        DispatchQueue.global(qos: .userInitiated).async {
+            let prompt = "Aşağıdaki git değişikliği için kısa bir commit iletisi yaz. Yalnız iletiyi yaz, başka hiçbir şey ekleme. \(settings.commitPrompt)\n\n\(diff)"
+            let line = settings.commitProgram == "codex" ? "codex exec \(NotFoundActions.shellQuote(prompt))" : "claude -p \(NotFoundActions.shellQuote(prompt))"
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh")
+            process.arguments = ["-ilc", line]
+            process.currentDirectoryURL = URL(fileURLWithPath: folder)
+            let pipe = Pipe()
+            process.standardInput = FileHandle.nullDevice
+            process.standardOutput = pipe
+            process.standardError = FileHandle.nullDevice
+            var answer = ""
+            if (try? process.run()) != nil {
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
+                if process.terminationStatus == 0 { answer = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines) }
+            }
+            DispatchQueue.main.async {
+                writing = false
+                if answer.isEmpty { notice = "İleti Yazılamadı" } else { message = answer }
+            }
+        }
+    }
+
     private func show(_ file: GitFile) {
         selected = file
         var arguments = ["diff"]
@@ -414,8 +461,12 @@ enum Restore {
             case .claude: arguments = "--resume \(NotFoundActions.shellQuote(info.transcriptPath ?? id))"
             case .codex: arguments = "resume \(NotFoundActions.shellQuote(id))"
             case .antigravity: arguments = "--conversation=\(NotFoundActions.shellQuote(id))"
-            case .terminal: break
+            default: break
             }
+        }
+        if info.tool == .custom, let program = SettingsStore.shared.settings.customPrograms.first(where: { $0.name == info.name }) {
+            ToolLauncher.start(program, cwd: info.cwd)
+            return
         }
         ToolLauncher.start(info.tool, cwd: info.cwd, name: info.name.isEmpty ? nil : info.name, accountID: info.accountID, extraArguments: arguments)
     }

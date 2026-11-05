@@ -42,18 +42,21 @@ public struct PermissionCard: Codable, Equatable {
     public var modes: [PermissionCategory: PermissionMode]
     public var rememberedHosts: [String]
     public var sshRules: [SSHHostRule]
+    /// The program's own rules decide, exactly as in a plain terminal. Enterm only shows what it asks.
+    public var passThrough: Bool
 
-    public init(modes: [PermissionCategory: PermissionMode], rememberedHosts: [String] = [], sshRules: [SSHHostRule] = []) {
+    public init(modes: [PermissionCategory: PermissionMode], rememberedHosts: [String] = [], sshRules: [SSHHostRule] = [], passThrough: Bool = false) {
         self.modes = modes
         self.rememberedHosts = rememberedHosts
         self.sshRules = sshRules
+        self.passThrough = passThrough
     }
 
     public func mode(_ category: PermissionCategory) -> PermissionMode {
         modes[category] ?? .ask
     }
 
-    enum CodingKeys: String, CodingKey { case modes, rememberedHosts, sshRules }
+    enum CodingKeys: String, CodingKey { case modes, rememberedHosts, sshRules, passThrough }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -65,6 +68,7 @@ public struct PermissionCard: Codable, Equatable {
         self.modes = modes
         rememberedHosts = try container.decodeIfPresent([String].self, forKey: .rememberedHosts) ?? []
         sshRules = try container.decodeIfPresent([SSHHostRule].self, forKey: .sshRules) ?? []
+        passThrough = try container.decodeIfPresent(Bool.self, forKey: .passThrough) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -74,11 +78,13 @@ public struct PermissionCard: Codable, Equatable {
         try container.encode(raw, forKey: .modes)
         try container.encode(rememberedHosts, forKey: .rememberedHosts)
         try container.encode(sshRules, forKey: .sshRules)
+        try container.encode(passThrough, forKey: .passThrough)
     }
 }
 
-/// Four ready-made templates. Internet is `ask` in all of them, the rule is single.
+/// Ready-made templates. Except for the free one, internet is `ask` in all of them, the rule is single.
 public enum PermissionTemplate: String, Codable, CaseIterable, Identifiable {
+    case free
     case readOnly
     case development
     case manager
@@ -87,6 +93,7 @@ public enum PermissionTemplate: String, Codable, CaseIterable, Identifiable {
     public var id: String { rawValue }
     public var title: String {
         switch self {
+        case .free: return "Serbest"
         case .readOnly: return "Salt Okuma"
         case .development: return "Geliştirme"
         case .manager: return "Yönetici"
@@ -95,6 +102,9 @@ public enum PermissionTemplate: String, Codable, CaseIterable, Identifiable {
     }
     public var card: PermissionCard {
         switch self {
+        case .free:
+            return PermissionCard(modes: [.editFiles: .allow, .deleteFiles: .allow, .ssh: .allow, .internet: .allow,
+                                          .delegate: .allow, .pushDeploy: .allow, .command: .allow], passThrough: true)
         case .readOnly:
             return PermissionCard(modes: [.editFiles: .deny, .deleteFiles: .deny, .ssh: .deny, .internet: .ask,
                                           .delegate: .deny, .pushDeploy: .deny, .command: .ask])
@@ -166,7 +176,7 @@ public struct PermissionBook: Codable {
     public var defaultTemplate: PermissionTemplate
     public var rememberedHosts: [String]
 
-    public init(cards: [String: PermissionCard] = [:], defaultTemplate: PermissionTemplate = .development, rememberedHosts: [String] = []) {
+    public init(cards: [String: PermissionCard] = [:], defaultTemplate: PermissionTemplate = .free, rememberedHosts: [String] = []) {
         self.cards = cards
         self.defaultTemplate = defaultTemplate
         self.rememberedHosts = rememberedHosts

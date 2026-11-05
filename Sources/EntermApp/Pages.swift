@@ -6,7 +6,9 @@ struct PageRouter: View {
     let page: Page
     var body: some View {
         switch page {
-        case .settings(let tab): SettingsPage(tab: tab)
+        case .settings(let tab): SettingsPage(tab: tab).id(tab)
+        case .welcome: WelcomeFlow()
+        case .recents: RecentsPage()
         case .accounts: AccountsPage()
         case .accountAdd: AccountAddPage()
         case .apiKey: ApiKeyPage()
@@ -555,7 +557,7 @@ struct NewSessionOptions: View {
     @State private var folder = ""
     @State private var tool = ToolKind.claude
     @State private var accountID = ""
-    @State private var template = PermissionTemplate.development
+    @State private var template = SettingsStore.shared.settings.defaultTemplate
     @State private var error: String?
     var body: some View {
         Panel(border: error == nil ? nil : Theme.palette.err) {
@@ -569,14 +571,11 @@ struct NewSessionOptions: View {
                     }
                 }
                 if let error { T(error, color: Theme.palette.err) }
-                field("Araç") { Seg(options: ToolKind.allCases.map { ($0, ToolCatalog.shared.pickerTitle($0)) }, value: $tool) }
+                field("Program") { ChoiceMenu(options: ([.terminal] + ToolKind.programs).map { ($0, ToolCatalog.shared.pickerTitle($0)) }, value: $tool) }
                 if tool != .terminal {
-                    field("Hesap") {
-                        Picker("", selection: $accountID) {
-                            ForEach(accounts.accounts.filter { $0.tool == tool }) { account in
-                                Text(accountTitle(account)).font(Theme.swiftFont()).tag(account.id)
-                            }
-                        }
+                    let usable = accounts.accounts.filter { $0.tool == tool }
+                    if usable.count > 1 {
+                        field("Hesap") { ChoiceMenu(options: usable.map { ($0.id, accountTitle($0)) }, value: $accountID) }
                     }
                     field("Yetki Şablonu") { Seg(options: PermissionTemplate.allCases.map { ($0, $0.title) }, value: $template) }
                 }
@@ -587,7 +586,7 @@ struct NewSessionOptions: View {
                     Btn("Başlat", kind: .primary, key: "⏎") { start() }.keyboardShortcut(.defaultAction)
                 }
             }
-            .padding(12)
+            .padding(EdgeInsets(top: 4, leading: 20, bottom: 16, trailing: 20))
         }
         .frame(width: 640)
         .onAppear {

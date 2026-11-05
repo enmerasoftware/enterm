@@ -15,6 +15,7 @@ final class VoiceInput {
     private var transcript = ""
     private var targetNumber: UInt32?
     private var keyMonitor: Any?
+    private var recorder: WhisperRecorder?
 
     func flagsChanged(_ event: NSEvent) {
         guard SettingsStore.shared.settings.voiceEnabled else { return }
@@ -51,6 +52,17 @@ final class VoiceInput {
         cancelHold()
         guard let number = AppModel.shared.focused else { return }
         targetNumber = number
+        if SettingsStore.shared.settings.voiceEngine == "whisper", WhisperCenter.shared.program != nil, WhisperCenter.shared.chosen != nil {
+            let recorder = WhisperRecorder()
+            guard recorder.start() else {
+                AppModel.shared.hint = "Mikrofon İzni Yok: Sistem Ayarları"
+                return
+            }
+            self.recorder = recorder
+            listening = true
+            AppModel.shared.hint = "● Dinliyor · Bırakınca Biter"
+            return
+        }
         SFSpeechRecognizer.requestAuthorization { [weak self] status in
             DispatchQueue.main.async {
                 guard status == .authorized else {
@@ -99,6 +111,22 @@ final class VoiceInput {
 
     private func finish(send: Bool) {
         listening = false
+        if let recorder {
+            recorder.stop()
+            self.recorder = nil
+            guard send else {
+                try? FileManager.default.removeItem(at: recorder.url)
+                AppModel.shared.hint = nil
+                return
+            }
+            AppModel.shared.hint = "Çeviriyor"
+            let number = targetNumber
+            WhisperCenter.shared.transcribe(recorder.url, language: SettingsStore.shared.settings.voiceLanguage) { text in
+                AppModel.shared.hint = nil
+                if let number, !text.isEmpty { AppModel.shared.connection.sendInput(number: number, bytes: Data(text.utf8)) }
+            }
+            return
+        }
         engine?.stop()
         engine?.inputNode.removeTap(onBus: 0)
         engine = nil

@@ -10,6 +10,8 @@ final class RootView: NSView {
     private let top: NSHostingView<TopBar>
     private let bottom: NSHostingView<BottomBars>
     private let side: NSHostingView<DetailPane>
+    private let rail: NSHostingView<SessionRail>
+    private var home: NSHostingView<HomeView>?
     private var cover: NSHostingView<CoverContent>?
     private var cards: NSHostingView<InlineCards>
     private var bags = Set<AnyCancellable>()
@@ -23,7 +25,9 @@ final class RootView: NSView {
         bottom = NSHostingView(rootView: BottomBars())
         side = NSHostingView(rootView: DetailPane())
         cards = NSHostingView(rootView: InlineCards())
+        rail = NSHostingView(rootView: SessionRail())
         super.init(frame: .zero)
+        rail.safeAreaRegions = []
         for view in [top as NSView, bottom, side, cards] {
             (view as? NSHostingView<TopBar>)?.safeAreaRegions = []
             (view as? NSHostingView<BottomBars>)?.safeAreaRegions = []
@@ -33,6 +37,7 @@ final class RootView: NSView {
         wantsLayer = true
         layer?.backgroundColor = Theme.palette.surface0.cgColor
         addSubview(canvas)
+        addSubview(rail)
         addSubview(top)
         addSubview(bottom)
         addSubview(side)
@@ -96,16 +101,21 @@ final class RootView: NSView {
     }
 
     private func layoutBars() {
-        let barHeight: CGFloat = 44
-        let foot: CGFloat = model.footVisible ? 36 : 0
-        let toolbar: CGFloat = model.toolbarVisible ? 52 : 0
+        let barHeight: CGFloat = model.focusMode ? 28 : 44
+        let foot: CGFloat = model.footVisible && !model.focusMode ? 36 : 0
+        let toolbar: CGFloat = model.toolbarVisible && !model.focusMode ? 52 : 0
         let sideWidth: CGFloat = model.detailsOpen ? 400 : 0
+        updateHome()
+        let railWidth: CGFloat = model.railVisible(width: bounds.width) && !model.focusMode ? 200 : 0
+        rail.frame = NSRect(x: 0, y: barHeight, width: railWidth, height: bounds.height - barHeight - foot)
+        rail.isHidden = railWidth == 0
         top.frame = NSRect(x: 0, y: 0, width: bounds.width, height: barHeight)
+        if model.focusMode { top.isHidden = true }
         bottom.frame = NSRect(x: 0, y: bounds.height - foot - toolbar, width: bounds.width, height: foot + toolbar)
         bottom.isHidden = foot + toolbar == 0
         side.frame = NSRect(x: bounds.width - sideWidth, y: barHeight, width: sideWidth, height: bounds.height - barHeight - foot)
         side.isHidden = sideWidth == 0
-        let canvasRect = NSRect(x: 0, y: barHeight, width: bounds.width - sideWidth, height: bounds.height - barHeight - foot - toolbar)
+        let canvasRect = NSRect(x: railWidth, y: barHeight, width: bounds.width - sideWidth - railWidth, height: bounds.height - barHeight - foot - toolbar)
         if canvas.frame != canvasRect { canvas.frame = canvasRect }
         let cardsHeight: CGFloat = model.notFound == nil ? 0 : 216
         // The card sits inside the box of the session it belongs to.
@@ -117,6 +127,23 @@ final class RootView: NSView {
         cards.isHidden = cardsHeight == 0
     }
 
+    /// With nothing open the window is the home screen. It costs nothing while a session is open.
+    private func updateHome() {
+        let nothingOpen = model.sessions.isEmpty && model.state.items.isEmpty
+        let empty = model.started && (nothingOpen || model.showHome)
+        top.isHidden = model.started && nothingOpen
+        if empty, home == nil {
+            let view = NSHostingView(rootView: HomeView())
+            view.safeAreaRegions = []
+            addSubview(view, positioned: .above, relativeTo: rail)
+            home = view
+        } else if !empty, let view = home {
+            view.removeFromSuperview()
+            home = nil
+        }
+        home?.frame = top.isHidden ? bounds : NSRect(x: 0, y: 44, width: bounds.width, height: bounds.height - 44)
+    }
+
     override func layout() {
         super.layout()
         layoutBars()
@@ -125,7 +152,7 @@ final class RootView: NSView {
 
     /// A click anywhere in a box makes it the focused session, terminal area included.
     private func noteClick(_ event: NSEvent) {
-        guard event.window === window, cover == nil else { return }
+        guard event.window === window, cover == nil, home == nil else { return }
         let point = canvas.convert(event.locationInWindow, from: nil)
         if let box = canvas.boxes.values.first(where: { !$0.isHidden && $0.frame.contains(point) }), box.number != model.focused {
             model.setFocus(box.number)
@@ -137,13 +164,23 @@ final class RootView: NSView {
     /// Single keys belong to the terminal when it has focus. They only act when no terminal is typing.
     private func handleKey(_ event: NSEvent) -> NSEvent? {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if window?.firstResponder is TerminalHost, let bytes = TerminalKeys.bytes(keyCode: event.keyCode, flags: flags) {
+            model.focusedHost?.sendBytes(bytes)
+            return nil
+        }
         if event.keyCode == 53 { // Esc
             if model.overlay != nil || model.page != nil {
-                Commands.perform("escape")
+                if model.overlay == nil { model.goBack() } else { Commands.perform("escape") }
                 return nil
             }
             if model.notFound != nil {
                 model.notFound = nil
+                return nil
+            }
+            if model.showHome, !model.sessions.isEmpty {
+                model.showHome = false
+                model.onLayoutChange?()
+                model.refocusTerminalLater()
                 return nil
             }
             return event
@@ -185,11 +222,12 @@ final class RootView: NSView {
 }
 
 extension AppModel {
-    var footVisible: Bool { hasAgents }
-    var toolbarVisible: Bool { mode == .canvas && maximized == nil && sessions.count > 1 }
+    var footVisible: Bool { hasAgents || toolbarVisible }
+    func railVisible(width: CGFloat) -> Bool { toolbarVisible && width >= 900 && SettingsStore.shared.settings.showRail }
+    var toolbarVisible: Bool { mode == .canvas && maximized == nil && tileCount > 1 }
 
     func refocusTerminal() {
-        guard overlay == nil, page == nil, let host = focusedHost, let window = host.window ?? NSApp.keyWindow else { return }
+        guard overlay == nil, page == nil, !showHome, let number = focused, !chatSessions.contains(number), let host = focusedHost, let window = host.window ?? NSApp.keyWindow else { return }
         if window.firstResponder !== host, host.window != nil { window.makeFirstResponder(host) }
     }
 

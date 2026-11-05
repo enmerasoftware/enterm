@@ -22,7 +22,7 @@ final class WireTests: XCTestCase {
     }
 
     func testInternetIsAskInEveryTemplate() {
-        for template in PermissionTemplate.allCases {
+        for template in PermissionTemplate.allCases where template != .free {
             XCTAssertEqual(template.card.mode(.internet), .ask, template.title)
         }
     }

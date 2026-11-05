@@ -34,6 +34,8 @@ final class Session {
     var rows = 24
     var cols = 80
     var wasResized = false
+    var lastOutput = Date.distantPast
+    var quietCheck = false
     init(info: SessionInfo, master: Int32) {
         self.info = info
         self.master = master
@@ -142,6 +144,14 @@ final class Service {
         client.writeSource = nil
         clients[client.fd] = nil
         close(client.fd)
+        // The hook stopped waiting: the program's own question is on screen now, the card has nothing left to answer.
+        if let id = client.waitingApproval, let request = approvals.removeValue(forKey: id) {
+            approvalHosts[id] = nil
+            if let session = sessionByID(request.sessionID), session.info.pendingApproval?.id == id {
+                session.info.pendingApproval = nil
+                publish(session)
+            }
+        }
         if heavyQueue.contains(where: { !$0.running && $0.client == nil || $0.client === client && !$0.running }) { advanceHeavy() }
         scheduleIdleCheck()
     }
@@ -503,7 +513,37 @@ final class Service {
         return session
     }
 
+    /// A program without hooks is read from its output: writing means working, a few quiet seconds mean waiting.
+    func noteActivity(_ session: Session) {
+        session.lastOutput = Date()
+        if [.idle, .unknown, .starting].contains(session.info.status) {
+            session.info.status = .running
+            publish(session)
+        }
+        guard !session.quietCheck else { return }
+        session.quietCheck = true
+        scheduleQuietCheck(session, after: 3)
+    }
+
+    private func scheduleQuietCheck(_ session: Session, after delay: TimeInterval) {
+        queue.asyncAfter(deadline: .now() + delay) { [weak self, weak session] in
+            guard let self, let session else { return }
+            let quiet = Date().timeIntervalSince(session.lastOutput)
+            if quiet < 3 {
+                self.scheduleQuietCheck(session, after: 3 - quiet)
+                return
+            }
+            session.quietCheck = false
+            if session.info.status == .running {
+                session.info.status = .idle
+                self.publish(session)
+            }
+        }
+    }
+
     func loginShell() -> String {
+        if let chosen = JSONStore.load(AppSettings.self, from: EntermPaths.settingsFile)?.defaultShell, !chosen.isEmpty,
+           FileManager.default.isExecutableFile(atPath: chosen) { return chosen }
         if let entry = getpwuid(getuid()), let shell = entry.pointee.pw_shell {
             let value = String(cString: shell)
             if !value.isEmpty { return value }
@@ -526,6 +566,7 @@ final class Service {
             session.ring = Data(session.ring.suffix(Service.ringLimit))
         }
         session.dirty = true
+        if !session.info.tool.reportsStatus, session.info.tool != .terminal { noteActivity(session) }
         persistSoon()
         let frame = WireFrame.session(.output, number: session.info.number, bytes: bytes)
         for client in clients.values where client.attached.contains(session.info.number) {
@@ -586,6 +627,7 @@ final class Service {
         if let value = event.inputTokens { info.inputTokens = value }
         if let value = event.outputTokens { info.outputTokens = value }
         if let value = event.contextTokens { info.contextTokens = value }
+        if let value = event.contextPercent { info.contextPercent = value }
         if let value = event.costUSD { info.costUSD = value }
         if let value = event.text, event.kind == "activity" { info.lastActivity = value }
         if let toolName = event.tool, let tool = ToolKind(rawValue: toolName), tool != .terminal { info.tool = tool }
@@ -656,7 +698,8 @@ final class Service {
         }
         let category = PermissionCategory(rawValue: event.errorKind ?? "") ?? .command
         let host = event.model
-        let mode = permissions.decision(sessionID: session.info.id, category: category, host: host)
+        // When the program decides, it asked because its own rules said so: the answer is the person's.
+        let mode = permissions.card(for: session.info.id).passThrough ? .ask : permissions.decision(sessionID: session.info.id, category: category, host: host)
         switch mode {
         case .allow:
             send(decisionReply(event: event.agentID, decision: "allow"), to: client)

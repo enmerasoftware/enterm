@@ -239,14 +239,16 @@ struct BoardPage: View {
     var body: some View {
         ZStack(alignment: .trailing) {
             PageFrame(title: nil, wide: true) {
-                HStack {
-                    T("Pano", bold: true, style: .title)
-                    Dim("\(store.board.cards.count) Kart")
+                HStack(alignment: .top) {
+                    PageTitle(text: "Pano")
+                    Dim("\(store.board.cards.count) Kart").padding(.top, 12)
                     Spacer()
                     EntermField(placeholder: "Yeni Kart Başlığı", text: $newTitle)
                         .frame(width: 280)
                         .onSubmit(addCard)
                     Btn("+ Kart", kind: .primary) { addCard() }
+                    Btn("GitHub'dan Al", kind: .plain, icon: "arrow.down.circle") { IssueSync.pull() }
+                        .help("Bu klasördeki deponun açık issue'larını kart yapar. gh programı gerekir.")
                 }
                 if store.board.cards.isEmpty {
                     Panel {
@@ -261,8 +263,9 @@ struct BoardPage: View {
                     ForEach(BoardColumn.allCases) { column in
                         let cards = store.board.cards.filter { $0.column == column }.sorted { $0.priority > $1.priority }
                         VStack(alignment: .leading, spacing: 8) {
+                            Rectangle().fill(Color(column.lineColor)).frame(height: 2).padding(.horizontal, -8).padding(.top, -8)
                             HStack {
-                                T(column.title, color: Theme.palette.text2, bold: true, style: .secondary)
+                                T(column.title, color: column.lineColor, bold: true, style: .secondary)
                                 Spacer()
                                 T("\(cards.count)", color: Theme.palette.text3, style: .secondary)
                             }
@@ -276,9 +279,9 @@ struct BoardPage: View {
                             Spacer(minLength: 40)
                         }
                         .padding(8)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .frame(maxWidth: .infinity, minHeight: 420, alignment: .topLeading)
                         .background(Color(Theme.palette.fill))
-                        .cornerRadius(Theme.cornerFloat)
+                        .cornerRadius(Theme.cornerControl)
                         .onDrop(of: [.text], isTargeted: nil) { providers in
                             providers.first?.loadObject(ofClass: NSString.self) { item, _ in
                                 guard let id = item as? String else { return }
@@ -287,6 +290,7 @@ struct BoardPage: View {
                                         if let index = board.cards.firstIndex(where: { $0.id == id }) { board.cards[index].column = column }
                                     }
                                     BoardDispatch.cardMoved(id: id, to: column)
+                                    IssueSync.cardMoved(id: id, to: column)
                                 }
                             }
                             return true
@@ -307,6 +311,80 @@ struct BoardPage: View {
         let card = BoardCard(title: newTitle)
         store.change { $0.cards.append(card) }
         newTitle = ""
+    }
+}
+
+/// Issues become cards through the person's own `gh`. Nothing runs unless they press the button or say yes.
+enum IssueSync {
+    private static func shell(_ line: String, folder: String) -> (ok: Bool, output: String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh")
+        process.arguments = ["-ilc", line]
+        process.currentDirectoryURL = URL(fileURLWithPath: folder)
+        let pipe = Pipe()
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return (false, "") }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return (process.terminationStatus == 0, String(decoding: data, as: UTF8.self))
+    }
+
+    static func pull() {
+        let model = AppModel.shared
+        let folder = model.currentRunner.folder
+        model.hint = "GitHub'a Bakılıyor"
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = shell("gh issue list --json number,title --limit 50", folder: folder)
+            var added = 0
+            let items: [[String: Any]]? = {
+                guard result.ok, let start = result.output.firstIndex(of: "[") else { return nil }
+                return (try? JSONSerialization.jsonObject(with: Data(result.output[start...].utf8))) as? [[String: Any]]
+            }()
+            DispatchQueue.main.async {
+                guard let items else {
+                    model.hint = "Issue Alınamadı: gh Kurulu Mu, Klasör Depo Mu?"
+                    return
+                }
+                let store = BoardStore.shared
+                for item in items {
+                    guard let number = item["number"] as? Int, let title = item["title"] as? String,
+                          !store.board.cards.contains(where: { $0.issue == number }) else { continue }
+                    var card = BoardCard(title: "#\(number) \(title)")
+                    card.issue = number
+                    store.change { $0.cards.append(card) }
+                    added += 1
+                }
+                model.hint = added == 0 ? "Yeni Issue Yok" : "\(added) Issue Karta Dönüştü"
+            }
+        }
+    }
+
+    static func cardMoved(id: String, to column: BoardColumn) {
+        guard column == .done, let card = BoardStore.shared.board.cards.first(where: { $0.id == id }), let number = card.issue else { return }
+        let model = AppModel.shared
+        let folder = model.currentRunner.folder
+        model.confirm(title: "Issue #\(number) Kapatılsın mı?", detail: card.title, action: "GitHub'da Kapat", danger: false) {
+            DispatchQueue.global(qos: .userInitiated).async {
+                let result = shell("gh issue close \(number)", folder: folder)
+                DispatchQueue.main.async { model.hint = result.ok ? "Issue #\(number) Kapatıldı" : "Issue Kapatılamadı" }
+            }
+        }
+    }
+}
+
+extension BoardColumn {
+    /// The colour of the line over the column: what is moving is lit, what waits for the person is the accent.
+    var lineColor: NSColor {
+        let palette = Theme.palette
+        switch self {
+        case .todo: return palette.text3
+        case .doing: return palette.g1
+        case .review: return palette.g2
+        case .decision: return palette.need
+        case .done: return palette.add
+        }
     }
 }
 

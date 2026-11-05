@@ -24,6 +24,10 @@ public struct KeyCombo: Codable, Equatable, Hashable {
         if command { text += "⌘" }
         switch key {
         case "\r": text += "⏎"
+        case "\u{F702}": text += "←"
+        case "\u{F703}": text += "→"
+        case "\u{F700}": text += "↑"
+        case "\u{F701}": text += "↓"
         default: text += key.uppercased(with: Locale(identifier: "en_US"))
         }
         return text
@@ -55,6 +59,23 @@ public struct ShortcutBook: Codable, Equatable {
         ("zoomOut", "Uzaklaştır", KeyCombo("-")),
         ("fit", "Sığdır", KeyCombo("0", option: true)),
         ("settings", "Ayarlar", KeyCombo(",")),
+        ("newProject", "Yeni Proje", KeyCombo("n", shift: true)),
+        ("reopen", "Son Kapatılanı Yeniden Aç", KeyCombo("t", shift: true)),
+        ("chat", "Sohbet Görünümü", KeyCombo("m", shift: true)),
+        ("focusMode", "Odak Modu", KeyCombo("f", shift: true)),
+        ("toggleRail", "Durak Hattı", KeyCombo("l", shift: true)),
+        ("files", "Dosyalar", KeyCombo("e", shift: true)),
+        ("changes", "Değişiklikler", KeyCombo("g", shift: true)),
+        ("undoLayout", "Düzeni Geri Al", KeyCombo("z", option: true)),
+        ("redoLayout", "Düzeni Yinele", KeyCombo("z", shift: true, option: true)),
+        ("zoneLeft", "Sol Yarıya Yerleştir", KeyCombo("\u{F702}", command: false, option: true, control: true)),
+        ("zoneRight", "Sağ Yarıya Yerleştir", KeyCombo("\u{F703}", command: false, option: true, control: true)),
+        ("zoneTop", "Üst Yarıya Yerleştir", KeyCombo("\u{F700}", command: false, option: true, control: true)),
+        ("zoneBottom", "Alt Yarıya Yerleştir", KeyCombo("\u{F701}", command: false, option: true, control: true)),
+        ("focusLeft", "Soldaki Kutuya Geç", KeyCombo("\u{F702}", option: true)),
+        ("focusRight", "Sağdaki Kutuya Geç", KeyCombo("\u{F703}", option: true)),
+        ("focusUp", "Üstteki Kutuya Geç", KeyCombo("\u{F700}", option: true)),
+        ("focusDown", "Alttaki Kutuya Geç", KeyCombo("\u{F701}", option: true)),
     ]
 
     /// System and editing keys stay where everyone expects them.

@@ -13,12 +13,48 @@ public struct AppSettings: Codable, Equatable {
     public var keepAwakeBatteryFloor = 20
     public var systemNotifications = true
     public var relayURL = ""
-    public var defaultTemplate = PermissionTemplate.development
+    public var defaultTemplate = PermissionTemplate.free
+    /// False until this version has set the default once, or the person has chosen.
+    public var templateChosen = false
+    /// Answers a program's question from a card for 45 seconds, then its own prompt appears.
+    public var oneClickApprovals = true
     public var voiceEnabled = true
     public var voiceEngine = "system"
     public var voiceLanguage = "tr-TR"
     public var manualModels: [String: ModelPlan] = [:]
     public var defaultPlan = ModelPlan()
+    public var seenWelcome = false
+    public var neon = "soft"
+    public var motion = true
+    public var defaultProgram = "terminal"
+    public var hiddenTools: [String] = []
+    public var customPrograms: [CustomProgram] = []
+    public var terminalTheme = "enterm"
+    public var fontName = ""
+    public var cursorStyle = "block"
+    public var cursorBlink = true
+    public var copyOnSelect = false
+    public var scrollbackLines = 10000
+    public var defaultShell = ""
+    public var accent = "lime"
+    public var wallpaper = "none"
+    public var notifySound = true
+    public var notifyVolume = 0.5
+    public var notch = true
+    public var usageRemaining = false
+    public var commitProgram = "claude"
+    public var commitPrompt = ""
+    public var gatewayURL = ""
+    public var gatewayKeyVariable = ""
+    public var gatewayModel = ""
+    public var gatewayOn = false
+    public var defaultBoardView = false
+    public var snapToGrid = false
+    public var focusFollowsPointer = false
+    public var confirmQuit = true
+    public var showRail = true
+    public var showMiniMap = true
+    public var whisperModel = "tiny"
     public init() {}
 
     // Settings written by an older version keep working: a missing key takes its default.
@@ -43,6 +79,40 @@ public struct AppSettings: Codable, Equatable {
         voiceLanguage = try c.decodeIfPresent(String.self, forKey: .voiceLanguage) ?? d.voiceLanguage
         manualModels = try c.decodeIfPresent([String: ModelPlan].self, forKey: .manualModels) ?? d.manualModels
         defaultPlan = try c.decodeIfPresent(ModelPlan.self, forKey: .defaultPlan) ?? d.defaultPlan
+        seenWelcome = try c.decodeIfPresent(Bool.self, forKey: .seenWelcome) ?? d.seenWelcome
+        neon = try c.decodeIfPresent(String.self, forKey: .neon) ?? d.neon
+        motion = try c.decodeIfPresent(Bool.self, forKey: .motion) ?? d.motion
+        defaultProgram = try c.decodeIfPresent(String.self, forKey: .defaultProgram) ?? d.defaultProgram
+        hiddenTools = try c.decodeIfPresent([String].self, forKey: .hiddenTools) ?? d.hiddenTools
+        customPrograms = try c.decodeIfPresent([CustomProgram].self, forKey: .customPrograms) ?? d.customPrograms
+        terminalTheme = try c.decodeIfPresent(String.self, forKey: .terminalTheme) ?? d.terminalTheme
+        fontName = try c.decodeIfPresent(String.self, forKey: .fontName) ?? d.fontName
+        cursorStyle = try c.decodeIfPresent(String.self, forKey: .cursorStyle) ?? d.cursorStyle
+        cursorBlink = try c.decodeIfPresent(Bool.self, forKey: .cursorBlink) ?? d.cursorBlink
+        copyOnSelect = try c.decodeIfPresent(Bool.self, forKey: .copyOnSelect) ?? d.copyOnSelect
+        scrollbackLines = try c.decodeIfPresent(Int.self, forKey: .scrollbackLines) ?? d.scrollbackLines
+        defaultShell = try c.decodeIfPresent(String.self, forKey: .defaultShell) ?? d.defaultShell
+        accent = try c.decodeIfPresent(String.self, forKey: .accent) ?? d.accent
+        wallpaper = try c.decodeIfPresent(String.self, forKey: .wallpaper) ?? d.wallpaper
+        notifySound = try c.decodeIfPresent(Bool.self, forKey: .notifySound) ?? d.notifySound
+        notifyVolume = try c.decodeIfPresent(Double.self, forKey: .notifyVolume) ?? d.notifyVolume
+        notch = try c.decodeIfPresent(Bool.self, forKey: .notch) ?? d.notch
+        usageRemaining = try c.decodeIfPresent(Bool.self, forKey: .usageRemaining) ?? d.usageRemaining
+        commitProgram = try c.decodeIfPresent(String.self, forKey: .commitProgram) ?? d.commitProgram
+        commitPrompt = try c.decodeIfPresent(String.self, forKey: .commitPrompt) ?? d.commitPrompt
+        gatewayURL = try c.decodeIfPresent(String.self, forKey: .gatewayURL) ?? d.gatewayURL
+        gatewayKeyVariable = try c.decodeIfPresent(String.self, forKey: .gatewayKeyVariable) ?? d.gatewayKeyVariable
+        gatewayModel = try c.decodeIfPresent(String.self, forKey: .gatewayModel) ?? d.gatewayModel
+        gatewayOn = try c.decodeIfPresent(Bool.self, forKey: .gatewayOn) ?? d.gatewayOn
+        defaultBoardView = try c.decodeIfPresent(Bool.self, forKey: .defaultBoardView) ?? d.defaultBoardView
+        snapToGrid = try c.decodeIfPresent(Bool.self, forKey: .snapToGrid) ?? d.snapToGrid
+        focusFollowsPointer = try c.decodeIfPresent(Bool.self, forKey: .focusFollowsPointer) ?? d.focusFollowsPointer
+        confirmQuit = try c.decodeIfPresent(Bool.self, forKey: .confirmQuit) ?? d.confirmQuit
+        showRail = try c.decodeIfPresent(Bool.self, forKey: .showRail) ?? d.showRail
+        showMiniMap = try c.decodeIfPresent(Bool.self, forKey: .showMiniMap) ?? d.showMiniMap
+        whisperModel = try c.decodeIfPresent(String.self, forKey: .whisperModel) ?? d.whisperModel
+        templateChosen = try c.decodeIfPresent(Bool.self, forKey: .templateChosen) ?? d.templateChosen
+        oneClickApprovals = try c.decodeIfPresent(Bool.self, forKey: .oneClickApprovals) ?? d.oneClickApprovals
     }
 }
 
@@ -208,6 +278,8 @@ public struct BoardCard: Codable, Equatable, Identifiable {
     public var priority = 0
     public var comments: [CardComment] = []
     public var report: AgentReport?
+    /// The GitHub issue this card came from.
+    public var issue: Int?
     public init(title: String) { self.title = title }
 }
 

@@ -233,6 +233,7 @@ struct SharedWebView: NSViewRepresentable {
 }
 
 struct BrowserPage: View {
+    @Environment(\.boxedPage) private var boxed
     @ObservedObject var center = BrowserCenter.shared
     @ObservedObject var model = AppModel.shared
     @State private var returnNote = ""
@@ -265,7 +266,7 @@ struct BrowserPage: View {
                         Color.clear.contentShape(Rectangle()).onTapGesture {}
                     }
                 }
-                .frame(minHeight: 520)
+                .frame(minHeight: boxed ? 120 : 520)
                 VStack(alignment: .leading, spacing: 8) {
                     if center.userHasControl {
                         T("Siz Kullanıyorsunuz", bold: true)

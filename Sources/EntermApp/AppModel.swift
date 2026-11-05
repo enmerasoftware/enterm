@@ -33,33 +33,93 @@ enum Page: Equatable {
     case whiteboard
     case simulator
     case uninstall
+    case welcome
+    case recents
     case notYet(String)
 }
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case appearance, shortcuts, security, power, voice, sleep, notify
+    case programs, accounts, custom, gateway, usage, commits
+    case terminal, shell, session, behavior
+    case appearance, notch, notifications, voice, shortcuts
+    case phone, ssh
+    case power, security, about
     var id: String { rawValue }
+
+    static let groups: [(title: String, tabs: [SettingsTab])] = [
+        ("Programlar", [.programs, .accounts, .custom, .gateway, .usage, .commits]),
+        ("Çalışma Alanı", [.terminal, .shell, .session, .behavior]),
+        ("Arayüz", [.appearance, .notch, .notifications, .voice, .shortcuts]),
+        ("Uzak", [.phone, .ssh]),
+        ("Uygulama", [.power, .security, .about]),
+    ]
+
     var title: String {
         switch self {
+        case .programs: return "Programlar"
+        case .accounts: return "Hesaplar"
+        case .custom: return "Özel Programlar"
+        case .gateway: return "Model Ağ Geçidi"
+        case .usage: return "Kullanım"
+        case .commits: return "Commit İletileri"
+        case .terminal: return "Terminal"
+        case .shell: return "Kabuk"
+        case .session: return "Oturum Koruma"
+        case .behavior: return "Davranış"
         case .appearance: return "Görünüm"
-        case .shortcuts: return "Kısayollar"
-        case .security: return "Güvenlik"
-        case .power: return "Güç Sınırı"
+        case .notch: return "Çentik"
+        case .notifications: return "Bildirimler"
         case .voice: return "Ses"
-        case .sleep: return "Uyku"
-        case .notify: return "Betikten Bildirim"
+        case .shortcuts: return "Kısayollar"
+        case .phone: return "Telefon"
+        case .ssh: return "Uzak Sunucular"
+        case .power: return "Güç Sınırı"
+        case .security: return "Güvenlik"
+        case .about: return "Hakkında"
         }
     }
     var icon: String {
         switch self {
+        case .programs: return "sparkle"
+        case .accounts: return "person"
+        case .custom: return "plus.square"
+        case .gateway: return "point.3.connected.trianglepath.dotted"
+        case .usage: return "chart.bar"
+        case .commits: return "text.badge.checkmark"
+        case .terminal: return "terminal"
+        case .shell: return "chevron.right"
+        case .session: return "shield"
+        case .behavior: return "slider.horizontal.3"
         case .appearance: return "circle.lefthalf.filled"
-        case .shortcuts: return "command"
-        case .security: return "lock"
-        case .power: return "gauge.with.needle"
+        case .notch: return "rectangle.topthird.inset.filled"
+        case .notifications: return "bell"
         case .voice: return "waveform"
-        case .sleep: return "moon"
-        case .notify: return "bell"
+        case .shortcuts: return "command"
+        case .phone: return "iphone"
+        case .ssh: return "server.rack"
+        case .power: return "gauge.with.needle"
+        case .security: return "lock"
+        case .about: return "info.circle"
         }
+    }
+    /// Pages that write their own title.
+    var bringsOwnTitle: Bool { self == .accounts || self == .phone || self == .ssh }
+
+    /// What a search in the settings looks through.
+    var searchText: String {
+        let words: String
+        switch self {
+        case .terminal: words = "tema renk yazı tipi font imleç kopyala geçmiş"
+        case .appearance: words = "neon hareket vurgu duvar kağıdı tema ızgara"
+        case .behavior: words = "uyku uyanık odak ızgara harita durak çıkış"
+        case .notifications: words = "ses bildirim betik"
+        case .programs: words = "claude codex gemini grok cursor copilot opencode antigravity varsayılan"
+        case .gateway: words = "model sunucu anahtar api"
+        case .usage: words = "limit yüzde maliyet"
+        case .power: words = "işlemci bellek düşük güç"
+        default: words = ""
+        }
+        return (title + " " + words).lowercased(with: Locale(identifier: "tr_TR"))
     }
 }
 
@@ -78,13 +138,9 @@ enum Overlay: Equatable {
     case resumeFailed(UInt32)
     case codexLimit(UInt32)
     case installTool(ToolKind)
-}
-
-/// What the app remembers between launches. Everything else lives in the session service.
-struct WindowState: Codable {
-    var mode: ViewMode = .single
-    var positions: [String: CGPoint] = [:]
-    var freeLayout = false
+    case input
+    case confirm
+    case memory
 }
 
 /// The whole app state. Views observe it; nothing polls.
@@ -96,7 +152,25 @@ final class AppModel: ObservableObject {
     @Published var focused: UInt32?
     @Published var mode: ViewMode = .single
     @Published var maximized: UInt32?
-    @Published var page: Page?
+    @Published var page: Page? {
+        didSet {
+            if page == nil {
+                pageTrail.removeAll()
+            } else if let oldValue, oldValue != page, !leavingBack {
+                if case .settings = oldValue, case .settings? = page { return }
+                pageTrail.append(oldValue)
+            }
+        }
+    }
+    private var pageTrail: [Page] = []
+    private var leavingBack = false
+
+    /// Back goes where the person came from: a page opened from the settings returns to the settings.
+    func goBack() {
+        leavingBack = true
+        page = pageTrail.popLast()
+        leavingBack = false
+    }
     @Published var overlay: Overlay?
     @Published var detailsOpen = false
     @Published var detailTab = 0
@@ -114,6 +188,22 @@ final class AppModel: ObservableObject {
     @Published var titles: [UInt32: String] = [:]
     @Published var heavyQueue: [HeavyEntry] = []
     @Published var remotes: [UInt32: RemoteProject] = [:]
+    @Published var activeProject: String?
+    @Published var showHome = false
+    @Published var chatSessions = Set<UInt32>()
+    /// One terminal and nothing around it.
+    @Published var focusMode = false
+    /// Boxes stay where they are until this is off.
+    @Published var canvasLocked = false
+    var lastFocus: [String: UInt32] = [:]
+    var startingFromHome = false
+    var layoutUndo: [LayoutSnapshot] = []
+    var layoutRedo: [LayoutSnapshot] = []
+    var closedSessions: [SessionInfo] = []
+    var inputRequest: InputRequest?
+    var confirmRequest: ConfirmRequest?
+    var onSnap: ((UInt32, SnapZone) -> Void)?
+    var onMoveFocus: ((SnapZone) -> Void)?
 
     var hosts: [UInt32: TerminalHost] = [:]
     var state = JSONStore.load(WindowState.self, from: EntermPaths.stateFile) ?? WindowState()
@@ -126,9 +216,15 @@ final class AppModel: ObservableObject {
     var onReload: (() -> Void)?
     var restorable: [SessionInfo] = []
     var codexWarned = Set<UInt32>()
+    /// True once the service has told what is open, so the home screen never flashes before a session.
+    var started = false
     private var hintTimer: Timer?
 
-    var visibleSessions: [SessionInfo] { sessions }
+    /// The sessions of the project on screen. A session elsewhere keeps running, it just is not drawn.
+    var visibleSessions: [SessionInfo] {
+        guard let activeProject else { return sessions }
+        return sessions.filter { project(of: $0) == activeProject }
+    }
     var focusedInfo: SessionInfo? { sessions.first { $0.number == focused } }
     var hasAgents: Bool { sessions.contains { $0.tool != .terminal } }
     var focusedHost: TerminalHost? { focused.flatMap { hosts[$0] } }
@@ -190,23 +286,29 @@ final class AppModel: ObservableObject {
                 return
             }
             sessions = list
+            started = true
             list.forEach { ensureHost($0) }
             if list.isEmpty {
                 let saved = JSONStore.load([SessionInfo].self, from: EntermPaths.sessionsFile)?.filter { $0.status != .exited } ?? []
-                if saved.isEmpty {
-                    newTerminal()
-                } else {
+                if !saved.isEmpty {
                     restorable = saved
-                    newTerminal()
                     page = .restore
                 }
+#if ENTERM_TEST_DRIVER
+                // Test runs start from a terminal, as most of them need one.
+                if ProcessInfo.processInfo.environment["ENTERM_START_TERMINAL"] != nil { newTerminal() }
+#endif
+                onLayoutChange?()
             } else {
                 hint = "Enterm Yeniden Açıldı · Oturumlar Hiç Durmadı"
-                mode = list.count > 1 ? (state.mode == .single ? .canvas : state.mode) : .single
-                setFocus(list.first?.number)
+                let names = projectNames
+                activeProject = state.activeProject.flatMap { names.contains($0) ? $0 : nil } ?? names.first
+                mode = tileCount > 1 ? (state.mode == .single ? .canvas : state.mode) : .single
+                setFocus(visibleSessions.first?.number)
                 onLayoutChange?()
             }
             ExtensionsHub.shared.sessionsChanged()
+            showWelcomeOnce()
         case "session":
             guard let info = message.session else { return }
             update(info)
@@ -240,6 +342,15 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The tour appears once. It never stands between a person and a session they already have.
+    private func showWelcomeOnce() {
+        guard !SettingsStore.shared.settings.seenWelcome else { return }
+#if ENTERM_TEST_DRIVER
+        if ProcessInfo.processInfo.environment["ENTERM_START_TERMINAL"] != nil { return }
+#endif
+        page = .welcome
+    }
+
     func update(_ info: SessionInfo) {
         if info.status == .exited {
             closeLocally(info.number)
@@ -257,7 +368,9 @@ final class AppModel: ObservableObject {
             }
         } else {
             sessions.append(info)
+            assignProject(info)
             ensureHost(info)
+            if tileCount > 1, mode == .single { mode = .canvas }
             onLayoutChange?()
         }
     }
@@ -268,6 +381,9 @@ final class AppModel: ObservableObject {
 
     private func closeLocally(_ number: UInt32) {
         guard let index = sessions.firstIndex(where: { $0.number == number }) else { return }
+        closedSessions.append(sessions[index])
+        if closedSessions.count > 20 { closedSessions.removeFirst() }
+        chatSessions.remove(number)
         sessions.remove(at: index)
         hosts[number]?.removeFromSuperview()
         hosts[number] = nil
@@ -276,12 +392,24 @@ final class AppModel: ObservableObject {
         if maximized == number { maximized = nil }
         if notFound?.number == number { notFound = nil }
         if sessions.isEmpty {
-            NSApp.terminate(nil)
+            // The home screen takes over, so the last terminal closing does not close the app.
+            focused = nil
+            mode = .single
+            activeProject = nil
+            state.activeProject = nil
+            onLayoutChange?()
+            saveState()
+            ExtensionsHub.shared.sessionsChanged()
             return
         }
-        if sessions.count == 1 { mode = .single }
+        // The last box of a project leaves: the next project comes forward.
+        if visibleSessions.isEmpty, visibleItems.isEmpty, let next = projectNames.first {
+            switchProject(next)
+        }
+        if tileCount <= 1 { mode = .single }
         if focused == number {
-            setFocus(sessions[min(index, sessions.count - 1)].number)
+            let list = visibleSessions
+            setFocus(list.isEmpty ? nil : list[min(index, list.count - 1)].number)
         }
         onLayoutChange?()
         saveState()
@@ -358,9 +486,10 @@ final class AppModel: ObservableObject {
 
     // MARK: Sessions
 
-    func newTerminal(cwd: String? = nil) {
+    func newTerminal(cwd: String? = nil, startup: String? = nil) {
         var spec = SessionSpec(cwd: cwd ?? focusedInfo?.cwd, rows: 30, cols: 100)
         spec.tool = .terminal
+        if let startup { spec.env = ["ENTERM_STARTUP": startup] }
         create(spec)
     }
 
@@ -374,11 +503,14 @@ final class AppModel: ObservableObject {
                     self.sessions.append(info)
                 }
                 self.ensureHost(info)
-                if self.sessions.count > 1, self.mode == .single {
+                let isNewProject = self.state.projects[info.id] == nil && self.startingFromHome
+                self.assignProject(info)
+                if isNewProject, SettingsStore.shared.settings.defaultBoardView { self.page = .board }
+                if self.tileCount > 1, self.mode == .single {
                     self.mode = SettingsStore.shared.settings.newTerminalAsTab ? .tabs : .canvas
                     self.hint = "İki Terminal Yan Yana · ⌘⏎ Tam Ekran · ⌘W Kapat"
                 }
-                if self.sessions.count == 7 { self.hint = "Kutular Küçülmez, Sürükleyerek Gezin · ⌥⌘0 Sığdır" }
+                if self.tileCount == 7 { self.hint = "Kutular Küçülmez, Sürükleyerek Gezin · ⌥⌘0 Sığdır" }
                 self.maximized = nil
                 self.setFocus(info.number)
                 self.onLayoutChange?()
@@ -406,6 +538,7 @@ final class AppModel: ObservableObject {
     func setFocus(_ number: UInt32?) {
         let changed = focused != number
         focused = number
+        followFocus(number)
         if changed, PowerCenter.shared.settings.lowPower { flushPending() }
         if changed, let info = focusedInfo, info.status == .notFound, let command = info.tool.command {
             notFound = NotFoundCard.make(number: info.number, command: command)
@@ -414,30 +547,32 @@ final class AppModel: ObservableObject {
     }
 
     func focusNext(_ delta: Int) {
-        guard !sessions.isEmpty else { return }
-        let index = sessions.firstIndex { $0.number == focused } ?? 0
-        let next = (index + delta + sessions.count) % sessions.count
-        setFocus(sessions[next].number)
-        if maximized != nil { maximized = sessions[next].number; onLayoutChange?() }
+        let list = visibleSessions
+        guard !list.isEmpty else { return }
+        let index = list.firstIndex { $0.number == focused } ?? 0
+        let next = (index + delta + list.count) % list.count
+        setFocus(list[next].number)
+        if maximized != nil { maximized = list[next].number; onLayoutChange?() }
     }
 
     func selectIndex(_ index: Int) {
-        guard index < sessions.count else { return }
-        setFocus(sessions[index].number)
-        if maximized != nil || mode == .tabs { maximized = sessions[index].number }
+        let list = visibleSessions
+        guard index < list.count else { return }
+        setFocus(list[index].number)
+        if maximized != nil || mode == .tabs { maximized = list[index].number }
         onLayoutChange?()
     }
 
     /// ⌘⏎: the focused box grows to the whole window, again shows everything.
     func toggleMaximize() {
-        guard sessions.count > 1 else { return }
+        guard tileCount > 1 else { return }
         maximized = maximized == nil ? focused : nil
         onLayoutChange?()
         onFocusChange?()
     }
 
     func toggleCanvas() {
-        if sessions.count < 2 {
+        if tileCount < 2 {
             hint = "Tuval İkinci Oturumla Gelir"
             return
         }

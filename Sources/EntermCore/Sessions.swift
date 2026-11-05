@@ -6,6 +6,13 @@ public enum ToolKind: String, Codable, CaseIterable {
     case claude
     case codex
     case antigravity
+    case gemini
+    case opencode
+    case grok
+    case copilot
+    case cursor
+    /// A program the user added: its name and command live in the settings.
+    case custom
 
     public var title: String {
         switch self {
@@ -13,18 +20,69 @@ public enum ToolKind: String, Codable, CaseIterable {
         case .claude: return "Claude Code"
         case .codex: return "Codex"
         case .antigravity: return "Antigravity"
+        case .gemini: return "Gemini"
+        case .opencode: return "opencode"
+        case .grok: return "Grok"
+        case .copilot: return "GitHub Copilot"
+        case .cursor: return "Cursor"
+        case .custom: return "Özel Program"
         }
     }
     public var command: String? {
         switch self {
-        case .terminal: return nil
+        case .terminal, .custom: return nil
         case .claude: return "claude"
         case .codex: return "codex"
         case .antigravity: return "agy"
+        case .gemini: return "gemini"
+        case .opencode: return "opencode"
+        case .grok: return "grok"
+        case .copilot: return "copilot"
+        case .cursor: return "cursor-agent"
         }
     }
+    /// The official programs, in the order they are offered.
+    public static let programs: [ToolKind] = [.claude, .codex, .antigravity, .gemini, .opencode, .grok, .copilot, .cursor]
+
+    /// Tells its state through hooks. The others are read from their output: writing or quiet.
+    public var reportsStatus: Bool { self == .claude || self == .codex }
+
     public static func fromCommand(_ name: String) -> ToolKind? {
         allCases.first { $0.command == name }
+    }
+}
+
+/// A model's file name as a person would say it: claude-sonnet-5-5 is Sonnet 5.5.
+public enum ModelName {
+    public static func pretty(_ raw: String) -> String {
+        var name = raw
+        if let bracket = name.firstIndex(of: "[") { name = String(name[..<bracket]) }
+        if name.hasPrefix("claude-") { name = String(name.dropFirst(7)) }
+        let parts = name.split(separator: "-").map(String.init)
+        guard let first = parts.first, parts.count > 1, parts.dropFirst().allSatisfy({ $0.allSatisfy(\.isNumber) && $0.count < 4 }) else { return raw }
+        return first.prefix(1).uppercased() + first.dropFirst() + " " + parts.dropFirst().joined(separator: ".")
+    }
+}
+
+/// A program the user added, started the way they would start it.
+public struct CustomProgram: Codable, Equatable, Identifiable {
+    public var id: String
+    public var name: String
+    public var command: String
+    public var arguments: String
+    public var environment: [String: String]
+
+    public init(id: String = UUID().uuidString, name: String = "", command: String = "", arguments: String = "", environment: [String: String] = [:]) {
+        self.id = id
+        self.name = name
+        self.command = command
+        self.arguments = arguments
+        self.environment = environment
+    }
+
+    /// What is typed into the shell. The shell's own quoting and variables apply, as they would by hand.
+    public var startLine: String {
+        arguments.isEmpty ? command : "\(command) \(arguments)"
     }
 }
 
@@ -77,7 +135,7 @@ public enum ToolPresence: Equatable {
 
     /// Prints one line per program, between markers, so that anything a shell file prints is ignored.
     public static let probeScript = """
-    printf '__ENTERM_BEGIN__\\n'; for t in claude codex agy; do printf '%s=%s\\n' "$t" "$(command -v "$t")"; done; printf '__ENTERM_END__\\n'
+    printf '__ENTERM_BEGIN__\\n'; for t in \(ToolKind.programs.compactMap(\.command).joined(separator: " ")); do printf '%s=%s\\n' "$t" "$(command -v "$t")"; done; printf '__ENTERM_END__\\n'
     """
 
     public static func parse(_ output: String, fileExists: (String) -> Bool) -> [ToolKind: ToolPresence] {
@@ -108,10 +166,15 @@ public enum ToolPresence: Equatable {
     /// Sources: code.claude.com docs, developers.openai.com/codex, codelabs.developers.google.com/antigravity-cli-hands-on.
     public static func installCommand(_ tool: ToolKind) -> String? {
         switch tool {
-        case .terminal: return nil
+        case .terminal, .custom: return nil
         case .claude: return "curl -fsSL https://claude.ai/install.sh | bash"
         case .codex: return "curl -fsSL https://chatgpt.com/codex/install.sh | sh"
         case .antigravity: return "curl -fsSL https://antigravity.google/cli/install.sh | bash"
+        case .gemini: return "npm install -g @google/gemini-cli"
+        case .opencode: return "curl -fsSL https://opencode.ai/install | bash"
+        case .grok: return "npm install -g @xai-official/grok"
+        case .copilot: return "npm install -g @github/copilot"
+        case .cursor: return "curl -fsS https://cursor.com/install | bash"
         }
     }
 }
@@ -197,6 +260,7 @@ public struct SessionInfo: Codable, Equatable, Identifiable {
     public var inputTokens: Int?
     public var outputTokens: Int?
     public var contextTokens: Int?
+    public var contextPercent: Int?
     public var costUSD: Double?
     public var subagents: [SubagentInfo]?
     public var lastActivity: String?
@@ -279,6 +343,7 @@ public struct AgentEvent: Codable, Equatable {
     public var inputTokens: Int?
     public var outputTokens: Int?
     public var contextTokens: Int?
+    public var contextPercent: Int?
     public var costUSD: Double?
     public var agentID: String?
     public var agentType: String?

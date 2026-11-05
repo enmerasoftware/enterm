@@ -161,9 +161,10 @@ struct Btn: View {
                 }
             }
             .padding(.horizontal, kind == .plain ? 8 : 12)
-            .frame(height: 28)
+            .frame(height: 30)
             .background(background)
             .cornerRadius(Theme.cornerControl)
+            .shadow(color: kind == .primary && Neon.on ? Color(palette.btn).opacity(hovering ? 0.45 : 0.28) : .clear, radius: 8)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -187,7 +188,7 @@ struct Btn: View {
         let palette = Theme.palette
         switch kind {
         case .primary: return Color(palette.btn)
-        case .outline: return Color(palette.fill)
+        case .outline: return hovering ? Color(palette.fillSelected) : Color(palette.fill)
         case .plain: return hovering ? Color(palette.fill) : .clear
         case .danger: return Color(palette.err).opacity(0.16)
         case .selected: return Color(palette.fillSelected)
@@ -279,7 +280,7 @@ struct StatusLook {
         case .starting, .idle:
             self.init(symbol: "circle", symbolColor: palette.text2, textColor: palette.text1, background: palette.fill, strong: false)
         case .running:
-            self.init(symbol: "circle.fill", symbolColor: palette.add, textColor: palette.text1, background: palette.fill, strong: false)
+            self.init(symbol: "circle.fill", symbolColor: palette.g1, textColor: palette.text1, background: palette.fill, strong: false)
         case .queued:
             self.init(symbol: "clock", symbolColor: palette.text2, textColor: palette.text1, background: palette.fill, strong: false)
         case .needsApproval:
@@ -324,7 +325,25 @@ private struct FloatingKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private struct EmbeddedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+private struct BoxedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
+    /// Inside the settings a page brings only its content: the settings have their own back bar and scroll.
+    var embeddedPage: Bool {
+        get { self[EmbeddedKey.self] }
+        set { self[EmbeddedKey.self] = newValue }
+    }
+    /// Inside a box on the canvas, where a page has very little room.
+    var boxedPage: Bool {
+        get { self[BoxedKey.self] }
+        set { self[BoxedKey.self] = newValue }
+    }
     /// Inside a dialog or a menu, panels float above the page.
     var floatingPanel: Bool {
         get { self[FloatingKey.self] }
@@ -395,36 +414,66 @@ struct Line: View {
     var body: some View { Rectangle().fill(Color(Theme.palette.hair)).frame(height: 1) }
 }
 
+/// The title of a page: a short lit line under it, the only ornament a page has.
+struct PageTitle: View {
+    let text: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(text)
+                .font(.system(size: 26, weight: .semibold))
+                .tracking(-0.4)
+                .foregroundColor(Color(Theme.palette.text1))
+                .fixedSize(horizontal: false, vertical: true)
+            Rectangle()
+                .fill(Color(Theme.palette.need))
+                .frame(width: 28, height: 2)
+                .neon(Theme.palette.need, radius: 4)
+        }
+        .padding(.bottom, 8)
+    }
+}
+
 /// A full page with the same back bar everywhere.
 struct PageFrame<Content: View>: View {
     var title: String?
     var wide = false
     @ViewBuilder var content: () -> Content
+    @Environment(\.embeddedPage) private var embedded
+    @Environment(\.boxedPage) private var boxed
     var body: some View {
         let palette = Theme.palette
+        if embedded {
+            VStack(alignment: .leading, spacing: boxed ? 8 : 16) {
+                if let title {
+                    if boxed {
+                        T(title, color: Theme.palette.text2, style: .secondary).lineLimit(1).truncationMode(.head)
+                    } else {
+                        PageTitle(text: title)
+                    }
+                }
+                content()
+            }
+        } else {
         VStack(spacing: 0) {
             HStack {
-                Btn("Geri", kind: .plain, key: "Esc", icon: "chevron.left") { AppModel.shared.page = nil }
+                Btn("Geri", kind: .plain, key: "Esc", icon: "chevron.left") { AppModel.shared.goBack() }
                 Spacer()
             }
             .padding(.leading, 80)
             .padding(.trailing, 16)
             .frame(height: 44)
-            .background(Color(palette.surface1))
-            Line()
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    if let title { T(title, bold: true, style: .title) }
+                    if let title { PageTitle(text: title) }
                     content()
                 }
-                .padding(.top, 32)
-                .padding(.horizontal, 32)
-                .padding(.bottom, 32)
-                .frame(maxWidth: wide ? .infinity : 744, alignment: .leading)
+                .padding(EdgeInsets(top: 24, leading: 32, bottom: 40, trailing: 32))
+                .frame(maxWidth: wide ? .infinity : 760, alignment: .leading)
                 .frame(maxWidth: .infinity)
             }
         }
-        .background(Color(palette.surface0))
+        .background(ZStack { Color(palette.surface0); CornerGlows() })
+        }
     }
 }
 
@@ -435,12 +484,12 @@ struct Meter: View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 Rectangle().fill(Color(Theme.palette.fill))
-                Rectangle().fill(Color(warn ? Theme.palette.limit : Theme.palette.text1))
+                Rectangle().fill(Color(warn ? Theme.palette.limit : Theme.palette.add))
                     .frame(width: geometry.size.width * min(max(percent, 0), 100) / 100)
             }
         }
-        .frame(height: 6)
-        .cornerRadius(3)
+        .frame(height: 4)
+        .cornerRadius(2)
     }
 }
 
@@ -455,11 +504,12 @@ struct EntermField: View {
             .font(Theme.uiFont(.body))
             .foregroundColor(Color(palette.text1))
             .focused($focused)
-            .padding(.horizontal, 8)
-            .frame(height: 28)
+            .padding(.horizontal, 10)
+            .frame(height: 32)
             .background(Color(palette.terminal))
             .cornerRadius(Theme.cornerControl)
-            .overlay(RoundedRectangle(cornerRadius: Theme.cornerControl).stroke(Color(focused ? palette.focus : palette.hair2)))
+            .overlay(RoundedRectangle(cornerRadius: Theme.cornerControl).stroke(focused ? Color(palette.need).opacity(0.7) : Color(palette.hair2)))
+            .shadow(color: focused && Neon.on ? Color(palette.need).opacity(0.25) : .clear, radius: 6)
     }
 }
 

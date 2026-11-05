@@ -19,6 +19,7 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin/EntermApp" "$app/Contents/MacOS/EntermApp"
 cp "$bin/entermd" "$app/Contents/MacOS/entermd"
 cp "$bin/enterm" "$app/Contents/MacOS/enterm"
+[[ -x "$root/vendor/whisper/bin/whisper-cli" ]] && cp "$root/vendor/whisper/bin/whisper-cli" "$app/Contents/MacOS/whisper-cli"
 cp "$root/Resources/Info.plist" "$app/Contents/Info.plist"
 [[ -f "$root/Resources/Enterm.icns" ]] && cp "$root/Resources/Enterm.icns" "$app/Contents/Resources/Enterm.icns"
 codesign --force --sign - --entitlements "$root/Resources/Enterm.entitlements" "$app/Contents/MacOS/entermd" "$app/Contents/MacOS/enterm" >/dev/null 2>&1 || true

@@ -1,6 +1,8 @@
 # Enterm
 
-Terminal görünümlü çalışma ortamı. Resmi `claude`, `codex` ve `agy` programlarını değiştirmeden çalıştırır. Şu an macOS sürümü.
+Terminal görünümlü çalışma ortamı. Resmi programları (Claude Code, Codex, Antigravity, Gemini, opencode, Grok, GitHub Copilot, Cursor ya da kendi eklediğiniz bir program) değiştirmeden çalıştırır. Şu an macOS sürümü.
+
+Üç temel kural: hafif çalışır, ayar dosyalarınıza dokunmaz, kullanmadığınız özellik yük bindirmez.
 
 ## Derleme
 
@@ -25,9 +27,20 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 
 Kurallar: `.zshrc`, `~/.claude`, `~/.codex` değişmez. Entegrasyon başlatma argümanı ve ortam değişkeniyle gelir. Abonelik token'ı Enterm'e gelmez, ayrı hesap `CLAUDE_CONFIG_DIR` ve `CODEX_HOME` ile resmi programda durur.
 
+## Yapı Taşları
+
+- **Karşılama ve tur:** `Sources/EntermApp/FirstImpression.swift`. İlk açılışta bir kez, komut paletinden yeniden.
+- **Ana ekran:** Hiçbir şey açık değilken pencere tek komut satırıdır. Yazıp Enter'a basılır: boşsa varsayılan program, klasörse orada, başka bir şeyse komut olarak çalışır.
+- **Projeler:** Üst sekmeler. Her oturum açıldığı projeye bağlıdır, başka projedeki oturum çalışmaya devam eder.
+- **Tuval:** Oturumlar ve görünümler (Not, Web Sayfası, Tarayıcı, Beyaz Tahta, Dosyalar, Video, iOS Simülatörü). Taşıma, boyutlandırma, gruplar, kayıtlı yerleşimler, geri alma, yarım ekran yerleşimi: `CanvasView.swift`, `Workspace.swift`.
+- **Sohbet görünümü:** `⌘⇧M`. Programın kendi döküm dosyasını okur, terminale yazar: `ChatView.swift`, `Sources/EntermCore/Chat.swift`.
+- **Çentik:** `Notch.swift`. Yalnız program çalışırken vardır.
+- **Yerel dikte:** `Whisper.swift`. `whisper-cli` yalnız dikte sırasında çalışır, model isteyince iner.
+- **Hareket kuralı:** Hareket yalnız bir şey olduğunda çalışır, boşta sıfır. Pencere görünmüyorsa, Düşük Güçlü modda ya da "hareketi azalt" açıksa kapanır (`MotionPolicy`).
+
 ## Test Sürücüsü
 
-`ENTERM_DEBUG_DIR` verilirse uygulama `SIGUSR1` ile `<dir>/cmd` dosyasındaki komutları çalıştırır (`do <komut>`, `type <metin>`, `shot <dosya>`). Bkz. `scripts/run-test.sh`, `scripts/drive.sh`, `scripts/test-bridge.sh`. Testler sahte `claude` ve geçici `HOME` ile çalışır.
+`ENTERM_DEBUG_DIR` verilirse uygulama `SIGUSR1` ile `<dir>/cmd` dosyasındaki komutları çalıştırır (`do <komut>`, `type <metin>`, `shot <dosya>`). Bkz. `scripts/run-test.sh`, `scripts/drive.sh`, `scripts/test-bridge.sh`. Testler sahte `claude` ve geçici `HOME` ile çalışır. `ENTERM_START_TERMINAL=1` turu atlayıp terminalle başlatır. Sürücüye sinyal göndermeden önce uygulamanın açılmasını bekleyin: hazır olmadan gelen `SIGUSR1` süreci kapatır.
 
 ## Telefon
 

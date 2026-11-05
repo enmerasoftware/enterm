@@ -56,16 +56,16 @@ public enum ShellIntegration {
       (( ${+functions[command_not_found_handler]} )) && functions[_enterm_prior_cnf]=$functions[command_not_found_handler]
       command_not_found_handler() {
         case "$1" in
-          claude|codex|agy|gemini) [[ -n "$ENTERM_CLI" ]] && "$ENTERM_CLI" event cnf "$1" >/dev/null 2>&1 ;;
+          claude|codex|agy|gemini|opencode|grok|copilot|cursor-agent) [[ -n "$ENTERM_CLI" ]] && "$ENTERM_CLI" event cnf "$1" >/dev/null 2>&1 ;;
         esac
         if (( ${+functions[_enterm_prior_cnf]} )); then _enterm_prior_cnf "$@"; return $?; fi
         print -u2 -r -- "zsh: command not found: $1"
         return 127
       }
       local tool
-      for tool in claude codex agy; do
+      for tool in claude codex agy gemini opencode grok copilot cursor-agent; do
         (( ${+aliases[$tool]} )) && continue
-        eval "$tool() { if builtin whence -p $tool >/dev/null; then if [[ ! -x \"\$ENTERM_CLI\" ]]; then command $tool \"\$@\"; return \$?; fi; \"\$ENTERM_CLI\" event launch $tool; \"\$ENTERM_CLI\" wrap $tool \"\$@\"; local code=\$?; \"\$ENTERM_CLI\" event launchEnd $tool; return \$code; else command_not_found_handler $tool \"\$@\"; fi }"
+        eval "$tool() { if builtin whence -p $tool >/dev/null; then if [[ ! -x \"\$ENTERM_CLI\" ]]; then command $tool \"\$@\"; return \$?; fi; _enterm_cwd; \"\$ENTERM_CLI\" event launch $tool; \"\$ENTERM_CLI\" wrap $tool \"\$@\"; local code=\$?; \"\$ENTERM_CLI\" event launchEnd $tool; return \$code; else command_not_found_handler $tool \"\$@\"; fi }"
       done
       if [[ -n "${ENTERM_STARTUP-}" ]]; then
         (( ${+widgets[zle-line-init]} )) && zle -A zle-line-init _enterm_prior_line_init
@@ -98,7 +98,7 @@ public enum ShellIntegration {
         local word
         word=$(HISTTIMEFORMAT= builtin history 1 | awk '{print $2}')
         case "$word" in
-          claude|codex|agy|gemini) [ -n "$ENTERM_CLI" ] && "$ENTERM_CLI" event cnf "$word" >/dev/null 2>&1 ;;
+          claude|codex|agy|gemini|opencode|grok|copilot|cursor-agent) [ -n "$ENTERM_CLI" ] && "$ENTERM_CLI" event cnf "$word" >/dev/null 2>&1 ;;
         esac
       fi
       if [ -n "${ENTERM_STARTUP-}" ]; then
@@ -109,8 +109,8 @@ public enum ShellIntegration {
       fi
     }
     PROMPT_COMMAND="_enterm_prompt${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
-    for _enterm_tool in claude codex agy; do
-      eval "$_enterm_tool() { if type -P $_enterm_tool >/dev/null; then if [ ! -x \"\$ENTERM_CLI\" ]; then command $_enterm_tool \"\$@\"; return \$?; fi; \"\$ENTERM_CLI\" event launch $_enterm_tool; \"\$ENTERM_CLI\" wrap $_enterm_tool \"\$@\"; local code=\$?; \"\$ENTERM_CLI\" event launchEnd $_enterm_tool; return \$code; else [ -n \"\$ENTERM_CLI\" ] && \"\$ENTERM_CLI\" event cnf $_enterm_tool >/dev/null 2>&1; echo \"bash: $_enterm_tool: command not found\" >&2; return 127; fi; }"
+    for _enterm_tool in claude codex agy gemini opencode grok copilot cursor-agent; do
+      eval "$_enterm_tool() { if type -P $_enterm_tool >/dev/null; then if [ ! -x \"\$ENTERM_CLI\" ]; then command $_enterm_tool \"\$@\"; return \$?; fi; printf '\\e]7;file://%s%s\\a' \"\${HOSTNAME:-localhost}\" \"\${PWD// /%20}\"; \"\$ENTERM_CLI\" event launch $_enterm_tool; \"\$ENTERM_CLI\" wrap $_enterm_tool \"\$@\"; local code=\$?; \"\$ENTERM_CLI\" event launchEnd $_enterm_tool; return \$code; else [ -n \"\$ENTERM_CLI\" ] && \"\$ENTERM_CLI\" event cnf $_enterm_tool >/dev/null 2>&1; echo \"bash: $_enterm_tool: command not found\" >&2; return 127; fi; }"
     done
     unset _enterm_tool
     """#

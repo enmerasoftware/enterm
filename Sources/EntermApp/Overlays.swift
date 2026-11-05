@@ -20,6 +20,9 @@ struct OverlayRouter: View {
         case .resumeFailed(let number): Scrim(alignment: .top) { ResumeFailedDialog(number: number) }
         case .installTool(let tool): Scrim(alignment: .top) { InstallToolDialog(tool: tool) }
         case .codexLimit(let number): Scrim(alignment: .top) { CodexLimitDialog(number: number) }
+        case .input: Scrim(alignment: .top) { InputDialog() }
+        case .confirm: Scrim(alignment: .top) { ConfirmDialog() }
+        case .memory: Scrim(alignment: .bottomLeading) { MemoryPanel() }
         }
     }
 }
@@ -29,13 +32,15 @@ struct Scrim<Content: View>: View {
     @ViewBuilder var content: () -> Content
     var body: some View {
         ZStack(alignment: alignment) {
-            Color(alignment == .topTrailing ? .clear : Theme.palette.scrim)
+            Color(alignment == .top ? Theme.palette.scrim : .clear)
                 .contentShape(Rectangle())
                 .onTapGesture { AppModel.shared.overlay = nil }
             content()
                 .environment(\.floatingPanel, true)
-                .padding(.top, alignment == .topTrailing ? 44 : 72)
+                .padding(.top, alignment == .topTrailing ? 44 : (alignment == .top ? 72 : 0))
                 .padding(.trailing, alignment == .topTrailing ? 16 : 0)
+                .padding(.bottom, alignment == .bottomLeading ? 44 : 0)
+                .padding(.leading, alignment == .bottomLeading ? 16 : 0)
         }
     }
 }
@@ -58,8 +63,8 @@ struct MenuRow: View {
                 if !key.isEmpty { Key(key) }
             }
             .padding(.vertical, 4)
-            .padding(.horizontal, 8)
-            .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
             .background(selected || hovering ? Color(Theme.palette.fillSelected) : .clear)
             .cornerRadius(Theme.cornerControl)
             .contentShape(Rectangle())
@@ -77,23 +82,25 @@ struct CommandPalette: View {
 
     var results: [Command] {
         let needle = query.lowercased(with: Locale(identifier: "tr_TR"))
-        if needle.isEmpty { return Commands.all }
-        return Commands.all.filter { $0.title.lowercased(with: Locale(identifier: "tr_TR")).contains(needle) }
+        let all = Commands.dynamic + Commands.all
+        if needle.isEmpty { return all }
+        return all.filter { $0.title.lowercased(with: Locale(identifier: "tr_TR")).contains(needle) }
     }
 
     var body: some View {
         Panel {
             HStack(spacing: 8) {
-                Symbol("magnifyingglass")
+                Text("❯").font(Theme.swiftFont(size: 15)).foregroundColor(Color(Theme.palette.need))
                 TextField("", text: $query, prompt: Text("Ne Yapmak İstersiniz?").foregroundColor(Color(Theme.palette.text3)))
                     .textFieldStyle(.plain)
-                    .font(Theme.uiFont(.body))
+                    .font(.system(size: 15))
                     .foregroundColor(Color(Theme.palette.fg))
                     .focused($focus)
                     .onSubmit(run)
                     .onChange(of: query) { _ in index = 0 }
             }
-            .padding(12)
+            .padding(.horizontal, 16)
+            .frame(height: 48)
             Line()
             ScrollView {
                 VStack(spacing: 0) {
@@ -112,8 +119,8 @@ struct CommandPalette: View {
                 Spacer()
                 Dim("Her İş Klavyeden Yapılır")
             }
-            .padding(.horizontal, 12)
-            .frame(height: 24)
+            .padding(.horizontal, 16)
+            .frame(height: 32)
         }
         .frame(width: 560)
         .background(KeyCatcher(onUp: { index = max(0, index - 1) }, onDown: { index = min(results.count - 1, index + 1) }))
@@ -165,13 +172,8 @@ struct KeyCatcher: NSViewRepresentable {
 struct InstallToolDialog: View {
     let tool: ToolKind
     private var explanation: String {
-        let source: String
-        switch tool {
-        case .claude: source = "Claude Code'un resmî kurulum komutu."
-        case .codex: source = "Codex'in resmî kurulum komutu."
-        case .antigravity: source = "Antigravity'nin resmî kurulum komutu."
-        case .terminal: source = ""
-        }
+        var source = "\(tool.title) için üreticinin kurulum komutu."
+        if tool == .gemini { source += " Kişisel Google hesabı için Antigravity daha uygundur." }
         return "\(source) Siz onaylamadan çalışmaz, onaylarsanız yeni terminalde görünür şekilde çalışır."
     }
     var body: some View {
@@ -206,41 +208,60 @@ enum InstallToolActions {
 struct NewSessionMenu: View {
     @ObservedObject var model = AppModel.shared
     @ObservedObject var catalog = ToolCatalog.shared
+    @ObservedObject var store = SettingsStore.shared
+    private static let letters: [ToolKind: String] = [.claude: "c", .codex: "x", .antigravity: "a", .gemini: "g", .opencode: "o", .grok: "r", .copilot: "p", .cursor: "u"]
+    @State private var showAll = false
+    private var programs: [ToolKind] { ToolKind.programs.filter { !store.settings.hiddenTools.contains($0.rawValue) } }
+    private var ready: [ToolKind] { programs.filter { !catalog.isMissing($0) } }
+    private var missing: [ToolKind] { programs.filter { catalog.isMissing($0) } }
     var body: some View {
         Panel {
-            PanelHeader(title: "Yeni Oturum") { Dim(model.displayPath(model.focusedInfo?.cwd ?? NSHomeDirectory())) }
+            PanelHeader(title: "Yeni Oturum") { Dim(model.displayPath(model.focusedInfo?.cwd ?? NSHomeDirectory())).lineLimit(1).truncationMode(.head) }
             VStack(spacing: 0) {
-            MenuRow(title: "Terminal", key: "⌘T") { run("newTerminal") }
-            MenuRow(title: "Claude Code", note: catalog.note(.claude), key: "c") { run("newClaude") }
-            MenuRow(title: "Codex", note: catalog.note(.codex), key: "x") { run("newCodex") }
-            MenuRow(title: "Antigravity", note: catalog.note(.antigravity).isEmpty ? "Gemini" : "Gemini · \(catalog.note(.antigravity))", key: "a") { run("newAntigravity") }
-            Line().padding(.vertical, 4)
-            MenuRow(title: "Seçeneklerle Aç", note: "Klasör, Hesap, Yetki, Model") { run("newSessionOptions") }
+                MenuRow(title: "Terminal", key: "⌘T") { run { model.newTerminal() } }
+                ForEach(ready, id: \.self) { tool in
+                    MenuRow(title: tool.title, note: catalog.note(tool), key: Self.letters[tool] ?? "") { run { ToolLauncher.start(tool) } }
+                }
+                ForEach(store.settings.customPrograms) { program in
+                    MenuRow(title: program.name, note: program.command) { run { ToolLauncher.start(program) } }
+                }
+                if !missing.isEmpty {
+                    if showAll {
+                        Line().padding(.vertical, 4)
+                        ForEach(missing, id: \.self) { tool in
+                            MenuRow(title: tool.title, note: "Kurulu Değil", key: Self.letters[tool] ?? "") { run { ToolLauncher.start(tool) } }
+                        }
+                    } else {
+                        MenuRow(title: "Diğer Programlar", note: "\(missing.count) Program Kurulabilir") { showAll = true }
+                    }
+                }
+                Line().padding(.vertical, 4)
+                MenuRow(title: "Seçeneklerle Aç", note: "Klasör, Hesap, Yetki, Model") { run { Commands.perform("newSessionOptions") } }
             }
             .padding(4)
-            Line()
-            HStack { Dim("Tek Tıkla Açılır, Gerisi Hazır Gelir") }.padding(.horizontal, 12).frame(height: 24)
         }
-        .frame(width: 320)
-        .background(LetterKeys(map: ["c": "newClaude", "x": "newCodex", "a": "newAntigravity"]))
+        .frame(width: 340)
+        .background(LetterKeys(actions: Dictionary(uniqueKeysWithValues: programs.compactMap { tool in
+            Self.letters[tool].map { ($0, { ToolLauncher.start(tool) }) }
+        })))
         .onAppear { catalog.refresh() }
     }
-    private func run(_ id: String) {
+    private func run(_ action: @escaping () -> Void) {
         model.overlay = nil
-        DispatchQueue.main.async { Commands.perform(id) }
+        DispatchQueue.main.async(execute: action)
     }
 }
 
 struct LetterKeys: NSViewRepresentable {
-    let map: [String: String]
+    let actions: [String: () -> Void]
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeNSView(context: Context) -> NSView {
-        let keys = map
+        let keys = actions
         context.coordinator.monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             guard event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
-                  let letter = event.charactersIgnoringModifiers, let id = keys[letter] else { return event }
+                  let letter = event.charactersIgnoringModifiers, let action = keys[letter] else { return event }
             AppModel.shared.overlay = nil
-            DispatchQueue.main.async { Commands.perform(id) }
+            DispatchQueue.main.async(execute: action)
             return nil
         }
         return NSView()

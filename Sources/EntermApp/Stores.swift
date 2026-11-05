@@ -37,6 +37,17 @@ final class LinkStore: ObservableObject {
 
 final class AccountStore: ObservableObject {
     static let shared = AccountStore()
+
+    /// One line for the status bar, the way the person asked to read it.
+    var limitSummary: String {
+        let remaining = SettingsStore.shared.settings.usageRemaining
+        return accounts.compactMap { account -> String? in
+            guard let window = account.lastLimit?.fiveHour ?? account.lastLimit?.sevenDay else { return nil }
+            let value = Int(remaining ? 100 - window.usedPercent : window.usedPercent)
+            return "\(account.name) %\(value)\(remaining ? " Kaldı" : "")"
+        }.joined(separator: " · ")
+    }
+
     @Published var accounts: [Account] = []
 
     init() {
@@ -223,7 +234,7 @@ final class PowerCenter: ObservableObject {
 
     /// Idle means idle: no timer runs unless an agent or a queued session exists.
     func updateSampling() {
-        let needed = runningAgents > 0 || !queue.isEmpty
+        let needed = runningAgents > 0 || !queue.isEmpty || AppModel.shared.sessions.count > 1
         if needed, timer == nil {
             sample()
             let timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in self?.sample() }
@@ -315,6 +326,7 @@ final class ExtensionsHub {
         PowerCenter.shared.updateSampling()
         PowerCenter.shared.startQueued()
         updateAwake()
+        NotchCenter.shared.update()
     }
 
     func sessionUpdated(previous: SessionInfo, current: SessionInfo) {
@@ -328,10 +340,12 @@ final class ExtensionsHub {
             Inbox.shared.statusChanged(previous: previous, current: current)
             updateAwake()
             PowerCenter.shared.updateSampling()
+            NotchCenter.shared.update()
         }
         if current.pendingApproval != nil, previous.pendingApproval == nil, let id = current.pendingApproval?.id {
             let model = AppModel.shared
-            if model.overlay == nil { model.overlay = .approval(id) }
+            _ = id
+            NotifySound.play(.needsYou)
             Notifier.shared.post(title: "\(model.title(for: current)) İzin İstiyor", body: current.pendingApproval?.summary ?? "", onlyWhenInactive: true)
         }
     }
@@ -368,8 +382,9 @@ final class Inbox: ObservableObject {
     func statusChanged(previous: SessionInfo, current: SessionInfo) {
         let name = AppModel.shared.title(for: current)
         switch current.status {
-        case .idle where previous.status == .running:
+        case .idle where previous.status == .running && current.tool.reportsStatus:
             Notifier.shared.post(title: "\(name): İş Bitti", body: current.lastActivity ?? "", onlyWhenInactive: true)
+            if !NSApp.isActive { NotifySound.play(.finished) }
             finished.insert(InboxItem(symbol: "✓", title: name, detail: current.lastActivity ?? "İş Bitti", at: Date(), sessionNumber: current.number), at: 0)
         case .failed:
             finished.insert(InboxItem(symbol: "✕", title: name, detail: "Hata", at: Date(), sessionNumber: current.number), at: 0)
@@ -428,7 +443,10 @@ struct NotFoundCard: Equatable {
             if fm.isExecutableFile(atPath: local) { return NotFoundCard(number: number, command: command, kind: .notInPath(path: local)) }
             return NotFoundCard(number: number, command: command, kind: .notInstalled(install: ToolPresence.installCommand(.antigravity) ?? ""))
         default:
-            return nil
+            guard let tool = ToolKind.fromCommand(command), let install = ToolPresence.installCommand(tool) else { return nil }
+            let local = home + "/.local/bin/" + command
+            if fm.isExecutableFile(atPath: local) { return NotFoundCard(number: number, command: command, kind: .notInPath(path: local)) }
+            return NotFoundCard(number: number, command: command, kind: .notInstalled(install: install))
         }
     }
 }

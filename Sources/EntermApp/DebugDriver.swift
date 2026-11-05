@@ -106,6 +106,11 @@ final class DebugDriver {
                 for box in Self.boxes(in: NSApp.windows.first?.contentView) where (box.layer?.shadowOpacity ?? 0) > 0 || rest == "on" {
                     box.layer?.shadowOpacity = rest == "on" ? 1 : 0
                 }
+            case "linkdirect":
+                let list = AppModel.shared.sessions
+                if let first = list.first, let last = list.last, first.id != last.id {
+                    LinkStore.shared.add(SessionLink(from: first.id, to: last.id, permission: .summary, bothWays: false))
+                }
             case "settingstab":
                 if let tab = SettingsTab(rawValue: rest) { AppModel.shared.page = .settings(tab) }
             case "showapproval":

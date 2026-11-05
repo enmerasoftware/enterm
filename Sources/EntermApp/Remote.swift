@@ -149,7 +149,8 @@ struct RunPage: View {
         model.sessions.first { $0.name == "çalıştır: \(config.name)" }
     }
     var body: some View {
-        PageFrame(title: "Çalıştır · \(model.displayPath(folder))") {
+        PageFrame(title: "Çalıştır") {
+            Dim(model.displayPath(folder)).lineLimit(1).truncationMode(.head)
             if configs.isEmpty { Dim("Bu klasörde .vscode/launch.json ya da package.json betiği bulunamadı.") }
             Panel {
                 ForEach(configs) { config in
@@ -241,6 +242,7 @@ struct BoardShape: Codable, Identifiable, Equatable {
 
 struct WhiteboardPage: View {
     @ObservedObject var model = AppModel.shared
+    @Environment(\.boxedPage) private var boxed
     @State private var shapes: [BoardShape] = []
     @State private var current: BoardShape?
     @State private var tool = BoardShape.Kind.pen
@@ -262,7 +264,7 @@ struct WhiteboardPage: View {
                 Btn("Ajana Göster", kind: .primary) { show() }
             }
             canvas
-                .frame(minHeight: 520)
+                .frame(minHeight: boxed ? 120 : 520)
                 .background(Color(Theme.palette.panel))
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(Theme.palette.line2)))
                 .overlay(MouseCatcher(changed: { dragged($0) }, ended: { ended() }))

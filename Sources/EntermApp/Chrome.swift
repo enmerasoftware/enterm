@@ -12,15 +12,23 @@ struct TopBar: View {
             if model.maximized != nil {
                 Btn("Tümünü Gör", kind: .plain, key: "⌘⏎") { model.toggleMaximize() }
             }
-            if model.mode == .tabs && model.sessions.count > 1 {
+            if model.showsProjectTabs {
+                ForEach(model.projectNames, id: \.self) { name in
+                    ProjectTab(name: name)
+                }
+                IconBtn("plus", label: "Yeni Proje") { Commands.perform("newProject") }
+                    .help("Yeni Proje (⌘⇧N)")
+            }
+            if model.mode == .tabs && model.visibleSessions.count > 1 {
+                if model.showsProjectTabs { Rectangle().fill(Color(palette.hair2)).frame(width: 1, height: 16).padding(.horizontal, 4) }
                 let labels = model.sessionLabels
-                ForEach(model.sessions) { info in
+                ForEach(model.visibleSessions) { info in
                     Btn(labels[info.number] ?? model.name(for: info), kind: info.number == model.focused ? .selected : .plain) {
                         model.setFocus(info.number)
                         model.onLayoutChange?()
                     }
                 }
-            } else if let info = model.focusedInfo {
+            } else if !model.showsProjectTabs, let info = model.focusedInfo {
                 HStack(spacing: 8) {
                     T(model.name(for: info), bold: true).lineLimit(1)
                     Dim(model.displayPath(info.cwd)).lineLimit(1).truncationMode(.head)
@@ -58,55 +66,89 @@ struct TopBar: View {
             if model.focusedInfo?.tool != .terminal, model.focusedInfo != nil {
                 Btn("Ayrıntılar", kind: .plain, key: "⌘I") { model.detailsOpen.toggle() }
             }
-            IconBtn("plus", label: "Yeni Oturum") { Commands.perform("newSession") }
+            if !model.toolbarVisible {
+                IconBtn("plus", label: "Yeni Oturum") { Commands.perform("newSession") }
+            }
+            IconBtn("iphone", label: "Telefon") { Commands.perform("phone") }.help("Telefon")
+            IconBtn("gearshape", label: "Ayarlar") { Commands.perform("settings") }.help("Ayarlar (⌘,)")
             IconBtn("ellipsis", label: "Menü") { Commands.perform("menu") }
         }
         .padding(.leading, 84)
         .padding(.trailing, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(palette.panel))
-        .overlay(alignment: .bottom) { Line() }
+        .background(Color(palette.surface0))
     }
 }
 
-/// The floating tool bar of the canvas and the slim status line under it.
+/// The command bar of the canvas and the slim line under it.
 struct BottomBars: View {
     @ObservedObject var model = AppModel.shared
     @ObservedObject var accounts = AccountStore.shared
     var body: some View {
         VStack(spacing: 0) {
             if model.toolbarVisible {
-                HStack(spacing: 2) {
-                    ToolItem("Tam Ekran", icon: "arrow.up.left.and.arrow.down.right", key: "⌘⏎") { model.toggleMaximize() }
-                    ToolItem("Yeni Oturum", icon: "plus", key: "N") { Commands.perform("newSession") }
-                    ToolSeparator()
-                    IconBtn("minus", label: "Uzaklaştır") { Commands.perform("zoomOut") }
-                    T("%\(Int(model.zoom * 100))", style: .secondary).frame(width: 36)
-                    IconBtn("plus", label: "Yakınlaştır") { Commands.perform("zoomIn") }
-                    ToolItem("Sığdır", icon: "viewfinder", key: "0") { Commands.perform("fit") }
-                    ToolSeparator()
-                    ToolItem("Komutlar", icon: "command", key: "⌘K") { Commands.perform("palette") }
-                }
-                .padding(.horizontal, 6)
-                .frame(height: 40)
-                .background(Color(Theme.palette.surface2))
-                .cornerRadius(Theme.cornerFloat)
-                .overlay(RoundedRectangle(cornerRadius: Theme.cornerFloat).stroke(Color(Theme.palette.hair2)))
-                .shadow(color: Color(Theme.palette.shadowFloat), radius: 12, y: 8)
-                .frame(maxHeight: .infinity)
-                .padding(.trailing, model.detailsOpen ? 400 : 0)
+                CommandBar()
+                    .frame(maxHeight: .infinity)
+                    .padding(.leading, model.railVisible(width: 2000) ? 200 : 0)
+                    .padding(.trailing, model.detailsOpen ? 400 : 0)
             }
             if model.footVisible {
-                SessionStrip(summary: limitSummary)
+                // Without the rail the strip is still the way between sessions.
+                if model.visibleSessions.count > 1 && !model.toolbarVisible {
+                    SessionStrip(summary: limitSummary)
+                } else {
+                    StatusLine(summary: limitSummary)
+                }
             }
         }
     }
+    private var limitSummary: String { accounts.limitSummary }
+}
 
-    private var limitSummary: String {
-        accounts.accounts.compactMap { account -> String? in
-            guard let window = account.lastLimit?.fiveHour ?? account.lastLimit?.sevenDay else { return nil }
-            return "\(account.name) %\(Int(window.usedPercent))"
-        }.joined(separator: " · ")
+extension AppModel {
+    /// A lone terminal stays plain: tabs appear once there is more than one thing to move between.
+    var showsProjectTabs: Bool { projectNames.count > 1 || tileCount > 1 }
+}
+
+/// A project on the bar: its name, what it is doing, and a lit line under the one on screen.
+struct ProjectTab: View {
+    let name: String
+    @ObservedObject var model = AppModel.shared
+    @State private var hovering = false
+    var body: some View {
+        let palette = Theme.palette
+        let on = model.activeProject == name && !model.showHome
+        let members = model.sessions.filter { model.project(of: $0) == name }
+        let attention = members.first { $0.status == .needsApproval || $0.status == .limitReached || $0.status == .failed }
+        let running = members.contains { $0.status == .running && $0.tool != .terminal }
+        let dot: NSColor? = attention.flatMap { Neon.color($0.status) } ?? (running ? palette.g1 : nil)
+        Button { model.switchProject(name) } label: {
+            HStack(spacing: 6) {
+                if let dot { Circle().fill(Color(dot)).frame(width: 7, height: 7).neon(dot, radius: 3) }
+                T(name, color: on ? palette.text1 : palette.text3, weight: on ? .semibold : .regular).lineLimit(1)
+                if hovering {
+                    Button {
+                        model.confirm(title: "\(name) Kapatılsın mı?", detail: "Bu projedeki \(members.count) oturum ve içinde çalışan programlar kapanır.", action: "Projeyi Kapat") {
+                            model.closeProject(name)
+                        }
+                    } label: {
+                        Symbol("xmark", color: palette.text3, size: 10).frame(width: 14, height: 14).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Projeyi Kapat")
+                }
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 44)
+            .overlay(alignment: .bottom) {
+                if on {
+                    Rectangle().fill(Color(palette.need)).frame(height: 2).neon(palette.need, radius: 3).padding(.horizontal, 10).padding(.bottom, 6)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
     }
 }
 
@@ -158,11 +200,11 @@ struct SessionStrip: View {
             let reserve = (summary as NSString).size(withAttributes: [.font: Theme.ui(.secondary)]).width + 24
             let visible = fitting(labels: labels, width: geometry.size.width - reserve - 16)
             HStack(spacing: 2) {
-                ForEach(model.sessions.prefix(visible)) { info in
+                ForEach(model.visibleSessions.prefix(visible)) { info in
                     item(info, label: labels[info.number] ?? "")
                 }
-                if visible < model.sessions.count {
-                    Btn("+\(model.sessions.count - visible)", kind: .plain) { Commands.perform("sessionList") }
+                if visible < model.visibleSessions.count {
+                    Btn("+\(model.visibleSessions.count - visible)", kind: .plain) { Commands.perform("sessionList") }
                 }
                 Spacer(minLength: 0)
                 T(summary, color: palette.text2, style: .secondary).padding(.trailing, 8)
@@ -181,13 +223,14 @@ struct SessionStrip: View {
 
     private func fitting(labels: [UInt32: String], width available: CGFloat) -> Int {
         var used: CGFloat = 0
-        for (index, info) in model.sessions.enumerated() {
+        let list = model.visibleSessions
+        for (index, info) in list.enumerated() {
             used += width(labels[info.number] ?? "") + 2
             // The last slot may have to hold the count instead.
-            let room = index == model.sessions.count - 1 ? available : available - 44
+            let room = index == list.count - 1 ? available : available - 44
             if used > room { return max(index, 1) }
         }
-        return model.sessions.count
+        return list.count
     }
 
     private func item(_ info: SessionInfo, label: String) -> some View {
