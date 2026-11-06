@@ -95,8 +95,7 @@ extension AppModel {
     // MARK: Projects
 
     static func projectName(for folder: String) -> String {
-        if folder == NSHomeDirectory() || folder.isEmpty { return "Ana Klasör" }
-        return (folder as NSString).lastPathComponent
+        ProjectPlacement.name(for: folder, home: NSHomeDirectory())
     }
 
     func project(of info: SessionInfo) -> String {
@@ -173,7 +172,8 @@ extension AppModel {
 
     func assignProject(_ info: SessionInfo) {
         guard state.projects[info.id] == nil else { return }
-        let name = startingFromHome ? Self.projectName(for: info.cwd) : (activeProject ?? Self.projectName(for: info.cwd))
+        let folders = sessions.filter { $0.id != info.id && state.projects[$0.id] == activeProject }.map(\.cwd)
+        let name = ProjectPlacement.project(folder: info.cwd, home: NSHomeDirectory(), active: activeProject, activeFolders: folders, startingFromHome: startingFromHome)
         state.projects[info.id] = name
         startingFromHome = false
         showHome = false
