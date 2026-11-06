@@ -687,6 +687,7 @@ final class Service {
             info.status = .limitReached
         case "error":
             info.status = .failed
+            info.failure = SessionFailure(kind: event.errorKind ?? "unknown", detail: event.text)
         case "subStart":
             var list = info.subagents ?? []
             list.append(SubagentInfo(id: event.agentID ?? UUID().uuidString, type: event.agentType, running: true, startedAt: Date()))
@@ -699,6 +700,8 @@ final class Service {
         default:
             break
         }
+        // The reason belongs to the error: once the session moves on, it goes.
+        if info.status != .failed { info.failure = nil }
         if info != session.info {
             session.info = info
             publish(session)

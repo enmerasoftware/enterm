@@ -1290,7 +1290,7 @@ private struct RailStop: View {
                         .font(.system(size: 12, weight: on || attention ? .semibold : .regular))
                         .foregroundColor(Color(on || attention || hovering ? palette.text1 : palette.text2))
                         .lineLimit(1)
-                    Text(info.tool == .terminal ? AppModel.projectName(for: info.cwd) : (unread ? "Yeni Yanıt" : info.status.title))
+                    Text(info.tool == .terminal ? AppModel.projectName(for: info.cwd) : (unread ? "Yeni Yanıt" : (info.status == .failed ? info.failure?.title ?? info.status.title : info.status.title)))
                         .font(.system(size: 11))
                         .foregroundColor(Color(info.tool == .terminal ? palette.text3 : color))
                         .lineLimit(1)
@@ -1302,6 +1302,7 @@ private struct RailStop: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.press)
+        .help(SessionText.failureNote(info) ?? "")
         .onHover { hovering = $0 }
     }
 }

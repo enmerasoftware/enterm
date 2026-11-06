@@ -128,6 +128,30 @@ final class FirstImpressionTests: XCTestCase {
         }
     }
 
+    // MARK: Failures
+
+    func testAFailureSaysWhatWentWrongInPlainWords() {
+        XCTAssertEqual(SessionFailure(kind: "overloaded", detail: nil).title, "Sunucu Yoğun")
+        XCTAssertEqual(SessionFailure(kind: "authentication_failed", detail: nil).title, "Giriş Geçersiz")
+        XCTAssertEqual(SessionFailure(kind: "server_error", detail: nil).title, "Sunucu Hatası")
+        XCTAssertEqual(SessionFailure(kind: "max_output_tokens", detail: nil).title, "Cevap Sınıra Takıldı")
+        XCTAssertEqual(SessionFailure(kind: "something_new", detail: nil).title, "Bilinmeyen Hata")
+    }
+
+    func testAFailureKeepsOnlyAShortDetail() {
+        let long = String(repeating: "x", count: 1000)
+        XCTAssertEqual(SessionFailure(kind: "unknown", detail: long).detail?.count, 300)
+        XCTAssertNil(SessionFailure(kind: "unknown", detail: "  ").detail)
+    }
+
+    func testASessionSavedBeforeFailuresStillReads() throws {
+        let info = SessionInfo(id: "a", number: 1, name: "x", tool: .claude, cwd: "/", status: .failed, startedAt: Date(timeIntervalSince1970: 0))
+        var object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(info)) as! [String: Any]
+        object.removeValue(forKey: "failure")
+        let decoded = try JSONDecoder().decode(SessionInfo.self, from: JSONSerialization.data(withJSONObject: object))
+        XCTAssertNil(decoded.failure)
+    }
+
     // MARK: Recent conversations
 
     func testATranscriptGivesItsTitleAndFolder() {

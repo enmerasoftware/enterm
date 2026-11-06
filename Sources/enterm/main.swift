@@ -164,7 +164,8 @@ func handleClaudeHook() {
     case "StopFailure":
         let kind = input["error"] as? String ?? ""
         event.kind = kind == "rate_limit" ? "limit" : "error"
-        event.text = input["error_details"] as? String
+        event.errorKind = kind
+        event.text = (input["error_details"] as? String) ?? (input["last_assistant_message"] as? String)
         sendEvent(event)
     case "Notification":
         let type = input["notification_type"] as? String ?? ""

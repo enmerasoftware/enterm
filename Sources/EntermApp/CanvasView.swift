@@ -225,6 +225,10 @@ final class SessionBox: NSView {
         stripLabel.stringValue = isAgent && line != info.tool.title ? line : ""
         stripLabel.textColor = palette.text3
         stripLabel.isHidden = !isAgent || !showsHeader
+        let note = SessionText.failureNote(info)
+        stripLabel.toolTip = note
+        badge.toolTip = note
+        footer.toolTip = note
         gripIcon.contentTintColor = palette.text2
         updateGrip()
         summaryLabel.stringValue = "\(info.status.symbol) \(model.name(for: info))"
@@ -626,6 +630,7 @@ enum SessionText {
             if let command = ToolPresence.installCommand(info.tool) { return "Kurulum: \(command)" }
         }
         var parts: [String] = []
+        if info.status == .failed, let failure = info.failure { parts.append(failure.title) }
         if let account = info.accountID, let name = AccountStore.shared.account(id: account)?.name { parts.append(name) }
         if let model = info.model { parts.append(ModelName.pretty(model)) }
         if let effort = info.effort { parts.append(effortTitle(effort)) }
@@ -636,6 +641,13 @@ enum SessionText {
         }
         if parts.isEmpty { return info.status == .unknown ? "Durum Bilinmiyor" : info.tool.title }
         return parts.joined(separator: " · ")
+    }
+
+    /// What went wrong, the program's own words, and what usually helps. Shown on hover.
+    static func failureNote(_ info: SessionInfo) -> String? {
+        guard info.status == .failed else { return nil }
+        guard let failure = info.failure else { return "Son cevap bir hatayla yarıda kaldı. Mesajı yeniden gönderin." }
+        return [failure.title, failure.detail, failure.advice].compactMap { $0 }.joined(separator: "\n")
     }
 
     static func effortTitle(_ effort: String) -> String {

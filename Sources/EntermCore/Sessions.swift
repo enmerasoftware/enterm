@@ -265,6 +265,8 @@ public struct SessionInfo: Codable, Equatable, Identifiable {
     public var subagents: [SubagentInfo]?
     public var lastActivity: String?
     public var hooksTrusted: Bool?
+    /// Why the last turn stopped with an error. Gone once the session moves on.
+    public var failure: SessionFailure?
 
     public init(id: String, number: UInt32, name: String, tool: ToolKind, cwd: String,
                 status: SessionStatus, startedAt: Date) {
@@ -275,6 +277,46 @@ public struct SessionInfo: Codable, Equatable, Identifiable {
         self.cwd = cwd
         self.status = status
         self.startedAt = startedAt
+    }
+}
+
+/// An API error that ended a turn, as Claude Code's StopFailure hook reports it.
+public struct SessionFailure: Codable, Equatable {
+    public var kind: String
+    public var detail: String?
+
+    public init(kind: String, detail: String?) {
+        self.kind = kind
+        let trimmed = detail?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        self.detail = trimmed.isEmpty ? nil : String(trimmed.prefix(300))
+    }
+
+    public var title: String {
+        switch kind {
+        case "overloaded": return "Sunucu Yoğun"
+        case "authentication_failed": return "Giriş Geçersiz"
+        case "oauth_org_not_allowed": return "Kuruluş İzin Vermiyor"
+        case "account_on_hold": return "Hesap Askıda"
+        case "billing_error": return "Ödeme Sorunu"
+        case "invalid_request": return "İstek Reddedildi"
+        case "model_not_found": return "Model Bulunamadı"
+        case "server_error": return "Sunucu Hatası"
+        case "max_output_tokens": return "Cevap Sınıra Takıldı"
+        case "cloud_credential_error": return "Bulut Kimliği Okunamadı"
+        default: return "Bilinmeyen Hata"
+        }
+    }
+
+    /// What usually helps, in one line.
+    public var advice: String {
+        switch kind {
+        case "overloaded", "server_error": return "Geçici. Biraz sonra aynı mesajı yeniden gönderin."
+        case "authentication_failed": return "Oturumda /login ile yeniden giriş yapın."
+        case "billing_error", "account_on_hold": return "Hesabın ödeme ve durum sayfasına bakın."
+        case "model_not_found": return "/model ile başka bir model seçin."
+        case "max_output_tokens": return "\"devam et\" yazarak kaldığı yerden sürdürün."
+        default: return "Mesajı yeniden gönderin. Sürerse ayrıntıya bakın."
+        }
     }
 }
 

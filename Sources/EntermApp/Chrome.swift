@@ -303,6 +303,7 @@ struct SessionStrip: View {
                     .truncationMode(.tail)
             }
         }
+        .help(SessionText.failureNote(info) ?? "")
     }
 }
 
