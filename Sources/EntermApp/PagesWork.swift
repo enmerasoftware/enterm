@@ -11,12 +11,14 @@ struct SessionListPage: View {
         PageFrame(title: "\(model.sessions.count) Oturum", wide: true) {
             Panel {
                 ForEach(model.sessions) { info in
+                    // A line between rows only: after the last one it would double the panel's edge.
+                    if info.id != model.sessions.first?.id { Line() }
                     Row(action: {
                         model.page = nil
                         model.setFocus(info.number)
                         if model.mode == .canvas { model.maximized = info.number; model.onLayoutChange?() }
                     }) {
-                        VStack(alignment: .leading) {
+                        VStack(alignment: .leading, spacing: 2) {
                             T(model.title(for: info), bold: true)
                             Dim(info.lastActivity ?? model.displayPath(info.cwd)).lineLimit(1)
                         }
@@ -24,7 +26,6 @@ struct SessionListPage: View {
                         Dim(info.tool.title)
                         if info.tool != .terminal { StatusBadge(status: info.status) }
                     }
-                    Line()
                 }
             }
         }
@@ -79,21 +80,24 @@ struct HistoryPage: View {
         let cwd = model.focusedInfo?.cwd ?? NSHomeDirectory()
         PageFrame(title: "Geçmiş Konuşmalar") {
             Dim(model.displayPath(cwd)).lineLimit(1).truncationMode(.head)
-            if items.isEmpty { Dim("Bu klasörde Claude Code konuşması bulunamadı. Codex ve Antigravity listesi bu sürümde yok.") }
-            Panel {
-                ForEach(items) { item in
-                    Row(action: {
-                        model.page = nil
-                        ToolLauncher.start(item.tool, cwd: item.cwd, extraArguments: "--resume \(NotFoundActions.shellQuote(item.path))")
-                    }) {
-                        VStack(alignment: .leading) {
-                            T(item.title).lineLimit(1)
-                            Dim("\(item.tool.title) · \(item.date.formatted(date: .abbreviated, time: .shortened))")
+            if items.isEmpty {
+                Dim("Bu klasörde Claude Code konuşması bulunamadı. Codex ve Antigravity listesi bu sürümde yok.")
+            } else {
+                Panel {
+                    ForEach(items) { item in
+                        if item.id != items.first?.id { Line() }
+                        Row(action: {
+                            model.page = nil
+                            ToolLauncher.start(item.tool, cwd: item.cwd, extraArguments: "--resume \(NotFoundActions.shellQuote(item.path))")
+                        }) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                T(item.title).lineLimit(1)
+                                Dim("\(item.tool.title) · \(item.date.formatted(date: .abbreviated, time: .shortened))")
+                            }
+                            Spacer()
+                            Key("Sürdür")
                         }
-                        Spacer()
-                        Key("Sürdür")
                     }
-                    Line()
                 }
             }
             Dim("Sürdürmek konuşmayı resmi programla açar, ilk mesajda baştan okunur ve limitten yer.")
@@ -107,16 +111,18 @@ struct HistoryPage: View {
 struct NewViewPage: View {
     @ObservedObject var model = AppModel.shared
     var body: some View {
-        PageFrame(title: "Yeni Görünüm") {
+        PageFrame(title: "Yeni Görünüm", centered: true) {
             Dim("Yalnız Açılınca Yüklenir")
             Panel {
-                MenuRow(title: "Dosya Gezgini", note: "Bu Klasörün Dosyaları") { model.page = .files }
-                MenuRow(title: "Düzenleyici", note: "Dosyayı Burada Açıp Düzeltin") { model.page = .files }
-                MenuRow(title: "Not", note: "Bu Klasöre Bağlı Kısa Not") { model.page = .note }
-                MenuRow(title: "Zamanlayıcı", note: "Bir Komut Ya Da İş, Belli Saatte") { model.page = .scheduler }
-                MenuRow(title: "Beyaz Tahta", note: "Çizin, Ajana Gösterin") { model.page = .whiteboard }
-                MenuRow(title: "Çalıştır", note: "Projenin Sunucularını Başlatın") { model.page = .run }
-                MenuRow(title: "iOS Simülatörü", note: "Uygulamanızı Yanında Görün") { model.page = .simulator }
+                MenuList {
+                    MenuRow(title: "Dosya Gezgini", note: "Bu Klasörün Dosyaları") { model.page = .files }
+                    MenuRow(title: "Düzenleyici", note: "Dosyayı Burada Açıp Düzeltin") { model.page = .files }
+                    MenuRow(title: "Not", note: "Bu Klasöre Bağlı Kısa Not") { model.page = .note }
+                    MenuRow(title: "Zamanlayıcı", note: "Bir Komut Ya Da İş, Belli Saatte") { model.page = .scheduler }
+                    MenuRow(title: "Beyaz Tahta", note: "Çizin, Ajana Gösterin") { model.page = .whiteboard }
+                    MenuRow(title: "Çalıştır", note: "Projenin Sunucularını Başlatın") { model.page = .run }
+                    MenuRow(title: "iOS Simülatörü", note: "Uygulamanızı Yanında Görün") { model.page = .simulator }
+                }
             }
         }
     }
@@ -134,11 +140,16 @@ struct FilesPage: View {
             if let remote = model.focused.flatMap({ model.remotes[$0] }) { Dim("Uzak: \(remote.host). Dosyalar sunucuda, görünüm burada.") }
             Btn("‹ Üst Klasör", kind: .plain) { open((path as NSString).deletingLastPathComponent) }
             if failed { T("✕ Liste Alınamadı", color: Theme.palette.err) }
-            Panel {
-                ForEach(items, id: \.name) { item in
-                    MenuRow(title: item.name + (item.directory ? "/" : "")) {
-                        let target = (path as NSString).appendingPathComponent(item.name)
-                        if item.directory { open(target) } else { model.page = .editor(target) }
+            // No panel for an empty folder: an empty one is a stray line with a doubled gap around it.
+            if !items.isEmpty {
+                Panel {
+                    MenuList {
+                        ForEach(items, id: \.name) { item in
+                            MenuRow(title: item.name + (item.directory ? "/" : "")) {
+                                let target = (path as NSString).appendingPathComponent(item.name)
+                                if item.directory { open(target) } else { model.page = .editor(target) }
+                            }
+                        }
                     }
                 }
             }
@@ -170,9 +181,14 @@ struct EditorPage: View {
             }
             TextEditor(text: $text)
                 .font(Theme.swiftFont())
-                .frame(minHeight: 480)
                 .scrollContentBackground(.hidden)
+                // The text view adds 5 at each side of a line, so 7 here makes 12 on every side.
+                .padding(.vertical, 12)
+                .padding(.horizontal, 7)
+                .frame(minHeight: 480)
                 .background(Color(Theme.palette.panel))
+                .cornerRadius(Theme.cornerCard)
+                .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard).stroke(Color(Theme.palette.hair)))
         }
         .onAppear {
             if let value = model.currentRunner.readText(path) {
@@ -198,9 +214,14 @@ struct NotePage: View {
             Dim("Dosya: \(model.displayPath(file)). Ajana vermek için dosya yolunu yazın.")
             TextEditor(text: $text)
                 .font(Theme.swiftFont())
-                .frame(minHeight: 420)
                 .scrollContentBackground(.hidden)
+                // The text view adds 5 at each side of a line, so 7 here makes 12 on every side.
+                .padding(.vertical, 12)
+                .padding(.horizontal, 7)
+                .frame(minHeight: 420)
                 .background(Color(Theme.palette.panel))
+                .cornerRadius(Theme.cornerCard)
+                .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard).stroke(Color(Theme.palette.hair)))
                 .onChange(of: text) { value in
                     try? FileManager.default.createDirectory(atPath: (file as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
                     try? value.write(toFile: file, atomically: true, encoding: .utf8)
@@ -224,8 +245,10 @@ struct RemotePage: View {
         PageFrame(title: "Uzak Sunucu") {
             if !hosts.isEmpty {
                 Panel {
-                    ForEach(hosts, id: \.self) { item in
-                        MenuRow(title: item, note: "~/.ssh/config", selected: host == item) { host = item }
+                    MenuList {
+                        ForEach(hosts, id: \.self) { item in
+                            MenuRow(title: item, note: "~/.ssh/config", selected: host == item) { host = item }
+                        }
                     }
                 }
             }
@@ -283,7 +306,7 @@ struct ChangesPage: View {
             if let remote = model.focused.flatMap({ model.remotes[$0] }) { Dim("Uzak: \(remote.host):\(remote.folder)") }
             if !isRepository {
                 Panel {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 8) {
                         T("Bu Klasör Bir Git Deposu Değil", bold: true)
                         Dim(model.displayPath(runner.folder)).lineLimit(1).truncationMode(.head)
                         Btn("Burada Git Başlat") {
@@ -291,7 +314,7 @@ struct ChangesPage: View {
                             refresh()
                         }
                     }
-                    .padding(16)
+                    .padding(12)
                 }
             } else {
                 HStack {
@@ -347,13 +370,15 @@ struct ChangesPage: View {
                 refresh()
             }
         }
-        ForEach(list) { file in
-            HStack {
-                Button { show(file) } label: { T(file.path).lineLimit(1) }.buttonStyle(.plain)
-                Spacer()
-                Btn(staged ? "Geri Al" : "Hazırla", kind: .plain) {
-                    Git.run(staged ? ["reset", "-q", "--", file.path] : ["add", "--", file.path], runner: runner)
-                    refresh()
+        if !list.isEmpty {
+            Panel {
+                MenuList {
+                    ForEach(list) { file in
+                        GitFileRow(file: file, selected: selected == file, show: { show(file) }) {
+                            Git.run(staged ? ["reset", "-q", "--", file.path] : ["add", "--", file.path], runner: runner)
+                            refresh()
+                        }
+                    }
                 }
             }
         }
@@ -441,6 +466,33 @@ struct ChangesPage: View {
     }
 }
 
+/// A changed file. It lights up like a menu row, so the file whose diff is shown is clear.
+private struct GitFileRow: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let file: GitFile
+    let selected: Bool
+    let show: () -> Void
+    let toggle: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        HStack(spacing: 16) {
+            Button(action: show) {
+                // As tall as the button beside it, so the whole name side takes the click.
+                T(file.path).lineLimit(1)
+                    .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.press)
+            Btn(file.staged ? "Geri Al" : "Hazırla", kind: .plain, action: toggle)
+        }
+        // The same 10 on every side as a menu row.
+        .padding(10)
+        .background(selected || hovering ? Color(Theme.palette.fillSelected) : .clear)
+        .cornerRadius(Theme.cornerControl)
+        .onHover { hovering = $0 }
+    }
+}
+
 // MARK: Restore after a restart
 
 enum Restore {
@@ -483,14 +535,15 @@ struct RestorePage: View {
     @ObservedObject var model = AppModel.shared
     @State private var pending: [SessionInfo] = []
     var body: some View {
-        PageFrame(title: "Oturumlar Geri Gelsin Mi?") {
+        PageFrame(title: "Oturumlar Geri Gelsin Mi?", centered: true) {
             Dim("Bilgisayar yeniden başladı. Dökümler yerinde. Ajanlar kendiliğinden başlamaz, açtığınızda konuşma kaldığı yerden sürer, ilk mesajda limitten yer.")
             Panel {
                 let names = SessionLabel.names(pending)
                 ForEach(pending) { info in
                     let exists = FileManager.default.fileExists(atPath: info.cwd)
+                    if info.id != pending.first?.id { Line() }
                     Row {
-                        VStack(alignment: .leading) {
+                        VStack(alignment: .leading, spacing: 2) {
                             T(names[info.number] ?? info.tool.title, bold: true)
                             Dim(model.displayPath(info.cwd))
                         }
@@ -505,7 +558,6 @@ struct RestorePage: View {
                             T("✕ Klasör Bulunamadı", color: Theme.palette.err)
                         }
                     }
-                    Line()
                 }
             }
             HStack {

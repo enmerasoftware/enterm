@@ -67,13 +67,18 @@ final class NotchCenter: ObservableObject {
 
     /// The middle of the capsule, where the notch hides it.
     var gap: CGFloat { notchWidth }
+    /// Each side of the capsule beside the notch. The dots keep this place when the list opens.
+    let side: CGFloat = 52
+    static let rowHeight: CGFloat = 40
     var height: CGFloat { barHeight }
 
     private func place() {
         guard let panel, let screen else { return }
         let count = AppModel.shared.sessions.filter { $0.tool != .terminal }.count
-        let width = expanded ? max(360, notchWidth + 80) : notchWidth + 2 * 52
-        let listHeight = CGFloat(min(count, 6)) * 40 + 16
+        let width = expanded ? max(360, notchWidth + 2 * side) : notchWidth + 2 * side
+        // MenuList: rows with its gap between them and 10 on every side.
+        let rows = CGFloat(min(count, 6))
+        let listHeight = rows * Self.rowHeight + max(rows - 1, 0) * MenuList<EmptyView>.gap + 20
         let height = barHeight + (expanded ? listHeight : 0)
         let frame = NSRect(x: screen.frame.midX - width / 2, y: screen.frame.maxY - height, width: width, height: height)
         panel.setFrame(frame, display: true)
@@ -131,43 +136,29 @@ private struct NotchView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 HStack(spacing: 4) {
-                    ForEach(agents.filter { $0.status == .running }.prefix(3)) { _ in dot(palette.g1) }
-                    if agents.allSatisfy({ $0.status != .running }) { dot(NSColor.white.withAlphaComponent(0.3)) }
+                    ForEach(agents.filter { $0.status == .running }.prefix(3)) { _ in Self.dot(palette.g1) }
+                    if agents.allSatisfy({ $0.status != .running }) { Self.dot(NSColor.white.withAlphaComponent(0.3)) }
                 }
-                .frame(width: 44)
+                .frame(width: center.side)
                 Spacer(minLength: center.gap)
                 HStack(spacing: 4) {
                     let waiting = agents.filter { Neon.color($0.status) != nil && $0.status != .running }
                     if waiting.isEmpty {
                         Text("\(agents.count)").font(.system(size: 11, weight: .medium)).foregroundColor(.white.opacity(0.6))
                     } else {
-                        ForEach(waiting.prefix(3)) { info in dot(Neon.color(info.status) ?? palette.need) }
+                        ForEach(waiting.prefix(3)) { info in Self.dot(Neon.color(info.status) ?? palette.need) }
                     }
                 }
-                .frame(width: 44)
+                .frame(width: center.side)
             }
-            .frame(height: center.height)
+            // As wide as the closed capsule, so the dots do not move when the list opens.
+            .frame(width: center.gap + 2 * center.side, height: center.height)
             if center.expanded {
-                VStack(spacing: 0) {
+                MenuList {
                     ForEach(agents.prefix(6)) { info in
-                        Button { center.open(info.number) } label: {
-                            HStack(spacing: 10) {
-                                dot(Neon.color(info.status) ?? NSColor.white.withAlphaComponent(0.3))
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(model.name(for: info)).font(.system(size: 12, weight: .semibold)).foregroundColor(.white).lineLimit(1)
-                                    Text(info.status.title).font(.system(size: 11)).foregroundColor(.white.opacity(0.6)).lineLimit(1)
-                                }
-                                Spacer(minLength: 0)
-                                Text("Git ⏎").font(.system(size: 11)).foregroundColor(.white.opacity(0.5))
-                            }
-                            .padding(.horizontal, 12)
-                            .frame(height: 40)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
+                        NotchRow(info: info)
                     }
                 }
-                .padding(.bottom, 16)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -176,8 +167,36 @@ private struct NotchView: View {
         .onHover { center.hover($0) }
     }
 
-    private func dot(_ color: NSColor) -> some View {
+    static func dot(_ color: NSColor) -> some View {
         Circle().fill(Color(color)).frame(width: 8, height: 8).shadow(color: Color(color).opacity(0.8), radius: 3)
+    }
+}
+
+/// One session in the open notch. White on black, so the hover fill is white too.
+private struct NotchRow: View {
+    let info: SessionInfo
+    @ObservedObject var center = NotchCenter.shared
+    @ObservedObject var model = AppModel.shared
+    @State private var hovering = false
+    var body: some View {
+        Button { center.open(info.number) } label: {
+            HStack(spacing: 10) {
+                NotchView.dot(Neon.color(info.status) ?? NSColor.white.withAlphaComponent(0.3))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(model.name(for: info)).font(.system(size: 12, weight: .semibold)).foregroundColor(.white).lineLimit(1)
+                    Text(info.status.title).font(.system(size: 11)).foregroundColor(.white.opacity(0.6)).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Text("Git ⏎").font(.system(size: 11)).foregroundColor(.white.opacity(0.5))
+            }
+            .padding(.horizontal, 10)
+            .frame(height: NotchCenter.rowHeight)
+            .background(hovering ? Color.white.opacity(0.1) : .clear)
+            .cornerRadius(Theme.cornerControl)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
     }
 }
 

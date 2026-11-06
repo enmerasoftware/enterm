@@ -25,10 +25,12 @@ struct TeamSetupPage: View {
             EntermField(placeholder: "> Kupon ve iade akışını düzeltip test edelim", text: $brief)
             T("Ya Da Şablon Seçin", bold: true)
             Panel {
-                templateRow("software", "Yazılım", "Yönetici, Geliştirici, Test, İnceleme")
-                templateRow("marketing", "Pazarlama", "Yönetici, Strateji, Metin, Sosyal Medya")
-                templateRow("company", "Tam Şirket", "Yazılım, Tasarım, İçerik, Pazarlama, Çeviri")
-                templateRow("empty", "Boş", "Yalnız Yönetici, Kalanını Siz Eklersiniz")
+                MenuList {
+                    templateRow("software", "Yazılım", "Yönetici, Geliştirici, Test, İnceleme")
+                    templateRow("marketing", "Pazarlama", "Yönetici, Strateji, Metin, Sosyal Medya")
+                    templateRow("company", "Tam Şirket", "Yazılım, Tasarım, İçerik, Pazarlama, Çeviri")
+                    templateRow("empty", "Boş", "Yalnız Yönetici, Kalanını Siz Eklersiniz")
+                }
             }
             Dim("Klasör: \(model.displayPath(folder))")
             HStack {
@@ -53,23 +55,22 @@ struct TeamSetupPage: View {
             T("Kadro Önerisi", bold: true)
             Panel {
                 ForEach($members) { $member in
+                    if member.id != members.first?.id { Line() }
                     HStack(spacing: 8) {
                         EntermField(placeholder: "Ad", text: $member.name).frame(width: 110)
                         EntermField(placeholder: "Rol", text: $member.role).frame(width: 130)
-                        Picker("", selection: $member.tool) {
-                            ForEach([ToolKind.claude, .codex, .antigravity], id: \.self) { Text(ToolCatalog.shared.pickerTitle($0)).font(Theme.swiftFont()).tag($0) }
-                        }
-                        .frame(width: 140)
-                        EntermField(placeholder: "Model", text: $member.model).frame(width: 100)
-                        Picker("", selection: $member.template) {
-                            ForEach(PermissionTemplate.allCases) { Text($0.title).font(Theme.swiftFont()).tag($0) }
-                        }
-                        .frame(width: 140)
+                        // The app's own pop-up, 30 tall like the fields and the button beside it.
+                        ChoiceMenu(options: [ToolKind.claude, .codex, .antigravity].map { ($0, ToolCatalog.shared.pickerTitle($0)) }, value: $member.tool)
+                            .frame(width: 140, alignment: .leading)
+                        // Empty starts the member with the program's own setting.
+                        EntermField(placeholder: "Kendi Ayarı", text: $member.model).frame(width: 100)
+                        ChoiceMenu(options: PermissionTemplate.allCases.map { ($0, $0.title) }, value: $member.template)
+                            .frame(width: 140, alignment: .leading)
                         EntermField(placeholder: "Kaynaklar", text: $member.sources)
                         Btn("−", kind: .plain) { members.removeAll { $0.id == member.id } }
                     }
-                    .padding(8)
-                    Line()
+                    // 12 like the other rows of controls in a panel, such as the phone's device rows.
+                    .padding(12)
                 }
             }
             HStack {
@@ -119,8 +120,8 @@ enum TeamBuilder {
             ? "Sen \(member.name), \(member.role). ekip/EL-KITABI.md dosyasını oku. Kullanıcı iş verene kadar bekle, işi ekibe is_ver aracıyla dağıt, gelen raporları kontrol et, neyi kontrol edemediğini söyle."
             : "Sen \(member.name), \(member.role). ekip/EL-KITABI.md dosyasını oku. \(manager) iş verene kadar bekle. Bitince rapor_yaz aracıyla raporla."
         var plan = SettingsStore.shared.settings.defaultPlan
+        // The model shows in the member's row and goes along. The effort has no field anywhere, so it never does.
         plan.main = member.model
-        plan.mainEffort = member.effort
         let arguments = member.tool == .antigravity ? "" : NotFoundActions.shellQuote(intro)
         ToolLauncher.start(member.tool, cwd: team.folder, name: member.name, extraArguments: arguments, group: team.name, plan: plan) { info in
             var updated = team
@@ -164,6 +165,7 @@ struct ManagerPage: View {
                 Panel {
                     ForEach(team.members) { member in
                         let info = model.sessions.first { $0.id == member.sessionID }
+                        if member.id != team.members.first?.id { Line() }
                         Row {
                             T(member.name, bold: true).frame(width: 120, alignment: .leading)
                             Dim("\(member.role) · \(member.tool.title)").frame(width: 240, alignment: .leading)
@@ -171,7 +173,6 @@ struct ManagerPage: View {
                             Spacer()
                             if let info { StatusBadge(status: info.status) } else { Dim("Çalışmıyor") }
                         }
-                        Line()
                     }
                 }
                 T("Bekleyen Kararlar", bold: true)
@@ -188,7 +189,6 @@ struct ManagerPage: View {
                 T("Raporlar", bold: true)
                 if team.reports.isEmpty { Dim("Henüz rapor gelmedi.") }
                 ForEach(team.reports) { report in ReportCard(report: report) }
-                Line()
                 T("Kurallar", bold: true)
                 VStack(alignment: .leading, spacing: 4) {
                     Dim("✓ Aynı dosyaya iki ajan aynı anda dokunmaz (Claude Code).")
@@ -273,10 +273,11 @@ struct BoardPage: View {
                                 T("\(cards.count)", color: Theme.palette.text3, style: .secondary)
                             }
                             .frame(height: 24)
-                            .padding(.horizontal, 4)
+                            // 8 + 12 = 20, the same x as the text inside the cards.
+                            .padding(.horizontal, 12)
                             ForEach(cards) { card in
-                                Button { selected = card.id } label: { BoardCardView(card: card) }
-                                    .buttonStyle(.plain)
+                                Button { selected = card.id } label: { BoardCardView(card: card, lit: selected == card.id) }
+                                    .buttonStyle(.press)
                                     .onDrag { NSItemProvider(object: card.id as NSString) }
                             }
                             Spacer(minLength: 40)
@@ -284,7 +285,8 @@ struct BoardPage: View {
                         .padding(8)
                         .frame(maxWidth: .infinity, minHeight: 420, alignment: .topLeading)
                         .background(Color(Theme.palette.fill))
-                        .cornerRadius(Theme.cornerControl)
+                        // Never rounder inside than outside: the cards in it are cornerCard.
+                        .cornerRadius(Theme.cornerFloat)
                         .onDrop(of: [.text], isTargeted: nil) { providers in
                             providers.first?.loadObject(ofClass: NSString.self) { item, _ in
                                 guard let id = item as? String else { return }
@@ -394,25 +396,33 @@ extension BoardColumn {
 struct BoardCardView: View {
     @ObservedObject private var appearance = AppearanceTick.shared
     let card: BoardCard
+    /// Its drawer is open.
+    var lit = false
     @ObservedObject var model = AppModel.shared
+    @State private var hovering = false
     var body: some View {
-        Panel(border: card.column == .decision ? Theme.palette.need : Theme.palette.hair) {
+        // Under the pointer or open, the edge lights like a plain button's does on hover.
+        let edge = card.column == .decision ? Theme.palette.need : (lit || hovering ? Theme.palette.focus.withAlphaComponent(0.35) : Theme.palette.hair)
+        Panel(border: edge) {
             VStack(alignment: .leading, spacing: 4) {
                 T(card.title, bold: true).lineLimit(2)
                 Dim(card.members.isEmpty ? "Üye Yok" : card.members.joined(separator: ", ")).lineLimit(1)
                 if let info = model.sessions.first(where: { $0.id == card.sessionID }) {
                     T("\(info.status.symbol) \(info.status.title)", color: Theme.palette.dim)
                 }
-                HStack {
-                    if let due = card.due { Dim(due.formatted(date: .abbreviated, time: .omitted)) }
-                    if card.priority > 0 { Dim("Öncelikli") }
-                    if !card.comments.isEmpty { Dim("Yorum \(card.comments.count)") }
+                // Only when there is something to show: an empty row would still take the spacing and pad the bottom.
+                if card.due != nil || card.priority > 0 || !card.comments.isEmpty {
+                    HStack {
+                        if let due = card.due { Dim(due.formatted(date: .abbreviated, time: .omitted)) }
+                        if card.priority > 0 { Dim("Öncelikli") }
+                        if !card.comments.isEmpty { Dim("Yorum \(card.comments.count)") }
+                    }
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .onHover { hovering = $0 }
     }
 }
 
@@ -438,20 +448,19 @@ struct CardDrawer: View {
                         Spacer()
                         Btn("Kapat", kind: .plain) { close() }
                     }
+                    // One label width, so the three controls start on one line.
                     HStack {
-                        T("Durum")
-                        Picker("", selection: Binding(get: { card.column }, set: { value in edit { $0.column = value } })) {
-                            ForEach(BoardColumn.allCases) { Text($0.title).font(Theme.swiftFont()).tag($0) }
-                        }
+                        T("Durum").frame(width: 80, alignment: .leading)
+                        ChoiceMenu(options: BoardColumn.allCases.map { ($0, $0.title) }, value: Binding(get: { card.column }, set: { value in edit { $0.column = value } }))
                     }
                     HStack {
-                        T("Son Tarih")
+                        T("Son Tarih").frame(width: 80, alignment: .leading)
                         DatePicker("", selection: Binding(get: { card.due ?? Date() }, set: { value in edit { $0.due = value } }), displayedComponents: .date)
                             .labelsHidden()
                         if card.due != nil { Btn("Kaldır", kind: .plain) { edit { $0.due = nil } } }
                     }
                     HStack {
-                        T("Öncelik")
+                        T("Öncelik").frame(width: 80, alignment: .leading)
                         Seg(options: [(0, "Normal"), (1, "Öncelikli")], value: Binding(get: { card.priority }, set: { value in edit { $0.priority = value } }))
                     }
                     T("Üyeler", bold: true)
@@ -462,8 +471,15 @@ struct CardDrawer: View {
                         if !card.members.contains("Siz") { Btn("+ Siz · Kişi", kind: .plain) { edit { $0.members.append("Siz") } } }
                     }
                     T("Ajana Ata", bold: true)
-                    ForEach(model.sessions.filter { $0.tool != .terminal }) { info in
-                        Btn("\(model.title(for: info)) · \(info.status.title)", kind: .plain) { assign(info) }
+                    let agents = model.sessions.filter { $0.tool != .terminal }
+                    if !agents.isEmpty {
+                        Panel {
+                            MenuList {
+                                ForEach(agents) { info in
+                                    MenuRow(title: model.title(for: info), note: info.status.title, selected: card.sessionID == info.id) { assign(info) }
+                                }
+                            }
+                        }
                     }
                     HStack {
                         Btn("Yeni Claude Code Aç Ve Ata", kind: .primary) { startNew() }
@@ -472,7 +488,7 @@ struct CardDrawer: View {
                     if let report = card.report { ReportCard(report: report) }
                     T("Yorumlar \(card.comments.count)", bold: true)
                     ForEach(card.comments.reversed()) { item in
-                        VStack(alignment: .leading) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Dim("\(item.author) · \(item.isAgent ? "Ajan" : "Kişi") · \(item.at.formatted(date: .omitted, time: .shortened))")
                             T(item.text)
                         }

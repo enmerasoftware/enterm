@@ -47,14 +47,15 @@ struct ProgramsSettings: View {
                 ForEach(ToolKind.programs, id: \.self) { tool in
                     let hidden = store.settings.hiddenTools.contains(tool.rawValue)
                     SettingsLine(title: tool.title, note: presence(tool)) {
+                        // The default control comes last, so it stands in one column in every row, Terminal's included.
                         HStack(spacing: 8) {
-                            defaultButton(programID(tool))
                             Seg(options: [(false, "Göster"), (true, "Gizle")], value: Binding(
                                 get: { hidden },
                                 set: { hide in
                                     store.settings.hiddenTools.removeAll { $0 == tool.rawValue }
                                     if hide { store.settings.hiddenTools.append(tool.rawValue) }
                                 }))
+                            defaultButton(programID(tool))
                         }
                     }
                 }
@@ -82,7 +83,10 @@ struct ProgramsSettings: View {
     @ViewBuilder
     private func defaultButton(_ id: String) -> some View {
         if store.settings.defaultProgram == id {
-            T("Varsayılan", color: Theme.palette.need, style: .secondary, weight: .semibold).frame(width: 80)
+            // Takes the button's width, so nothing beside it moves when the default changes.
+            Btn("Varsayılan Yap", kind: .plain) {}
+                .hidden()
+                .overlay { T("Varsayılan", color: Theme.palette.need, style: .secondary, weight: .semibold) }
         } else {
             Btn("Varsayılan Yap", kind: .plain) { store.settings.defaultProgram = id }
         }
@@ -96,11 +100,11 @@ struct CustomProgramsSettings: View {
             Dim("Listede olmayan bir programı ya da kendi betiğinizi ekleyin. Yeni Oturum menüsünde görünür.")
             ForEach($store.settings.customPrograms) { $program in
                 Panel {
-                    SettingsLine(title: "Ad") { EntermField(placeholder: "Benim Aracım", text: $program.name).frame(width: 300) }
-                    SettingsLine(title: "Komut", note: "Terminale yazar gibi") { EntermField(placeholder: "aracim", text: $program.command).frame(width: 300) }
-                    SettingsLine(title: "Argümanlar") { EntermField(placeholder: "--model hizli", text: $program.arguments).frame(width: 300) }
+                    SettingsLine(title: "Ad") { EntermField(placeholder: "Benim Aracım", text: $program.name).frame(width: 320) }
+                    SettingsLine(title: "Komut", note: "Terminale yazar gibi") { EntermField(placeholder: "aracim", text: $program.command).frame(width: 320) }
+                    SettingsLine(title: "Argümanlar") { EntermField(placeholder: "--model hizli", text: $program.arguments).frame(width: 320) }
                     SettingsLine(title: "Ortam Değişkenleri", note: "Satır başına ANAHTAR=değer") {
-                        EnvironmentEditor(environment: $program.environment).frame(width: 300)
+                        EnvironmentEditor(environment: $program.environment).frame(width: 320)
                     }
                     HStack {
                         Spacer()
@@ -122,7 +126,9 @@ private struct EnvironmentEditor: View {
         TextEditor(text: $text)
             .font(Theme.swiftFont(size: 12))
             .scrollContentBackground(.hidden)
-            .padding(6)
+            // The text view adds 5 on each side, so the text sits 12 in, like the text of an EntermField.
+            .padding(.horizontal, 7)
+            .padding(.vertical, 12)
             .frame(height: 64)
             .background(Color(Theme.palette.terminal))
             .cornerRadius(Theme.cornerControl)
@@ -295,11 +301,7 @@ struct TerminalSettings: View {
                     ChoiceMenu(options: [("", "JetBrains Mono")] + Self.fonts.filter { $0 != "JetBrains Mono" }.map { ($0, $0) }, value: bound(\.fontName))
                 }
                 SettingsLine(title: "Yazı Boyutu") {
-                    HStack(spacing: 4) {
-                        Btn("−", kind: .plain) { changeFont(-1) }
-                        T("\(Int(store.settings.fontSize))").frame(width: 28)
-                        Btn("+", kind: .plain) { changeFont(1) }
-                    }
+                    NumberStepper(value: Int(store.settings.fontSize), minimum: 9, maximum: 28) { changeFont(Double($0) - store.settings.fontSize) }
                 }
                 SettingsLine(title: "İmleç") {
                     HStack(spacing: 8) {
@@ -377,7 +379,7 @@ struct ShellSettings: View {
         VStack(alignment: .leading, spacing: 16) {
             Panel {
                 SettingsLine(title: "Varsayılan Kabuk", note: "Boş bırakılırsa sistemin kabuğu açılır") {
-                    EntermField(placeholder: "/bin/zsh", text: $store.settings.defaultShell).frame(width: 300)
+                    EntermField(placeholder: "/bin/zsh", text: $store.settings.defaultShell).frame(width: 320)
                 }
             }
             if !store.settings.defaultShell.isEmpty, !FileManager.default.isExecutableFile(atPath: store.settings.defaultShell) {
@@ -494,7 +496,7 @@ struct BehaviorSettings: View {
                     Seg(options: [(true, "Açık"), (false, "Kapalı")], value: layout(\.showRail))
                 }
                 SettingsLine(title: "Küçük Harita", note: "Kutular elle dizildiğinde sağ altta") {
-                    Seg(options: [(true, "Açık"), (false, "Kapalı")], value: layout(\.showMiniMap))
+                    Seg(options: [(false, "Kapalı"), (true, "Açık")], value: layout(\.miniMap))
                 }
                 SettingsLine(title: "Çıkarken Sor", note: "Oturumlar arkada sürer, yine de bir kez sorulur") {
                     Seg(options: [(true, "Açık"), (false, "Kapalı")], value: $store.settings.confirmQuit)
@@ -533,17 +535,7 @@ struct AppearanceSettings: View {
                 SettingsLine(title: "Vurgu Rengi", note: "Ana düğme, komut satırı ve sizi bekleyen her şey") {
                     HStack(spacing: 8) {
                         ForEach(AccentChoice.all) { choice in
-                            let on = store.settings.accent == choice.id
-                            Button { apply(\.accent, choice.id) } label: {
-                                Circle()
-                                    .fill(Color(NSColor.hex(Theme.isLight ? choice.light : choice.dark)))
-                                    .frame(width: 20, height: 20)
-                                    .overlay(Circle().stroke(Color(Theme.palette.text1), lineWidth: on ? 2 : 0).padding(-3))
-                                    .frame(width: 28, height: 28)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .help(choice.title)
+                            AccentDot(choice: choice, on: store.settings.accent == choice.id) { apply(\.accent, choice.id) }
                         }
                     }
                 }
@@ -562,25 +554,21 @@ struct AppearanceSettings: View {
                 ForEach(Wallpaper.all) { wallpaper in
                     wallpaperButton(wallpaper)
                 }
-                Button(action: choosePicture) {
-                    VStack(spacing: 4) {
-                        Symbol("photo", color: Theme.palette.text2)
-                        Dim("Görsel Seç")
+                WallpaperTile(on: store.settings.wallpaper.hasPrefix("file:"), action: choosePicture) {
+                    ZStack {
+                        Color(Theme.palette.fill)
+                        VStack(spacing: 4) {
+                            Symbol("photo", color: Theme.palette.text2)
+                            Dim("Görsel Seç")
+                        }
                     }
-                    .frame(maxWidth: .infinity, minHeight: 64)
-                    .background(Color(Theme.palette.fill))
-                    .cornerRadius(Theme.cornerCard)
-                    .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard).stroke(Color(store.settings.wallpaper.hasPrefix("file:") ? Theme.palette.need : Theme.palette.hair2), lineWidth: store.settings.wallpaper.hasPrefix("file:") ? 2 : 1))
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
             }
         }
     }
 
     private func wallpaperButton(_ wallpaper: Wallpaper) -> some View {
-        let on = store.settings.wallpaper == wallpaper.id
-        return Button { apply(\.wallpaper, wallpaper.id) } label: {
+        WallpaperTile(on: store.settings.wallpaper == wallpaper.id, action: { apply(\.wallpaper, wallpaper.id) }) {
             ZStack(alignment: .bottomLeading) {
                 if wallpaper.colors.isEmpty {
                     Color(Theme.palette.surface0)
@@ -589,12 +577,7 @@ struct AppearanceSettings: View {
                 }
                 T(wallpaper.title, color: wallpaper.colors.isEmpty ? Theme.palette.text1 : .white, style: .secondary, weight: .medium).padding(8)
             }
-            .frame(maxWidth: .infinity, minHeight: 64)
-            .cornerRadius(Theme.cornerCard)
-            .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard).stroke(Color(on ? Theme.palette.need : Theme.palette.hair2), lineWidth: on ? 2 : 1))
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
     }
 
     private func choosePicture() {
@@ -613,6 +596,50 @@ struct AppearanceSettings: View {
     private func apply<Value>(_ path: WritableKeyPath<AppSettings, Value>, _ value: Value) {
         store.settings[keyPath: path] = value
         (NSApp.delegate as? AppDelegate)?.applyAppearance()
+    }
+}
+
+/// A wallpaper choice: lit edge when chosen, the plain button's hover edge under the pointer.
+private struct WallpaperTile<Content: View>: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let on: Bool
+    let action: () -> Void
+    @ViewBuilder var content: () -> Content
+    @State private var hovering = false
+    var body: some View {
+        let palette = Theme.palette
+        Button(action: action) {
+            content()
+                .frame(maxWidth: .infinity, minHeight: 64)
+                .cornerRadius(Theme.cornerCard)
+                .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard).stroke(Color(on ? palette.need : (hovering ? palette.focus.withAlphaComponent(0.35) : palette.hair2)), lineWidth: on ? 2 : 1))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
+    }
+}
+
+/// An accent color: a full ring when chosen, a faint one under the pointer.
+private struct AccentDot: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let choice: AccentChoice
+    let on: Bool
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        let palette = Theme.palette
+        Button(action: action) {
+            Circle()
+                .fill(Color(NSColor.hex(Theme.isLight ? choice.light : choice.dark)))
+                .frame(width: 20, height: 20)
+                .overlay(Circle().stroke(Color(on ? palette.text1 : palette.text3), lineWidth: on ? 2 : (hovering ? 1 : 0)).padding(-3))
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
+        .help(choice.title)
     }
 }
 
@@ -653,7 +680,7 @@ struct NotificationSettings: View {
                 }
                 if store.settings.notifySound {
                     SettingsLine(title: "Ses Düzeyi") {
-                        HStack(spacing: 12) {
+                        HStack(spacing: 8) {
                             Slider(value: $store.settings.notifyVolume, in: 0.1...1).frame(width: 160)
                             Btn("Dene", kind: .plain) { NotifySound.play(.needsYou) }
                         }

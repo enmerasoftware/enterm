@@ -11,8 +11,9 @@ struct WebBox: View {
     @State private var address = ""
     @State private var loaded = ""
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 6) {
+        // 12 from the box edges, like every other page in a box.
+        VStack(spacing: 12) {
+            HStack(spacing: 8) {
                 EntermField(placeholder: "Adres ya da dosya yolu", text: $address)
                     .onSubmit(go)
                 Btn("Git", kind: .plain) { go() }
@@ -20,7 +21,7 @@ struct WebBox: View {
                     IconBtn("safari", label: "Safari'de Aç") { BrowserCenter.openInSafari(loaded) }.help("Safari'de Aç")
                 }
             }
-            .padding(EdgeInsets(top: 8, leading: 8, bottom: 0, trailing: 8))
+            .padding(EdgeInsets(top: 12, leading: 12, bottom: 0, trailing: 12))
             if loaded.isEmpty {
                 Spacer()
                 Dim("Bir adres yazın, Enter'a basın")

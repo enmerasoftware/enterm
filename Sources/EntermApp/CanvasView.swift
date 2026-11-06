@@ -2,6 +2,16 @@ import AppKit
 import EntermCore
 import SwiftUI
 
+extension NSCursor {
+    /// The diagonal arrow for a bottom-right corner that grows both ways.
+    static let resizeCorner: NSCursor = {
+        if #available(macOS 15, *) { return .frameResize(position: .bottomRight, directions: .all) }
+        let selector = NSSelectorFromString("_windowResizeNorthWestSouthEastCursor")
+        if NSCursor.responds(to: selector), let cursor = NSCursor.perform(selector)?.takeUnretainedValue() as? NSCursor { return cursor }
+        return .crosshair
+    }()
+}
+
 /// Drawn only: the box under it handles the mouse.
 class PassThroughView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
@@ -40,15 +50,16 @@ final class BadgeView: PassThroughView {
         label.textColor = look.textColor
         layer?.backgroundColor = look.strong ? look.background.cgColor : nil
         label.sizeToFit()
-        let width = 6 + 8 + 6 + label.frame.width + 8
+        // 8 on both ends of the chip.
+        let width = 8 + 8 + 6 + label.frame.width + 8
         frame.size = NSSize(width: ceil(width), height: 20)
-        icon.frame = NSRect(x: 6, y: 6, width: 8, height: 8)
-        label.frame.origin = NSPoint(x: 20, y: (20 - label.frame.height) / 2)
+        icon.frame = NSRect(x: 8, y: 6, width: 8, height: 8)
+        label.frame.origin = NSPoint(x: 22, y: (20 - label.frame.height) / 2)
     }
 }
 
 /// One session on the canvas: a name tab, the live terminal, and the state on the line beside the tab.
-/// Two opposite corners carry a light in the colour of the state.
+/// While its program works, a soft light runs round its outline. Otherwise it stays still and unlit.
 final class SessionBox: NSView {
     let number: UInt32
     let panel = PassThroughView()
@@ -74,10 +85,11 @@ final class SessionBox: NSView {
     private var linking = false
     private var isAgent = false
     private var shadowSize = NSSize.zero
-    private let tickStart = CAShapeLayer()
-    private let tickEnd = CAShapeLayer()
-    private let sweep = CAGradientLayer()
-    private var tickSize = NSSize.zero
+    private let tabLine = CAShapeLayer()
+    private let scanView = PassThroughView()
+    private let scanMask = CAShapeLayer()
+    private let scanLight = CAGradientLayer()
+    private var scanShape: [CGFloat] = []
     private var lastStatus: SessionStatus?
     private(set) var isRunning = false
     private let closeButton = NSButton()
@@ -100,6 +112,10 @@ final class SessionBox: NSView {
         header.wantsLayer = true
         header.layer?.cornerRadius = Theme.cornerCard
         header.layer?.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        // The tab has the same line as the box it belongs to, open at the bottom where the two meet.
+        tabLine.fillColor = nil
+        tabLine.lineWidth = 1
+        header.layer?.addSublayer(tabLine)
         addSubview(header)
         footerBar.wantsLayer = true
         footerBar.layer?.cornerRadius = Theme.cornerCard
@@ -134,8 +150,11 @@ final class SessionBox: NSView {
         addSubview(grip)
         grip.toolTip = "Sürükleyerek Bağla"
         for (button, symbol, tip) in [(closeButton, "xmark", "Kapat (⌘W)"), (maximizeButton, "arrow.up.left.and.arrow.down.right", "Tam Ekran (⌘⏎)")] {
-            button.image = symbolImage(symbol, size: 12)
+            // Same 24 square, 14 symbol and hover fill as the grip beside it.
+            button.image = symbolImage(symbol, size: 14)
             button.isBordered = false
+            button.wantsLayer = true
+            button.layer?.cornerRadius = Theme.cornerControl
             button.imagePosition = .imageOnly
             button.toolTip = tip
             button.target = self
@@ -144,19 +163,22 @@ final class SessionBox: NSView {
         }
         closeButton.action = #selector(closeTapped)
         maximizeButton.action = #selector(maximizeTapped)
-        for tick in [tickStart, tickEnd] {
-            tick.fillColor = nil
-            tick.lineWidth = 2
-            tick.lineCap = .round
-            tick.shadowOffset = .zero
-            tick.isHidden = true
-            panel.layer?.addSublayer(tick)
-        }
-        sweep.startPoint = CGPoint(x: 0, y: 0.5)
-        sweep.endPoint = CGPoint(x: 1, y: 0.5)
-        sweep.anchorPoint = CGPoint(x: 0, y: 0.5)
-        sweep.isHidden = true
-        panel.layer?.addSublayer(sweep)
+        // A turning cone of light seen only through the outline: two long, soft lights go round the box.
+        scanView.wantsLayer = true
+        scanView.isHidden = true
+        scanLight.type = .conic
+        scanLight.startPoint = CGPoint(x: 0.5, y: 0.5)
+        scanLight.endPoint = CGPoint(x: 0.5, y: 0)
+        scanLight.locations = [0, 0.13, 0.26, 0.5, 0.63, 0.76, 1]
+        scanMask.fillColor = nil
+        scanMask.strokeColor = NSColor.black.cgColor
+        scanMask.lineWidth = 1.5
+        scanMask.shadowColor = NSColor.black.cgColor
+        scanMask.shadowOffset = .zero
+        scanMask.shadowOpacity = 1
+        scanView.layer?.addSublayer(scanLight)
+        scanView.layer?.mask = scanMask
+        addSubview(scanView)
     }
 
     @available(*, unavailable)
@@ -185,9 +207,9 @@ final class SessionBox: NSView {
         if attention, let light { border = light.withAlphaComponent(0.55) }
         panel.layer?.borderColor = border.cgColor
         panel.layer?.borderWidth = 1
+        tabLine.strokeColor = border.cgColor
         applyShadow(focused || info.status == .needsApproval)
-        applyLight(light, attention: attention)
-        if MotionPolicy.sweeps(from: lastStatus, to: info.status), Motion.allowed, Neon.on { runSweep() }
+        applyScan(light, working: isAgent && MotionPolicy.scans(info.status))
         if info.status == .running, lastStatus != .running { canvas?.flowLinks(of: info.id) }
         lastStatus = info.status
         pendingApproval = info.pendingApproval
@@ -210,63 +232,80 @@ final class SessionBox: NSView {
         summaryLabel.isHidden = !summaryOnly
     }
 
-    /// Drawn once and left alone: a light that does not move costs nothing to keep.
-    private func applyLight(_ color: NSColor?, attention: Bool) {
-        let visible = color != nil && Neon.on && showsHeader && !summaryOnly
-        for tick in [tickStart, tickEnd] {
-            tick.isHidden = !visible
-            guard visible, let color else { continue }
-            tick.strokeColor = color.cgColor
-            tick.opacity = Neon.opacity
-            tick.shadowColor = color.cgColor
-            tick.shadowOpacity = 0.9
-            tick.shadowRadius = Neon.radius
+    /// Runs only while the program works. The turn is Core Animation's: no timer, nothing drawn per frame.
+    private func applyScan(_ color: NSColor?, working: Bool) {
+        let visible = working && color != nil && Neon.on && Motion.allowed && showsHeader && !summaryOnly
+        scanView.isHidden = !visible
+        guard visible, let color else {
+            scanLight.removeAnimation(forKey: "scan")
+            return
         }
-        sweep.isHidden = !(visible && attention)
-        if visible, let color {
-            sweep.colors = [color.cgColor, color.withAlphaComponent(0).cgColor]
-            sweep.opacity = 0.35 * Neon.opacity
-        }
+        let clear = color.withAlphaComponent(0).cgColor, lit = color.cgColor
+        scanLight.colors = [clear, lit, clear, clear, lit, clear, clear]
+        scanLight.opacity = Neon.opacity
+        scanMask.shadowRadius = Neon.radius
+        guard scanLight.animation(forKey: "scan") == nil else { return }
+        let turn = CABasicAnimation(keyPath: "transform.rotation.z")
+        turn.fromValue = 0
+        turn.toValue = -2 * CGFloat.pi
+        turn.duration = 3.2
+        turn.repeatCount = .infinity
+        turn.isRemovedOnCompletion = false
+        scanLight.add(turn, forKey: "scan")
     }
 
-    private func runSweep() {
-        let grow = CABasicAnimation(keyPath: "transform.scale.x")
-        grow.fromValue = 0
-        grow.toValue = 1
-        grow.duration = 0.7
-        grow.timingFunction = CAMediaTimingFunction(controlPoints: 0.6, 0, 0.2, 1)
-        let fade = CABasicAnimation(keyPath: "opacity")
-        fade.fromValue = Neon.opacity
-        fade.toValue = 0.35 * Neon.opacity
-        fade.beginTime = 0.5
-        fade.duration = 0.5
-        fade.fillMode = .backwards
-        let group = CAAnimationGroup()
-        group.animations = [grow, fade]
-        group.duration = 1
-        sweep.add(group, forKey: "sweep")
+    /// The outline of tab and box together, in the box's own top-down measures.
+    private func placeScan(tabWidth: CGFloat, tabHeight: CGFloat) {
+        let width = bounds.width, height = bounds.height
+        let shape = [width, height, tabWidth, tabHeight]
+        guard shape != scanShape, width > 0, height > 0 else { return }
+        scanShape = shape
+        scanView.frame = bounds
+        let radius = tabHeight > 0 ? Theme.cornerCard : 0
+        let left: CGFloat = 0.5, right = width - 0.5, top: CGFloat = 0.5, bottom = height - 0.5
+        let boxTop = max(top, tabHeight - 0.5)
+        let tabRight = min(tabWidth - 0.5, right - radius - 1)
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: left, y: bottom - radius))
+        if tabHeight > 0 {
+            path.addArc(tangent1End: CGPoint(x: left, y: top), tangent2End: CGPoint(x: tabRight, y: top), radius: radius)
+            path.addArc(tangent1End: CGPoint(x: tabRight, y: top), tangent2End: CGPoint(x: tabRight, y: boxTop), radius: radius)
+            path.addLine(to: CGPoint(x: tabRight, y: boxTop))
+        } else {
+            path.addLine(to: CGPoint(x: left, y: top))
+        }
+        path.addArc(tangent1End: CGPoint(x: right, y: boxTop), tangent2End: CGPoint(x: right, y: bottom), radius: radius)
+        path.addArc(tangent1End: CGPoint(x: right, y: bottom), tangent2End: CGPoint(x: left, y: bottom), radius: radius)
+        path.addArc(tangent1End: CGPoint(x: left, y: bottom), tangent2End: CGPoint(x: left, y: top), radius: radius)
+        path.closeSubpath()
+        // The layer counts upwards, the box downwards.
+        var flip = CGAffineTransform(translationX: 0, y: height).scaledBy(x: 1, y: -1)
+        let outline = path.copy(using: &flip) ?? path
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        scanMask.frame = scanView.bounds
+        scanMask.path = outline
+        scanMask.shadowPath = outline.copy(strokingWithWidth: 1.5, lineCap: .round, lineJoin: .round, miterLimit: 4)
+        let side = ceil(hypot(width, height))
+        scanLight.bounds = CGRect(x: 0, y: 0, width: side, height: side)
+        scanLight.position = CGPoint(x: width / 2, y: height / 2)
+        CATransaction.commit()
     }
 
-    private func placeLight() {
-        let size = panel.bounds.size
-        guard size != tickSize, size.width > 0 else { return }
-        tickSize = size
-        let length: CGFloat = 20, radius = Theme.cornerCard
-        let start = CGMutablePath()
-        start.move(to: CGPoint(x: 0, y: size.height - length))
-        start.addLine(to: CGPoint(x: 0, y: size.height))
-        start.addLine(to: CGPoint(x: length, y: size.height))
-        let end = CGMutablePath()
-        end.move(to: CGPoint(x: size.width - length, y: 0))
-        end.addLine(to: CGPoint(x: size.width - radius, y: 0))
-        end.addQuadCurve(to: CGPoint(x: size.width, y: radius), control: CGPoint(x: size.width, y: 0))
-        end.addLine(to: CGPoint(x: size.width, y: length))
-        tickStart.path = start
-        tickEnd.path = end
-        // A given outline: the shadow is computed once per size, never per frame.
-        tickStart.shadowPath = start.copy(strokingWithWidth: 2, lineCap: .round, lineJoin: .miter, miterLimit: 4)
-        tickEnd.shadowPath = end.copy(strokingWithWidth: 2, lineCap: .round, lineJoin: .miter, miterLimit: 4)
-        sweep.frame = CGRect(x: 0, y: size.height - 1, width: size.width, height: 2)
+    /// Left side, rounded top and right side of the tab; the bottom is the box itself.
+    private func placeTabLine() {
+        let size = header.bounds.size
+        let radius = Theme.cornerCard
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: 0.5, y: 0))
+        path.addArc(tangent1End: CGPoint(x: 0.5, y: size.height - 0.5), tangent2End: CGPoint(x: size.width - 0.5, y: size.height - 0.5), radius: radius)
+        path.addArc(tangent1End: CGPoint(x: size.width - 0.5, y: size.height - 0.5), tangent2End: CGPoint(x: size.width - 0.5, y: 0), radius: radius)
+        path.addLine(to: CGPoint(x: size.width - 0.5, y: 0))
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        tabLine.frame = header.bounds
+        tabLine.path = path
+        CATransaction.commit()
     }
 
     /// Only the focused box casts a shadow, and its outline is computed once per size.
@@ -288,15 +327,35 @@ final class SessionBox: NSView {
     /// The grip lives in the header and shows under the mouse, so nothing sits on the terminal.
     private var hovering = false
     private var overGrip = false
+    private var overClose = false
+    private var overMaximize = false
+    private var overState = false
+    private var overDetails = false
+
+    /// The state words and chip on the line: a click opens the details.
+    private func onState(_ point: NSPoint) -> Bool {
+        showsHeader && isAgent && !summaryOnly && (stripLabel.frame.contains(point) || badge.frame.contains(point))
+    }
+
+    /// Ayrıntılar and its key in the footer bar.
+    private var detailsArea: NSRect {
+        footerBar.convert(details.frame.union(detailsKey.frame), to: self).insetBy(dx: -4, dy: -4)
+    }
 
     private func updateGrip() {
+        let palette = Theme.palette
         grip.isHidden = !(canvasCanLink && showsHeader && (hovering || linking))
-        grip.layer?.backgroundColor = overGrip ? Theme.palette.fill.cgColor : nil
+        grip.layer?.backgroundColor = overGrip ? palette.fill.cgColor : nil
         let controls = !showsHeader || summaryOnly || !hovering
         closeButton.isHidden = controls
         maximizeButton.isHidden = controls
-        closeButton.contentTintColor = Theme.palette.text2
-        maximizeButton.contentTintColor = Theme.palette.text2
+        closeButton.layer?.backgroundColor = overClose ? palette.fill.cgColor : nil
+        maximizeButton.layer?.backgroundColor = overMaximize ? palette.fill.cgColor : nil
+        closeButton.contentTintColor = overClose ? palette.text1 : palette.text2
+        maximizeButton.contentTintColor = overMaximize ? palette.text1 : palette.text2
+        stripLabel.textColor = overState ? palette.text1 : palette.text3
+        details.textColor = overDetails ? palette.text1 : palette.text2
+        detailsKey.textColor = overDetails ? palette.text2 : palette.text3
     }
 
     @objc private func closeTapped() {
@@ -304,7 +363,7 @@ final class SessionBox: NSView {
         let model = AppModel.shared
         // A program that is working is not closed by a stray click.
         if info.tool != .terminal, info.status == .running {
-            model.confirm(title: "\(model.name(for: info)) Kapatılsın mı?", detail: "Çalışan program da kapanır. Konuşma programın kendi geçmişinde kalır.", action: "Kapat") { [number] in model.close(number) }
+            model.confirm(title: "\(model.name(for: info)) Kapatılsın mı?", detail: "Çalışan program da kapanır. Konuşma programın kendi geçmişinde kalır.", action: "Kapat", danger: true) { [number] in model.close(number) }
         } else {
             model.close(number)
         }
@@ -330,14 +389,27 @@ final class SessionBox: NSView {
     override func mouseExited(with event: NSEvent) {
         hovering = false
         overGrip = false
+        overClose = false
+        overMaximize = false
+        overState = false
+        overDetails = false
         updateGrip()
         layoutContents(host: AppModel.shared.hosts[number], fontScale: AppModel.shared.zoom)
     }
 
     override func mouseMoved(with event: NSEvent) {
-        let over = grip.frame.contains(convert(event.locationInWindow, from: nil))
-        guard over != overGrip else { return }
-        overGrip = over
+        let point = convert(event.locationInWindow, from: nil)
+        let inGrip = grip.frame.contains(point)
+        let inClose = !closeButton.isHidden && closeButton.frame.contains(point)
+        let inMaximize = !maximizeButton.isHidden && maximizeButton.frame.contains(point)
+        let inState = onState(point)
+        let inDetails = showsFooter && detailsArea.contains(point)
+        guard inGrip != overGrip || inClose != overClose || inMaximize != overMaximize || inState != overState || inDetails != overDetails else { return }
+        overGrip = inGrip
+        overClose = inClose
+        overMaximize = inMaximize
+        overState = inState
+        overDetails = inDetails
         updateGrip()
     }
 
@@ -351,6 +423,9 @@ final class SessionBox: NSView {
             host?.isHidden = true
             grip.isHidden = true
             panel.frame = bounds
+            // No tab above it, so all four corners round alike.
+            panel.layer?.cornerRadius = Theme.cornerCard
+            panel.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
             summaryLabel.frame = bounds.insetBy(dx: 8, dy: (bounds.height - 20) / 2)
             return
         }
@@ -362,41 +437,47 @@ final class SessionBox: NSView {
         badge.frame.origin = NSPoint(x: width - badgeWidth, y: 5)
         titleLabel.sizeToFit()
         folderLabel.sizeToFit()
+        // Title at 10 + 14 + 6 = 30, like ItemFrame; the tab ends 10 after its text, as it starts 10 before the icon.
         let textStart: CGFloat = 30
         let tabLimit = max(120, width * 0.62)
-        let titleWidth = min(titleLabel.frame.width, tabLimit - textStart - 12)
-        let folderRoom = tabLimit - textStart - titleWidth - 20
+        let titleWidth = min(titleLabel.frame.width, tabLimit - textStart - 10)
+        let folderRoom = tabLimit - textStart - titleWidth - 18
         let folderWidth = folderRoom > 40 ? min(folderLabel.frame.width, folderRoom) : 0
-        let tabWidth = ceil(textStart + titleWidth + (folderWidth > 0 ? 8 + folderWidth : 0) + 12)
+        let tabWidth = ceil(textStart + titleWidth + (folderWidth > 0 ? 8 + folderWidth : 0) + 10)
         header.frame = NSRect(x: 0, y: 0, width: tabWidth, height: max(tabHeight, 0))
         programIcon.frame = NSRect(x: 10, y: 8, width: 14, height: 14)
         titleLabel.frame = NSRect(x: textStart, y: 6, width: titleWidth, height: 18)
         folderLabel.isHidden = folderWidth == 0
         folderLabel.frame = NSRect(x: titleLabel.frame.maxX + 8, y: 7, width: folderWidth, height: 16)
         // On hover the controls take the end of the line, the state moves in beside them.
-        let hoverRoom: CGFloat = hovering ? 52 : 0
-        closeButton.frame = NSRect(x: width - 24, y: 4, width: 22, height: 22)
-        maximizeButton.frame = NSRect(x: width - 48, y: 4, width: 22, height: 22)
+        // Every group on the line is 8 from the next; close sits flush right like the badge.
+        let hoverRoom: CGFloat = hovering ? 24 + 8 + 24 + 8 : 0
+        closeButton.frame = NSRect(x: width - 24, y: 3, width: 24, height: 24)
+        maximizeButton.frame = NSRect(x: width - 56, y: 3, width: 24, height: 24)
         badge.frame.origin = NSPoint(x: width - badgeWidth - hoverRoom, y: 5)
         let lineEnd = badge.isHidden ? width - hoverRoom : badge.frame.minX - 8
-        grip.frame = NSRect(x: max(tabWidth + 4, lineEnd - 24), y: 3, width: 24, height: 24)
-        let labelEnd = grip.isHidden ? lineEnd : grip.frame.minX - 4
+        grip.frame = NSRect(x: max(tabWidth + 8, lineEnd - 24), y: 3, width: 24, height: 24)
+        let labelEnd = grip.isHidden ? lineEnd : grip.frame.minX - 8
         stripLabel.frame = NSRect(x: tabWidth + 8, y: 7, width: max(0, labelEnd - tabWidth - 8), height: 16)
         panel.frame = NSRect(x: 0, y: max(0, tabHeight - 1), width: width, height: bounds.height - max(0, tabHeight - 1))
         panel.layer?.cornerRadius = showsHeader ? Theme.cornerCard : 0
         panel.layer?.maskedCorners = [.layerMaxXMaxYCorner, .layerMinXMinYCorner, .layerMaxXMinYCorner]
-        placeLight()
+        placeTabLine()
+        placeScan(tabWidth: tabWidth, tabHeight: tabHeight)
         let footerHeight: CGFloat = showsFooter ? 24 : 0
         footerBar.frame = NSRect(x: 0, y: bounds.height - footerHeight, width: width, height: footerHeight)
         if showsFooter {
             detailsKey.sizeToFit()
             details.sizeToFit()
-            detailsKey.frame.origin = NSPoint(x: width - detailsKey.frame.width - 12, y: (24 - detailsKey.frame.height) / 2)
+            // Same 8 inset as the terminal above, 8 from the text to Ayrıntılar.
+            detailsKey.frame.origin = NSPoint(x: width - detailsKey.frame.width - 8, y: (24 - detailsKey.frame.height) / 2)
             details.frame.origin = NSPoint(x: detailsKey.frame.minX - details.frame.width - 6, y: (24 - details.frame.height) / 2)
-            footer.frame = NSRect(x: 12, y: (24 - 16) / 2, width: max(0, details.frame.minX - 20), height: 16)
+            footer.frame = NSRect(x: 8, y: (24 - 16) / 2, width: max(0, details.frame.minX - 16), height: 16)
         }
         // Rows and columns do not depend on how many sessions are open.
-        let content = NSRect(x: 8, y: tabHeight + 4, width: width - 16, height: bounds.height - tabHeight - footerHeight - 8)
+        // The terminal sits 8 inside the panel on all four sides.
+        let panelTop = max(0, tabHeight - 1)
+        let content = NSRect(x: 8, y: panelTop + 8, width: width - 16, height: bounds.height - panelTop - footerHeight - 16)
         host?.frame = content
         if AppModel.shared.chatSessions.contains(number) {
             if chatHost == nil {
@@ -422,13 +503,19 @@ final class SessionBox: NSView {
                 addSubview(view)
                 approvalHost = view
             }
-            let height: CGFloat = 92
+            // As tall as its content: 12 + button row 30 + 8 + one or two summary lines + 12.
+            let font = Theme.font()
+            let lineHeight = ceil(font.ascender - font.descender + font.leading)
+            let measured = (request.summary as NSString).boundingRect(with: NSSize(width: max(1, width - 2 - 24), height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin], attributes: [.font: font]).height
+            let lines = min(2, max(1, ceil(measured / lineHeight)))
+            let height = 12 + 30 + 8 + lines * lineHeight + 12
             approvalHost?.frame = NSRect(x: 1, y: bounds.height - footerHeight - height - 1, width: width - 2, height: height)
             addSubview(approvalHost!, positioned: .above, relativeTo: nil)
         } else if let view = approvalHost {
             view.removeFromSuperview()
             approvalHost = nil
         }
+        addSubview(scanView, positioned: .above, relativeTo: nil)
         addSubview(grip, positioned: .above, relativeTo: nil)
         addSubview(closeButton, positioned: .above, relativeTo: nil)
         addSubview(maximizeButton, positioned: .above, relativeTo: nil)
@@ -442,17 +529,33 @@ final class SessionBox: NSView {
     private func edge(at point: NSPoint) -> ResizeEdge? {
         guard showsHeader, !summaryOnly, canvas?.allowsDrag == true else { return nil }
         let right = point.x > bounds.width - 8, bottom = point.y > bounds.height - 8
-        if right && bottom { return .corner }
+        let nearCorner = point.x > bounds.width - Self.cornerReach && point.y > bounds.height - Self.cornerReach
+        if (right || bottom) && nearCorner { return .corner }
         if right && point.y > 30 { return .right }
         if bottom { return .bottom }
         return nil
     }
 
     override func resetCursorRects() {
-        guard showsHeader, !summaryOnly, canvas?.allowsDrag == true else { return }
-        addCursorRect(NSRect(x: bounds.width - 8, y: 30, width: 8, height: bounds.height - 30), cursor: .resizeLeftRight)
-        addCursorRect(NSRect(x: 0, y: bounds.height - 8, width: bounds.width, height: 8), cursor: .resizeUpDown)
+        guard !summaryOnly else { return }
+        // Whatever acts on a click shows the pointing hand.
+        for button in [closeButton, maximizeButton] where !button.isHidden { addCursorRect(button.frame, cursor: .pointingHand) }
+        if showsHeader, isAgent {
+            addCursorRect(stripLabel.frame, cursor: .pointingHand)
+            addCursorRect(badge.frame, cursor: .pointingHand)
+        }
+        if showsFooter { addCursorRect(detailsArea, cursor: .pointingHand) }
+        guard showsHeader, canvas?.allowsDrag == true else { return }
+        // The edges stop where the corner starts, so the corner never shows a one-way arrow.
+        let reach = Self.cornerReach
+        addCursorRect(NSRect(x: bounds.width - 8, y: 30, width: 8, height: bounds.height - 30 - reach), cursor: .resizeLeftRight)
+        addCursorRect(NSRect(x: 0, y: bounds.height - 8, width: bounds.width - reach, height: 8), cursor: .resizeUpDown)
+        addCursorRect(NSRect(x: bounds.width - reach, y: bounds.height - 8, width: reach, height: 8), cursor: .resizeCorner)
+        addCursorRect(NSRect(x: bounds.width - 8, y: bounds.height - reach, width: 8, height: reach), cursor: .resizeCorner)
     }
+
+    /// How far along each edge the corner grip reaches: as long as the lit corner.
+    private static let cornerReach: CGFloat = 20
 
     override func menu(for event: NSEvent) -> NSMenu? {
         guard let info = AppModel.shared.sessions.first(where: { $0.number == number }) else { return nil }
@@ -507,9 +610,8 @@ final class SessionBox: NSView {
         resizing = nil
         resizeStart = nil
         let point = convert(event.locationInWindow, from: nil)
-        let onDetails = showsFooter && footerBar.convert(details.frame, to: self).insetBy(dx: -4, dy: -4).contains(point)
-        let onState = showsHeader && isAgent && (stripLabel.frame.contains(point) || badge.frame.contains(point))
-        if onDetails || onState, let start = dragStart, hypot(event.locationInWindow.x - start.x, event.locationInWindow.y - start.y) < 4 {
+        let onDetails = showsFooter && detailsArea.contains(point)
+        if onDetails || onState(point), let start = dragStart, hypot(event.locationInWindow.x - start.x, event.locationInWindow.y - start.y) < 4 {
             AppModel.shared.setFocus(number)
             AppModel.shared.detailsOpen.toggle()
         }
@@ -564,6 +666,11 @@ final class MiniMapView: NSView {
 
     private func scale(_ world: NSRect) -> CGFloat { min(bounds.width / max(world.width, 1), bounds.height / max(world.height, 1)) }
 
+    /// The leftover room is shared on both sides, so the map sits centred in its card.
+    private func offset(_ world: NSRect, _ factor: CGFloat) -> CGPoint {
+        CGPoint(x: (bounds.width - world.width * factor) / 2, y: (bounds.height - world.height * factor) / 2)
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         guard let canvas else { return }
         let palette = Theme.palette
@@ -572,9 +679,9 @@ final class MiniMapView: NSView {
         frame.fill()
         palette.hair2.setStroke()
         frame.stroke()
-        let world = self.world, factor = scale(world)
+        let world = self.world, factor = scale(world), shift = offset(world, factor)
         func map(_ rect: NSRect) -> NSRect {
-            NSRect(x: (rect.minX - world.minX) * factor, y: (rect.minY - world.minY) * factor, width: rect.width * factor, height: rect.height * factor)
+            NSRect(x: shift.x + (rect.minX - world.minX) * factor, y: shift.y + (rect.minY - world.minY) * factor, width: rect.width * factor, height: rect.height * factor)
         }
         for info in canvas.model.sessions {
             guard let box = canvas.boxes[info.number], !box.isHidden else { continue }
@@ -595,7 +702,8 @@ final class MiniMapView: NSView {
         let point = convert(event.locationInWindow, from: nil)
         let world = self.world, factor = scale(world)
         guard factor > 0 else { return }
-        let target = NSPoint(x: world.minX + point.x / factor, y: world.minY + point.y / factor)
+        let shift = offset(world, factor)
+        let target = NSPoint(x: world.minX + (point.x - shift.x) / factor, y: world.minY + (point.y - shift.y) / factor)
         canvas.pan.x += canvas.bounds.midX - target.x
         canvas.pan.y += canvas.bounds.midY - target.y
         canvas.relayout(animated: false)
@@ -613,7 +721,7 @@ final class CanvasView: NSView {
     private let glowBottom = CAGradientLayer()
     private let miniMap = MiniMapView()
     private var linkRoutes: [(link: SessionLink, route: [CGPoint])] = []
-    private var linkLabels: [CATextLayer] = []
+    private var linkLabels: [CALayer] = []
     private var pulseTimer: Timer?
     private var pulseDim = false
     private var moveSave: DispatchWorkItem?
@@ -694,7 +802,7 @@ final class CanvasView: NSView {
     }
 
     private func placeMiniMap() {
-        let visible = SettingsStore.shared.settings.showMiniMap && model.mode == .canvas && model.maximized == nil && model.state.freeLayout && model.tileCount > 1
+        let visible = SettingsStore.shared.settings.miniMap && model.mode == .canvas && model.maximized == nil && model.state.freeLayout && model.tileCount > 1
         miniMap.isHidden = !visible
         guard visible else { return }
         miniMap.frame = NSRect(x: bounds.maxX - 190 - 16, y: bounds.maxY - 112 - 16, width: 190, height: 112)
@@ -754,6 +862,7 @@ final class CanvasView: NSView {
             itemBoxes[item.id] = box
             addSubview(box)
         }
+        claimSpots(model.visibleSessions.map(\.id) + items.map(\.id))
         let frames = computeFrames(model.visibleSessions, items)
         let reduceMotion = !Motion.allowed
         NSAnimationContext.runAnimationGroup { context in
@@ -799,7 +908,9 @@ final class CanvasView: NSView {
                 return view
             }()
             view.update(group)
-            view.frame = union.insetBy(dx: -14, dy: -14).offsetBy(dx: 0, dy: -8).union(union.insetBy(dx: -14, dy: -14))
+            // GroupFrameView draws at insetBy(dx: 1, dy: 10), so the outline is 12 from the boxes on all four sides
+            // and the 20-high label stays centred on its top line.
+            view.frame = union.insetBy(dx: -13, dy: -22)
         }
         for (id, view) in groupViews where !live.contains(id) {
             view.removeFromSuperview()
@@ -866,10 +977,51 @@ final class CanvasView: NSView {
         for (index, key) in keys.enumerated() {
             let saved = model.state.positions[key.id]
             let size = model.state.sizes[key.id] ?? fallback
-            let origin = saved ?? CGPoint(x: 16 + CGFloat(index % 3) * (size.width + 24), y: 16 + CGFloat(index / 3) * (size.height + 24))
+            let origin = saved ?? CGPoint(x: 16 + CGFloat(index % 3) * (size.width + 16), y: 16 + CGFloat(index / 3) * (size.height + 16))
             place(key, scaled(NSRect(origin: origin, size: size), around: area))
         }
         return (frames, itemFrames)
+    }
+
+    /// On a surface arranged by hand a new box takes the first free place in view and keeps it,
+    /// instead of a numbered slot that a box grown by hand may already cover.
+    private func claimSpots(_ ids: [String]) {
+        guard model.mode == .canvas, model.maximized == nil, model.state.freeLayout, ids.count > 1,
+              bounds.width > 80, bounds.height > 80 else { return }
+        let zoom = model.zoom
+        let fallback = NSSize(width: 520, height: 320)
+        func rect(_ id: String) -> NSRect? { model.state.positions[id].map { NSRect(origin: $0, size: model.state.sizes[id] ?? fallback) } }
+        // Every box that can ever share this surface, not only those in view: other projects' boxes appear here
+        // when no project is chosen, and project-less items appear in every project.
+        var taken = (model.sessions.map(\.id) + model.state.items.map(\.id)).compactMap(rect)
+        // A group's outline is taken too, or a new box inside it would look like a member.
+        for group in model.state.groups {
+            let members = group.members.compactMap(rect)
+            guard let first = members.first else { continue }
+            let union = members.dropFirst().reduce(first) { $0.union($1) }
+            taken.append(union.insetBy(dx: -13 / zoom, dy: -22 / zoom))
+        }
+        let view = NSRect(x: -pan.x / zoom, y: -pan.y / zoom, width: bounds.width / zoom, height: bounds.height / zoom)
+        var last: NSRect?
+        for id in ids where model.state.positions[id] == nil {
+            let size = model.state.sizes[id] ?? fallback
+            let rect = NSRect(origin: FreeSpot.origin(for: size, avoiding: taken, in: view), size: size)
+            model.state.positions[id] = rect.origin
+            taken.append(rect)
+            last = rect
+        }
+        guard let last else { return }
+        // Out of view, the surface moves just enough to show it. Its top left wins when it is larger than the view.
+        if !view.contains(last) {
+            let margin: CGFloat = 16
+            var dx: CGFloat = 0, dy: CGFloat = 0
+            if last.maxX + margin > view.maxX { dx = last.maxX + margin - view.maxX }
+            if last.minX - margin < view.minX + dx { dx = last.minX - margin - view.minX }
+            if last.maxY + margin > view.maxY { dy = last.maxY + margin - view.maxY }
+            if last.minY - margin < view.minY + dy { dy = last.minY - margin - view.minY }
+            pan = CGPoint(x: pan.x - dx * zoom, y: pan.y - dy * zoom)
+        }
+        model.saveState()
     }
 
     private func scaled(_ rect: NSRect, around area: NSRect) -> NSRect {
@@ -889,11 +1041,11 @@ final class CanvasView: NSView {
         var content = NSRect.null
         for (index, id) in keys.enumerated() {
             let size = model.state.sizes[id] ?? fallback
-            let origin = model.state.positions[id] ?? CGPoint(x: 16 + CGFloat(index % 3) * (size.width + 24), y: 16 + CGFloat(index / 3) * (size.height + 24))
+            let origin = model.state.positions[id] ?? CGPoint(x: 16 + CGFloat(index % 3) * (size.width + 16), y: 16 + CGFloat(index / 3) * (size.height + 16))
             content = content.union(NSRect(origin: origin, size: size))
         }
         guard !content.isNull, content.width > 0, content.height > 0 else { return }
-        let margin: CGFloat = 24
+        let margin: CGFloat = 16
         let zoom = max(0.3, min(1, (bounds.width - margin * 2) / content.width, (bounds.height - margin * 2) / content.height))
         pan = NSPoint(x: (bounds.width - content.width * zoom) / 2 - content.minX * zoom,
                       y: (bounds.height - content.height * zoom) / 2 - content.minY * zoom)
@@ -1163,28 +1315,38 @@ final class CanvasView: NSView {
 
     private func placeLinkLabels() {
         let palette = Theme.palette
+        // A chip sized from its word: 6 on the sides, the text line centred in a 20 height like the status chip.
+        let font = Theme.ui(.hint)
+        let textWidth = ceil(("Bağlam" as NSString).size(withAttributes: [.font: font]).width)
+        let textHeight = ceil(font.ascender - font.descender + font.leading)
         while linkLabels.count < linkRoutes.count {
-            let label = CATextLayer()
-            label.string = "Bağlam"
-            label.font = NSFont.systemFont(ofSize: 11)
-            label.fontSize = 11
-            label.alignmentMode = .center
-            label.cornerRadius = 5
-            label.zPosition = 11
-            layer?.addSublayer(label)
-            linkLabels.append(label)
+            let chip = CALayer()
+            chip.cornerRadius = Theme.cornerControl
+            chip.zPosition = 11
+            let text = CATextLayer()
+            text.string = "Bağlam"
+            text.font = font
+            text.fontSize = font.pointSize
+            text.alignmentMode = .center
+            chip.addSublayer(text)
+            layer?.addSublayer(chip)
+            linkLabels.append(chip)
         }
-        for (index, label) in linkLabels.enumerated() {
-            guard index < linkRoutes.count else { label.isHidden = true; continue }
+        for (index, chip) in linkLabels.enumerated() {
+            guard index < linkRoutes.count else { chip.isHidden = true; continue }
             let route = linkRoutes[index].route
             // On the longest straight run, where it covers no corner.
             var best = (a: route[0], b: route[1])
             for (p, q) in zip(route, route.dropFirst()) where hypot(q.x - p.x, q.y - p.y) > hypot(best.b.x - best.a.x, best.b.y - best.a.y) { best = (p, q) }
-            label.isHidden = false
-            label.contentsScale = window?.backingScaleFactor ?? 2
-            label.foregroundColor = palette.g1.cgColor
-            label.backgroundColor = palette.surface0.cgColor
-            label.frame = CGRect(x: (best.a.x + best.b.x) / 2 - 26, y: (best.a.y + best.b.y) / 2 - 8, width: 52, height: 16)
+            chip.isHidden = false
+            chip.backgroundColor = palette.surface0.cgColor
+            let width = textWidth + 12
+            chip.frame = CGRect(x: (best.a.x + best.b.x) / 2 - width / 2, y: (best.a.y + best.b.y) / 2 - 10, width: width, height: 20)
+            if let text = chip.sublayers?.first as? CATextLayer {
+                text.contentsScale = window?.backingScaleFactor ?? 2
+                text.foregroundColor = palette.g1.cgColor
+                text.frame = CGRect(x: 6, y: (20 - textHeight) / 2, width: textWidth, height: textHeight)
+            }
         }
     }
 

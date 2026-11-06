@@ -21,6 +21,31 @@ public enum HomeInput {
     }
 }
 
+/// Where a new box goes on a surface arranged by hand: the first place in view that touches no other box,
+/// row by row. With no room in view it still touches nothing, as close to the view's corner as it can.
+public enum FreeSpot {
+    public static func origin(for size: CGSize, avoiding taken: [CGRect], in view: CGRect, gap: CGFloat = 16) -> CGPoint {
+        let start = CGPoint(x: view.minX + gap, y: view.minY + gap)
+        var candidates = [start]
+        for rect in taken {
+            candidates.append(CGPoint(x: rect.maxX + gap, y: rect.minY))
+            candidates.append(CGPoint(x: rect.minX, y: rect.maxY + gap))
+            candidates.append(CGPoint(x: rect.maxX + gap, y: start.y))
+            candidates.append(CGPoint(x: start.x, y: rect.maxY + gap))
+        }
+        // Below everything is always free, so there is always an answer.
+        if let bottom = taken.map(\.maxY).max() { candidates.append(CGPoint(x: start.x, y: max(start.y, bottom + gap))) }
+        func free(_ point: CGPoint) -> Bool {
+            let rect = CGRect(origin: point, size: size)
+            return !taken.contains { $0.insetBy(dx: 1 - gap, dy: 1 - gap).intersects(rect) }
+        }
+        let open = candidates.filter(free)
+        let inView = open.filter { view.contains(CGRect(origin: $0, size: size)) }
+        if let first = inView.min(by: { ($0.y, $0.x) < ($1.y, $1.x) }) { return first }
+        return open.min { hypot($0.x - start.x, $0.y - start.y) < hypot($1.x - start.x, $1.y - start.y) } ?? start
+    }
+}
+
 /// The Enter line: links run straight and turn at right angles, like the key they are named after.
 public enum LinkRoute {
     static let stub: CGFloat = 20
@@ -80,9 +105,9 @@ public enum MotionPolicy {
         setting && !reduceMotion && !lowPower && windowVisible
     }
 
-    public static func sweeps(from previous: SessionStatus?, to current: SessionStatus) -> Bool {
-        guard let previous, previous != current else { return false }
-        return current == .needsApproval || current == .limitReached || current == .failed
+    /// The light runs round a box only while its program works. A box at rest is never lit.
+    public static func scans(_ status: SessionStatus) -> Bool {
+        status == .running
     }
 }
 
@@ -132,6 +157,13 @@ public struct RecentConversation: Equatable, Identifiable {
         }
         guard let line = text?.split(separator: "\n").first.map(String.init), !line.hasPrefix("<") else { return nil }
         return line
+    }
+
+    /// What the person took off the home list. Only the list forgets it: the program's own transcript is never touched.
+    public static func visible(_ items: [RecentConversation], hidingConversations: [String], hidingFolders: [String]) -> [RecentConversation] {
+        if hidingConversations.isEmpty, hidingFolders.isEmpty { return items }
+        let ids = Set(hidingConversations), folders = Set(hidingFolders)
+        return items.filter { !ids.contains($0.id) && !folders.contains($0.folder) }
     }
 
     public static func grouped(_ items: [RecentConversation], limit: Int) -> [Group] {

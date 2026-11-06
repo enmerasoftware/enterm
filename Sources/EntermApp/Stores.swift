@@ -44,7 +44,9 @@ final class AccountStore: ObservableObject {
         return accounts.compactMap { account -> String? in
             guard let window = account.lastLimit?.fiveHour ?? account.lastLimit?.sevenDay else { return nil }
             let value = Int(remaining ? 100 - window.usedPercent : window.usedPercent)
-            return "\(account.name) %\(value)\(remaining ? " Kaldı" : "")"
+            // The program first: every program's own sign-in is called "Bu Bilgisayar", so the name alone repeats.
+            let label = account.kind == .system ? account.tool.title : "\(account.tool.title) (\(account.name))"
+            return "\(label) %\(value) \(remaining ? "Kaldı" : "Dolu")"
         }.joined(separator: " · ")
     }
 

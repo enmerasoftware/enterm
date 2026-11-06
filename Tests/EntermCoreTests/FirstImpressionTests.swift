@@ -70,6 +70,38 @@ final class FirstImpressionTests: XCTestCase {
         XCTAssertEqual(LinkRoute.distance(from: CGPoint(x: 120, y: 50), to: route), 20, accuracy: 0.01)
     }
 
+    // MARK: Free spot for a new box
+
+    func testANewBoxNeverLandsOnAnother() {
+        // One wide box fills the top of the view, the way a box grown by hand does.
+        let wide = CGRect(x: 16, y: 16, width: 1290, height: 420)
+        let view = CGRect(x: 0, y: 0, width: 1320, height: 900)
+        let origin = FreeSpot.origin(for: CGSize(width: 520, height: 320), avoiding: [wide], in: view)
+        let placed = CGRect(origin: origin, size: CGSize(width: 520, height: 320))
+        XCTAssertFalse(placed.intersects(wide.insetBy(dx: -15, dy: -15)), "\(placed)")
+        XCTAssertTrue(view.contains(placed), "Room below in view, so it goes there: \(placed)")
+    }
+
+    func testTheFirstFreeSpotInViewIsTakenRowByRow() {
+        let view = CGRect(x: 0, y: 0, width: 1200, height: 800)
+        let a = CGRect(x: 16, y: 16, width: 520, height: 320)
+        let origin = FreeSpot.origin(for: CGSize(width: 520, height: 320), avoiding: [a], in: view)
+        XCTAssertEqual(origin, CGPoint(x: 552, y: 16))
+    }
+
+    func testAnEmptyViewStartsAtItsCorner() {
+        let view = CGRect(x: 300, y: 200, width: 1200, height: 800)
+        XCTAssertEqual(FreeSpot.origin(for: CGSize(width: 520, height: 320), avoiding: [], in: view), CGPoint(x: 316, y: 216))
+    }
+
+    func testAFullViewStillFindsAnUntakenSpot() {
+        let view = CGRect(x: 0, y: 0, width: 600, height: 400)
+        let taken = [CGRect(x: 16, y: 16, width: 568, height: 368), CGRect(x: 600, y: 16, width: 520, height: 320)]
+        let size = CGSize(width: 520, height: 320)
+        let placed = CGRect(origin: FreeSpot.origin(for: size, avoiding: taken, in: view), size: size)
+        for rect in taken { XCTAssertFalse(placed.intersects(rect), "\(placed) on \(rect)") }
+    }
+
     // MARK: Rail
 
     func testWhoNeedsYouComesFirstAndTheRestStayInOrder() {
@@ -89,12 +121,11 @@ final class FirstImpressionTests: XCTestCase {
         XCTAssertFalse(MotionPolicy.allowed(setting: true, reduceMotion: false, lowPower: false, windowVisible: false))
     }
 
-    func testOnlyANewAttentionStateSweepsTheBox() {
-        XCTAssertTrue(MotionPolicy.sweeps(from: .running, to: .needsApproval))
-        XCTAssertTrue(MotionPolicy.sweeps(from: .idle, to: .limitReached))
-        XCTAssertFalse(MotionPolicy.sweeps(from: .needsApproval, to: .needsApproval))
-        XCTAssertFalse(MotionPolicy.sweeps(from: .idle, to: .running))
-        XCTAssertFalse(MotionPolicy.sweeps(from: nil, to: .needsApproval))
+    func testOnlyAWorkingBoxIsScanned() {
+        XCTAssertTrue(MotionPolicy.scans(.running))
+        for status in [SessionStatus.idle, .needsApproval, .limitReached, .failed, .starting, .exited] {
+            XCTAssertFalse(MotionPolicy.scans(status), "\(status)")
+        }
     }
 
     // MARK: Recent conversations
@@ -139,6 +170,29 @@ final class FirstImpressionTests: XCTestCase {
         XCTAssertEqual(groups[1].items.map(\.id), ["c"])
     }
 
+    func testAHiddenConversationOrFolderLeavesTheListOnly() {
+        func item(_ id: String, _ folder: String) -> RecentConversation {
+            RecentConversation(id: id, title: id, folder: folder, modified: .distantPast)
+        }
+        let all = [item("a", "/iş"), item("b", "/deneme"), item("c", "/iş"), item("d", "/deneme/alt")]
+        let shown = RecentConversation.visible(all, hidingConversations: ["c"], hidingFolders: ["/deneme"])
+        // A folder hides only itself: a folder inside it has its own conversations.
+        XCTAssertEqual(shown.map(\.id), ["a", "d"])
+        XCTAssertEqual(RecentConversation.visible(all, hidingConversations: [], hidingFolders: []), all)
+    }
+
+    func testOlderSettingsHideNothing() throws {
+        let settings = try JSONDecoder().decode(AppSettings.self, from: Data("{}".utf8))
+        XCTAssertEqual(settings.hiddenConversations, [])
+        XCTAssertEqual(settings.hiddenConversationFolders, [])
+    }
+
+    func testTheMiniMapStartsOffEvenWhereItWasSavedOn() throws {
+        XCTAssertFalse(AppSettings().miniMap)
+        let older = try JSONDecoder().decode(AppSettings.self, from: Data("{\"showMiniMap\":true}".utf8))
+        XCTAssertFalse(older.miniMap)
+    }
+
     func testScanReadsOnlyTheEndsOfALongFile() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let folder = root.appendingPathComponent("proje")
@@ -167,6 +221,60 @@ final class FirstImpressionTests: XCTestCase {
         XCTAssertEqual(back.neon, "strong")
         XCTAssertFalse(back.motion)
         XCTAssertEqual(back.defaultProgram, "claude")
+    }
+
+    func testEntermPicksNoModelOfItsOwn() {
+        let plan = ModelPlan()
+        XCTAssertEqual(plan.main, "")
+        XCTAssertEqual(plan.mainEffort, "")
+        XCTAssertEqual(plan.subagents, "")
+    }
+
+    func testTheOldSavedSonnetDefaultNoLongerForcesAModel() throws {
+        let old = #"{"defaultPlan":{"main":"sonnet","mainEffort":"high","plan":"opus","search":"haiku","subagents":"haiku","advisor":"opus","useAdvisor":false}}"#
+        let plan = try JSONDecoder().decode(AppSettings.self, from: Data(old.utf8)).defaultPlan
+        XCTAssertEqual(plan.main, "")
+        XCTAssertEqual(plan.mainEffort, "")
+        XCTAssertEqual(plan.subagents, "")
+    }
+
+    func testManualStartsFromOpusMediumSonnetWithTheAdvisorOff() {
+        let plan = ModelPlan.suggested
+        XCTAssertEqual([plan.main, plan.mainEffort, plan.subagents, plan.advisor], ["opus", "medium", "sonnet", "fable"])
+        XCTAssertFalse(plan.useAdvisor)
+    }
+
+    func testTheAdvisorIsNeverWeakerThanTheMainModel() {
+        XCTAssertEqual(ModelPlan.advisors(for: "opus"), ["fable", "opus"])
+        XCTAssertEqual(ModelPlan.advisors(for: "sonnet"), ["fable", "opus", "sonnet"])
+        XCTAssertEqual(ModelPlan.advisors(for: "fable"), ["fable"])
+        XCTAssertEqual(ModelPlan.advisors(for: ""), ["fable", "opus"])
+        XCTAssertTrue(ModelPlan.advisors(for: ModelPlan.suggested.main).contains(ModelPlan.suggested.advisor))
+    }
+
+    func testAModelChosenInEntermSurvivesASave() throws {
+        var plan = ModelPlan()
+        plan.main = "opus"
+        plan.mainEffort = "max"
+        plan.subagents = "sonnet"
+        XCTAssertEqual(try JSONDecoder().decode(ModelPlan.self, from: JSONEncoder().encode(plan)), plan)
+    }
+
+    func testAnOlderPhoneStillReadsThePlan() throws {
+        // The phone app built before this change decodes these exact keys and fails without them.
+        let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(ModelPlan())) as? [String: Any]
+        for key in ["main", "mainEffort", "plan", "search", "subagents", "advisor", "useAdvisor"] {
+            XCTAssertNotNil(object?[key], key)
+        }
+    }
+
+    func testTeamTemplatesForceNoModel() {
+        for key in ["software", "marketing", "company", "other"] {
+            for member in Team.template(key) where member.tool == .claude {
+                XCTAssertEqual(member.model, "", "\(key) \(member.name)")
+                XCTAssertEqual(member.effort, "", "\(key) \(member.name)")
+            }
+        }
     }
 
     func testOldSettingsGetTheNewDefaults() throws {

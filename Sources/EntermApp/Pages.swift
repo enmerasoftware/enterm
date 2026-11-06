@@ -107,15 +107,16 @@ struct ApprovalDialog: View {
                     }
                     Dim("Yalnız Bu Komut İçin · Kayda Geçer")
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 20)
+                .padding(20)
                 DialogButtons {
                     Btn("Bu Oturumda Hep İzin Ver", kind: .plain) { Approvals.allowForSession(request) }
                     Btn("Reddet", key: "n") { Approvals.decide(id: id, decision: "deny") }
                     Btn("İzin Ver", kind: .primary, key: "y") { Approvals.decide(id: id, decision: "allow", remember: request.category == .internet) }
                 }
             } else {
-                Dim("Bu istek artık bekliyor değil.").padding(12)
+                Dim("Bu istek artık bekliyor değil.")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(20)
             }
         }
         .frame(width: 620)
@@ -135,28 +136,24 @@ struct LinkPermissionDialog: View {
         let target = model.sessions.first { $0.number == to }
         Panel {
             PanelHeader(title: "\(source.map { model.title(for: $0) } ?? "") → \(target.map { model.title(for: $0) } ?? "")")
-            VStack(alignment: .leading, spacing: 12) {
-                T("Ne Yapabilsin?", bold: true)
+            T("Ne Yapabilsin?", bold: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(EdgeInsets(top: 20, leading: 20, bottom: 0, trailing: 20))
+            // The choices are lit rows: MenuList keeps their text at 20, under the title.
+            MenuList {
                 ForEach(LinkPermission.allCases) { option in
-                    Button { permission = option } label: {
-                        HStack(alignment: .top, spacing: 8) {
-                            T(permission == option ? "●" : "○")
-                            VStack(alignment: .leading) {
-                                T(option.title)
-                                Dim(option.note)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
+                    MenuRow(title: option.title, note: option.note, selected: permission == option) { permission = option }
                 }
+            }
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     T("Yön")
                     Seg(options: [(false, "Tek Yön"), (true, "Çift Yön")], value: $bothWays)
                 }
                 Dim("Bağlantı yetki vermez, ajan mesajı onay sayılmaz.")
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(EdgeInsets(top: 0, leading: 20, bottom: 20, trailing: 20))
             DialogButtons {
                 Btn("Vazgeç", kind: .plain, key: "Esc") { model.overlay = nil }
                 Btn("Bağla", kind: .primary) {
@@ -196,8 +193,7 @@ struct LinkDetailDialog: View {
                     }
                     Dim("Silince mesaj geçmişi kalır, yeni mesaj gitmez.")
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 20)
+                .padding(20)
                 DialogButtons {
                         Btn("Bağlantıyı Sil", kind: .danger) {
                             links.remove(id)
@@ -247,20 +243,20 @@ struct DetailTabs: View {
     @ObservedObject var model = AppModel.shared
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 4) {
-                Btn("Model", kind: model.detailTab == 0 ? .selected : .plain) { model.detailTab = 0 }
-                Btn("Bağlantılar", kind: model.detailTab == 1 ? .selected : .plain) { model.detailTab = 1 }
-                Btn("Yetkiler", kind: model.detailTab == 2 ? .selected : .plain) { model.detailTab = 2 }
+            // Tabs are a choice, so they use the shared selector; the actions below stay buttons.
+            // Both rows sit 16 in, like the content under the line.
+            HStack(spacing: 8) {
+                Seg(options: [(0, "Model"), (1, "Bağlantılar"), (2, "Yetkiler")], value: $model.detailTab)
                 Spacer(minLength: 0)
             }
-            .padding(8)
-            HStack(spacing: 4) {
+            .padding(16)
+            HStack(spacing: 8) {
                 Btn("Değişiklikler", kind: .plain) { Commands.perform("changes") }
                 Btn("Tarayıcı", kind: .plain, key: "⌘⇧D") { Commands.perform("browser") }
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 8)
-            Line().padding(.top, 8)
+            .padding(.horizontal, 16)
+            Line().padding(.top, 16)
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     switch model.detailTab {
@@ -320,19 +316,24 @@ struct ModelTab: View {
             Dim("Bu oturum düz terminal. Model bilgisi yok.")
         }
         if info.tool == .antigravity {
-            T("Bu Programdan Ne Gelir", bold: true)
-            ForEach(Array(Self.antigravityRows.enumerated()), id: \.offset) { _, row in
-                HStack { T(row.0); Spacer(); Dim(row.1) }
+            // Rows of one group sit closer than the 16 between groups.
+            VStack(alignment: .leading, spacing: 8) {
+                T("Bu Programdan Ne Gelir", bold: true)
+                ForEach(Array(Self.antigravityRows.enumerated()), id: \.offset) { _, row in
+                    HStack { T(row.0); Spacer(); Dim(row.1) }
+                }
             }
             Dim("Limit için programın kendi ekranı: /usage. Enterm bu değeri okuyamıyor, çubuk çizmez.")
             AntigravityHookCard(cwd: info.cwd)
         }
         if info.tool == .claude || info.tool == .codex {
-            T("Bu Oturum", bold: true)
-            row("Model", info.model ?? "Henüz Bilinmiyor")
-            if let effort = info.effort { row("Efor", SessionText.effortTitle(effort)) }
-            if let tokens = info.contextTokens { row("Bağlam", SessionText.shortTokens(tokens) + " Token") }
-            if let cost = info.costUSD { row("Liste Fiyatıyla", String(format: "$%.2f", cost)) }
+            VStack(alignment: .leading, spacing: 8) {
+                T("Bu Oturum", bold: true)
+                row("Model", info.model ?? "Henüz Bilinmiyor")
+                if let effort = info.effort { row("Efor", SessionText.effortTitle(effort)) }
+                if let tokens = info.contextTokens { row("Bağlam", SessionText.shortTokens(tokens) + " Token") }
+                if let cost = info.costUSD { row("Liste Fiyatıyla", String(format: "$%.2f", cost)) }
+            }
             if info.tool == .codex, info.hooksTrusted != true {
                 Panel {
                     VStack(alignment: .leading, spacing: 8) {
@@ -424,8 +425,9 @@ struct ModelPlanEditor: View {
     @ObservedObject var settings = SettingsStore.shared
     @State private var manual = false
     @State private var plan = ModelPlan()
-    static let models = ["sonnet", "opus", "haiku", "fable"]
-    static let efforts = ["low", "medium", "high", "max"]
+    /// The first choice, empty, leaves it to Claude Code's own setting.
+    static let models = ["", "opus", "sonnet", "haiku", "fable"]
+    static let efforts = ["", "low", "medium", "high", "max"]
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             T("Model Davranışı", bold: true)
@@ -434,26 +436,51 @@ struct ModelPlanEditor: View {
                 picker("Ana İş", selection: $plan.main, values: Self.models)
                 picker("Efor", selection: $plan.mainEffort, values: Self.efforts, titled: true)
                 picker("Alt Ajanlar", selection: $plan.subagents, values: Self.models)
-                picker("Danışman", selection: $plan.advisor, values: Self.models)
+                // Only models that can advise this main model: never a weaker one.
+                picker("Danışman", selection: $plan.advisor, values: ModelPlan.advisors(for: plan.main))
                 Toggle(isOn: $plan.useAdvisor) { T("Danışmanı Kullan") }.toggleStyle(.checkbox)
                 Dim("Danışman her çağrıda tüm konuşmayı okur ve limitten yer. Ana iş bu oturuma hemen uygulanır, alt ajan ve danışman yeni oturumda geçerli olur.")
                 HStack {
                     Btn("Bu Oturuma Uygula", kind: .primary) { apply() }
+                        .disabled(plan.main.isEmpty)
                     Btn("Yeni Oturumların Varsayılanı", kind: .plain) { settings.settings.defaultPlan = plan }
                 }
+            } else if settings.settings.defaultPlan == ModelPlan() {
+                Dim("Model ve efor Claude Code'daki kendi ayarınızdan gelir. Enterm kendiliğinden model seçmez.")
             } else {
-                Dim("Sonnet Ana İş · Haiku Alt Ajan · Opus Danışman. Soru sorulmaz, istenirse değiştirilir.")
+                Dim("Yeni oturumlar sizin kaydettiğiniz seçimle açılır: \(Self.summary(settings.settings.defaultPlan)).")
+                Btn("Claude Code'un Ayarına Dön", kind: .plain) {
+                    settings.settings.defaultPlan = ModelPlan()
+                    plan = ModelPlan()
+                }
             }
         }
         .onAppear { plan = settings.settings.defaultPlan }
+        // Turning to Elle with nothing chosen yet starts from the suggestion, not from empty fields.
+        .onChange(of: manual) { value in
+            if value, plan == ModelPlan() { plan = .suggested }
+        }
+        .onChange(of: plan.main) { main in
+            let allowed = ModelPlan.advisors(for: main)
+            if !allowed.contains(plan.advisor), let first = allowed.first { plan.advisor = first }
+        }
     }
+    static func summary(_ plan: ModelPlan) -> String {
+        var parts: [String] = []
+        if !plan.main.isEmpty { parts.append("Ana İş \(plan.main.capitalized)") }
+        if !plan.mainEffort.isEmpty { parts.append("Efor \(SessionText.effortTitle(plan.mainEffort))") }
+        if !plan.subagents.isEmpty { parts.append("Alt Ajan \(plan.subagents.capitalized)") }
+        if plan.useAdvisor { parts.append("Danışman \(plan.advisor.capitalized)") }
+        return parts.isEmpty ? "Claude Code'un Ayarı" : parts.joined(separator: " · ")
+    }
+
     private func picker(_ title: String, selection: Binding<String>, values: [String], titled: Bool = false) -> some View {
         HStack {
             T(title)
             Spacer()
             Picker("", selection: selection) {
                 ForEach(values, id: \.self) { value in
-                    Text(titled ? SessionText.effortTitle(value) : value.capitalized).font(Theme.swiftFont()).tag(value)
+                    Text(value.isEmpty ? "Claude Code'un Ayarı" : (titled ? SessionText.effortTitle(value) : value.capitalized)).font(Theme.swiftFont()).tag(value)
                 }
             }
             .frame(width: 150)
@@ -472,27 +499,35 @@ struct LinksTab: View {
     @ObservedObject var model = AppModel.shared
     @State private var target: UInt32?
     var body: some View {
-        T("\(model.title(for: info)) Bağlantıları", bold: true)
         let own = links.links.filter { $0.from == info.id || $0.to == info.id }
-        if own.isEmpty { Dim("Bağlantı yok. Tuvalde kutunun kenarından sürükleyin ya da aşağıdan seçin.") }
-        ForEach(own) { link in
-            let otherID = link.from == info.id ? link.to : link.from
-            let other = model.sessions.first { $0.id == otherID }
-            Button { model.overlay = .linkDetail(link.id) } label: {
-                HStack {
-                    T("\(link.from == info.id ? "→" : "←") \(other.map { model.title(for: $0) } ?? "Kapalı Oturum")")
-                    Spacer()
-                    Dim("\(link.permission.title) · \(link.bothWays ? "Çift Yön" : "Tek Yön")")
+        // Items of one group sit closer than the 16 between groups.
+        VStack(alignment: .leading, spacing: 8) {
+            T("\(model.title(for: info)) Bağlantıları", bold: true)
+            if own.isEmpty {
+                Dim("Bağlantı yok. Tuvalde kutunun kenarından sürükleyin ya da aşağıdan seçin.")
+            } else {
+                VStack(alignment: .leading, spacing: MenuList<EmptyView>.gap) {
+                    ForEach(own) { link in
+                        let otherID = link.from == info.id ? link.to : link.from
+                        let other = model.sessions.first { $0.id == otherID }
+                        MenuRow(title: "\(link.from == info.id ? "→" : "←") \(other.map { model.title(for: $0) } ?? "Kapalı Oturum")",
+                                note: "\(link.permission.title) · \(link.bothWays ? "Çift Yön" : "Tek Yön")") {
+                            model.overlay = .linkDetail(link.id)
+                        }
+                        // The row's own 10 would push its text past the title above it.
+                        .padding(.horizontal, -10)
+                    }
                 }
             }
-            .buttonStyle(.plain)
         }
         let others = model.sessions.filter { $0.number != info.number }
         if !others.isEmpty {
-            T("Yeni Bağlantı", bold: true)
-            ForEach(others) { other in
-                Btn("→ \(model.title(for: other))", kind: .plain) {
-                    model.overlay = .linkPermission(from: info.number, to: other.number)
+            VStack(alignment: .leading, spacing: 8) {
+                T("Yeni Bağlantı", bold: true)
+                ForEach(others) { other in
+                    Btn("→ \(model.title(for: other))", kind: .plain) {
+                        model.overlay = .linkPermission(from: info.number, to: other.number)
+                    }
                 }
             }
         }
@@ -512,13 +547,11 @@ struct PermissionsTab: View {
     ]
     var body: some View {
         T("Yetki Kartı", bold: true)
-        HStack(spacing: 4) {
-            ForEach(PermissionTemplate.allCases) { template in
-                Btn(template.title, kind: book.card(for: info.id).modes == template.card.modes ? .selected : .plain) {
-                    book.cards[info.id] = template.card
-                    save()
-                }
-            }
+        // Five names do not fit one line of the side panel: they wrap into rows, each name whole.
+        WrapChoice(options: PermissionTemplate.allCases.map { ($0, $0.title) },
+                   selected: PermissionTemplate.allCases.first { book.card(for: info.id).modes == $0.card.modes }) { template in
+            book.cards[info.id] = template.card
+            save()
         }
         ForEach(categories, id: \.0) { category, note in
             VStack(alignment: .leading, spacing: 4) {
@@ -588,14 +621,12 @@ struct NewSessionOptions: View {
                     }
                     field("Yetki Şablonu") { Seg(options: PermissionTemplate.allCases.map { ($0, $0.title) }, value: $template) }
                 }
-                HStack {
-                    Dim("Tab Alan Değiştirir")
-                    Spacer()
-                    Btn("Vazgeç", kind: .plain, key: "Esc") { model.overlay = nil }
-                    Btn("Başlat", kind: .primary, key: "⏎") { start() }.keyboardShortcut(.defaultAction)
-                }
             }
-            .padding(EdgeInsets(top: 4, leading: 20, bottom: 16, trailing: 20))
+            .padding(20)
+            DialogButtons(note: "Tab Alan Değiştirir") {
+                Btn("Vazgeç", kind: .plain, key: "Esc") { model.overlay = nil }
+                Btn("Başlat", kind: .primary, key: "⏎") { start() }.keyboardShortcut(.defaultAction)
+            }
         }
         .frame(width: 640)
         .onAppear {
@@ -760,15 +791,16 @@ struct LimitDialog: View {
                     } else {
                         Dim("Limit doldu. Çalışan iş kaybolmadı, oturum olduğu yerde bekliyor.")
                     }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(EdgeInsets(top: 20, leading: 20, bottom: 0, trailing: 20))
+                // MenuList keeps the row text at 20, in line with the lines above it.
+                MenuList {
                     ForEach(Array(actions.enumerated()), id: \.offset) { index, action in
                         MenuRow(title: action.title, note: action.note, key: "\(index + 1)") { action.run() }
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 20)
-                DialogButtons {
-                    Dim("Hesap Değişimi Yalnız Sizin Seçiminizle")
-                    Spacer()
+                DialogButtons(note: "Hesap Değişimi Yalnız Sizin Seçiminizle") {
                     Btn("Kapat", kind: .plain, key: "Esc") { model.overlay = nil }
                 }
                 .onAppear { LimitActions.current = actions.map(\.run) }
@@ -827,8 +859,7 @@ struct SSHListDialog: View {
                 if card.mode(.ssh) == .deny { T("Bu kartta SSH kapalı. Liste, kart açılınca geçerli olur.", color: Theme.palette.limit) }
                 Dim("Anahtarlar ~/.ssh içinde kalır, Enterm okumaz.")
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .padding(20)
             DialogButtons {
                 Btn("Kapat", kind: .plain, key: "Esc") { model.overlay = nil }
             }

@@ -15,9 +15,9 @@ struct AccountsPage: View {
                 Btn("Hesap Ekle", kind: .primary) { model.page = .accountAdd }
             }
             Panel {
-                ForEach(store.accounts) { account in
+                ForEach(Array(store.accounts.enumerated()), id: \.element.id) { index, account in
+                    if index > 0 { Line() }
                     AccountRow(account: account, sessions: model.sessions.filter { ($0.accountID ?? "system-\($0.tool.rawValue)") == account.id }.count)
-                    Line()
                 }
             }
             Dim("Limit dolunca oturum durur, iş kaybolmaz. Hesap değişimini her seferinde siz seçersiniz.")
@@ -30,8 +30,8 @@ struct AccountRow: View {
     let account: Account
     let sessions: Int
     var body: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading) {
+        Row {
+            VStack(alignment: .leading, spacing: 2) {
                 T(account.tool.title)
                 Dim(account.name)
             }
@@ -55,7 +55,6 @@ struct AccountRow: View {
                 Btn("Kaldır", kind: .plain) { AccountStore.shared.remove(account.id) }
             }
         }
-        .padding(12)
     }
 }
 
@@ -66,18 +65,25 @@ struct AccountAddPage: View {
     @State private var name = ""
     @State private var started: Account?
     var body: some View {
-        PageFrame(title: "Hesap Ekle") {
+        PageFrame(title: "Hesap Ekle", centered: true) {
             Panel {
                 VStack(alignment: .leading, spacing: 12) {
                     Seg(options: [(ToolKind.claude, "Claude Code"), (ToolKind.codex, "Codex")], value: $tool)
                     EntermField(placeholder: "Bu Hesabın Adı: İş, Kişisel", text: $name)
                     if started == nil {
                         Dim("Giriş sağlayıcının kendi ekranında tamamlanır. Enterm abonelik şifresi ya da oturum token'ı görmez. Hesap ayrı bir yapılandırma dizininde durur, oturumu resmi program saklar.")
-                        Btn("Girişi Başlat", kind: .primary) { start() }
+                        // The main action stands on the right, as at the foot of a dialog.
+                        HStack(spacing: 8) {
+                            Spacer(minLength: 0)
+                            Btn("Girişi Başlat", kind: .primary) { start() }
+                        }
                     } else {
                         T("● Giriş Bekleniyor", bold: true)
                         Dim("Yeni açılan terminalde resmi program giriş ekranını gösterir. Bitince burayı kapatın. Hesabın yüzdesi ilk yanıttan sonra görünür.")
-                        Btn("Giriş Bitti", kind: .primary) { model.page = .accounts }
+                        HStack(spacing: 8) {
+                            Spacer(minLength: 0)
+                            Btn("Giriş Bitti", kind: .primary) { model.page = .accounts }
+                        }
                     }
                 }
                 .padding(12)
@@ -98,23 +104,19 @@ struct ApiKeyPage: View {
     @State private var cap = ""
     @State private var result: String?
     var body: some View {
-        PageFrame(title: "API Anahtarı Ekle") {
+        PageFrame(title: "API Anahtarı Ekle", centered: true) {
             Panel {
                 VStack(alignment: .leading, spacing: 12) {
                     Dim("Kullanıma Göre Ücretlenir")
                     Seg(options: [(ToolKind.claude, "Anthropic"), (ToolKind.codex, "OpenAI")], value: $tool)
                     EntermField(placeholder: "Ad: Yedek Anahtar", text: $name)
-                    SecureField("", text: $key, prompt: Text("Anahtar").foregroundColor(Color(Theme.palette.dim)))
-                        .textFieldStyle(.plain)
-                        .font(Theme.swiftFont())
-                        .foregroundColor(Color(Theme.palette.fg))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(Theme.palette.line2)))
+                    SecureEntermField(placeholder: "Anahtar", text: $key)
                     EntermField(placeholder: "Aylık Harcama Sınırı (USD), İsteğe Bağlı: Hatırlatma İçindir", text: $cap)
                     Dim("Anahtar macOS Anahtar Zinciri'nde durur, ekranda gösterilmez, günlüğe yazılmaz. Yalnız seçtiğiniz oturuma verilir.")
                     if let result { T(result, color: Theme.palette.err) }
-                    HStack {
+                    // The main action is the last one, on the right, as at the foot of a dialog.
+                    HStack(spacing: 8) {
+                        Spacer(minLength: 0)
                         Btn("Vazgeç", kind: .plain, key: "Esc") { model.page = .accounts }
                         Btn("Kaydet", kind: .primary, key: "⏎") { save() }
                     }
@@ -139,6 +141,28 @@ struct ApiKeyPage: View {
     }
 }
 
+/// `EntermField` for a secret: the same box, font, colors and focus ring, the text never shown.
+private struct SecureEntermField: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let placeholder: String
+    @Binding var text: String
+    @FocusState private var focused: Bool
+    var body: some View {
+        let palette = Theme.palette
+        SecureField("", text: $text, prompt: Text(placeholder).foregroundColor(Color(palette.text3)))
+            .textFieldStyle(.plain)
+            .font(Theme.uiFont(.body))
+            .foregroundColor(Color(palette.text1))
+            .focused($focused)
+            .padding(.horizontal, 12)
+            .frame(height: 30)
+            .background(Color(palette.terminal))
+            .cornerRadius(Theme.cornerControl)
+            .overlay(RoundedRectangle(cornerRadius: Theme.cornerControl).stroke(focused ? Color(palette.need).opacity(0.7) : Color(palette.hair2)))
+            .shadow(color: focused && Neon.on ? Color(palette.need).opacity(0.25) : .clear, radius: 6)
+    }
+}
+
 struct InboxPage: View {
     @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
@@ -148,7 +172,7 @@ struct InboxPage: View {
         let pending = model.sessions.compactMap(\.pendingApproval)
         let asking = model.sessions.filter { $0.status == .needsApproval && $0.pendingApproval == nil }
         PageFrame(title: "Onay Kutusu") {
-            T("Sizi Bekleyenler", bold: true)
+            T("Sizi Bekleyenler", bold: true, style: .section)
             if pending.isEmpty && asking.isEmpty && inbox.limits.isEmpty && power.queue.isEmpty {
                 Dim("Bekleyen Bir Şey Yok")
             }
@@ -184,7 +208,7 @@ struct InboxPage: View {
             ForEach(inbox.limits) { item in
                 Panel(border: Theme.palette.limit) {
                     HStack {
-                        VStack(alignment: .leading) {
+                        VStack(alignment: .leading, spacing: 4) {
                             T("■ \(item.title)", color: Theme.palette.limit, bold: true)
                             Dim(item.detail)
                         }
@@ -202,7 +226,7 @@ struct InboxPage: View {
             ForEach(power.queue) { queued in
                 Panel {
                     HStack {
-                        VStack(alignment: .leading) {
+                        VStack(alignment: .leading, spacing: 4) {
                             T("◷ \(queued.spec.tool.title) Sırada", bold: true)
                             Dim("\(queued.reason). Yer Açılınca Kendiliğinden Başlar, Token Harcamıyor.")
                         }
@@ -214,16 +238,19 @@ struct InboxPage: View {
             }
             if !inbox.finished.isEmpty {
                 HStack {
-                    T("Biten İşler", bold: true)
+                    T("Biten İşler", bold: true, style: .section)
                     Spacer()
                     Btn("Tümünü Okundu Say", kind: .plain) { inbox.finished.removeAll() }
                 }
-                ForEach(inbox.finished) { item in
-                    HStack(alignment: .top) {
-                        T("\(item.symbol) \(item.title):")
-                        Dim(item.detail).lineLimit(2)
-                        Spacer()
-                        Dim(item.at.formatted(date: .omitted, time: .shortened))
+                Panel {
+                    ForEach(inbox.finished) { item in
+                        HStack(alignment: .top) {
+                            T("\(item.symbol) \(item.title):")
+                            Dim(item.detail).lineLimit(2)
+                            Spacer()
+                            Dim(item.at.formatted(date: .omitted, time: .shortened))
+                        }
+                        .settingsRow()
                     }
                 }
             }
@@ -245,8 +272,7 @@ struct CostPage: View {
                         Spacer()
                         Dim(info.costUSD.map { String(format: "$%.2f Liste Fiyatı", $0) } ?? "")
                     }
-                    .padding(12)
-                    Line()
+                    .settingsRow()
                 }
             }
             Dim("Yalnız bu oturumun program bildirdiği rakamlar. Limit yüzdesi oturum başına ayrılamaz. Danışman ayrı sayımı iç biçime dayandığı için bu sürümde yok.")
@@ -275,15 +301,17 @@ struct SettingsPage: View {
         let palette = Theme.palette
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
+                // Right edge of the column, in line with the search field below: the window buttons keep the left.
                 HStack {
-                    Btn("Geri", kind: .plain, key: "Esc", icon: "chevron.left") { AppModel.shared.goBack() }
                     Spacer()
+                    Btn("Geri", kind: .plain, key: "Esc", icon: "chevron.left") { AppModel.shared.goBack() }
                 }
                 .padding(.leading, 72)
+                .padding(.trailing, 12)
                 .frame(height: 44)
+                // The space under the field comes from the list's own inset below.
                 EntermField(placeholder: "Ayarlarda Ara", text: $search)
                     .padding(.horizontal, 12)
-                    .padding(.bottom, 8)
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 16) {
                         ForEach(groups, id: \.title) { group in
@@ -296,8 +324,8 @@ struct SettingsPage: View {
                         }
                         if groups.isEmpty { Dim("Sonuç Yok").padding(.horizontal, 8) }
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    // One inset on all four sides, so the last lit row sits as far from the bottom as from the edges.
+                    .padding(12)
                 }
             }
             .frame(width: 240)
@@ -346,19 +374,7 @@ struct SettingsPage: View {
     }
 
     private func sideItem(_ title: String, icon: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Symbol(icon, color: selected ? Theme.palette.need : Theme.palette.text2)
-                T(title, weight: selected ? .medium : .regular)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 8)
-            .frame(height: 30)
-            .background(selected ? Color(Theme.palette.fillSelected) : .clear)
-            .cornerRadius(Theme.cornerControl)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        SideItem(title: title, icon: icon, selected: selected, action: action)
     }
 
     private func line<Content: View>(_ title: String, _ note: String = "", @ViewBuilder content: () -> Content) -> some View {
@@ -403,14 +419,11 @@ struct SettingsPage: View {
                 Seg(options: [(25, "%25"), (50, "%50"), (75, "%75"), (100, "Sınırsız")], value: $power.settings.cpuLimit)
             }
             line("Aynı Anda En Çok Şu Kadar Oturum Çalışsın", "Fazlası Sırada bekler, çalışan iş durmaz.") {
-                HStack {
+                // The number belongs to "Elle": with "Otomatik" Enterm picks it and there is nothing to set.
+                HStack(spacing: 8) {
                     Seg(options: [(true, "Otomatik"), (false, "Elle")], value: $power.settings.sessionsAutomatic)
                     if !power.settings.sessionsAutomatic {
-                        Btn("−", kind: .plain) { power.settings.maxSessions = max(1, power.settings.maxSessions - 1) }
-                        T("\(power.settings.maxSessions)")
-                        Btn("+", kind: .plain) { power.settings.maxSessions += 1 }
-                    } else {
-                        Dim("\(power.effectiveMaxSessions)")
+                        NumberStepper(value: power.settings.maxSessions, minimum: 1) { power.settings.maxSessions = $0 }
                     }
                 }
             }
@@ -526,4 +539,32 @@ private struct DimRow: View {
     let text: String
     init(_ text: String) { self.text = text }
     var body: some View { Dim(text).fixedSize(horizontal: false, vertical: true).settingsRow() }
+}
+
+/// One row of the settings list: lit when chosen, a faint fill under the pointer.
+private struct SideItem: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let title: String
+    let icon: String
+    let selected: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        let palette = Theme.palette
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Symbol(icon, color: selected ? palette.need : (hovering ? palette.text1 : palette.text2))
+                T(title, weight: selected ? .medium : .regular)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 30)
+            .background(selected ? Color(palette.fillSelected) : (hovering ? Color(palette.fill) : .clear))
+            .cornerRadius(Theme.cornerControl)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
+    }
 }

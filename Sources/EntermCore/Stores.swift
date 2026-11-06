@@ -28,7 +28,14 @@ public struct AppSettings: Codable, Equatable {
     public var motion = true
     public var defaultProgram = "terminal"
     public var hiddenTools: [String] = []
+    /// Conversations and folders taken off the home list. Enterm never deletes a program's transcript.
+    public var hiddenConversations: [String] = []
+    public var hiddenConversationFolders: [String] = []
     public var customPrograms: [CustomProgram] = []
+    /// The programs that can be started: one added in settings but not yet filled in has no place in a menu.
+    public var startablePrograms: [CustomProgram] {
+        customPrograms.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty && !$0.command.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
     public var terminalTheme = "enterm"
     public var fontName = ""
     public var cursorStyle = "block"
@@ -53,7 +60,8 @@ public struct AppSettings: Codable, Equatable {
     public var focusFollowsPointer = false
     public var confirmQuit = true
     public var showRail = true
-    public var showMiniMap = true
+    /// Off unless asked for. A new name, so the old saved "on" does not bring it back.
+    public var miniMap = false
     public var whisperModel = "tiny"
     /// Keeps the logins of Enterm's own browser between runs. Agents use the same browser.
     public var browserKeepLogins = false
@@ -88,6 +96,8 @@ public struct AppSettings: Codable, Equatable {
         motion = try c.decodeIfPresent(Bool.self, forKey: .motion) ?? d.motion
         defaultProgram = try c.decodeIfPresent(String.self, forKey: .defaultProgram) ?? d.defaultProgram
         hiddenTools = try c.decodeIfPresent([String].self, forKey: .hiddenTools) ?? d.hiddenTools
+        hiddenConversations = try c.decodeIfPresent([String].self, forKey: .hiddenConversations) ?? d.hiddenConversations
+        hiddenConversationFolders = try c.decodeIfPresent([String].self, forKey: .hiddenConversationFolders) ?? d.hiddenConversationFolders
         customPrograms = try c.decodeIfPresent([CustomProgram].self, forKey: .customPrograms) ?? d.customPrograms
         terminalTheme = try c.decodeIfPresent(String.self, forKey: .terminalTheme) ?? d.terminalTheme
         fontName = try c.decodeIfPresent(String.self, forKey: .fontName) ?? d.fontName
@@ -113,7 +123,7 @@ public struct AppSettings: Codable, Equatable {
         focusFollowsPointer = try c.decodeIfPresent(Bool.self, forKey: .focusFollowsPointer) ?? d.focusFollowsPointer
         confirmQuit = try c.decodeIfPresent(Bool.self, forKey: .confirmQuit) ?? d.confirmQuit
         showRail = try c.decodeIfPresent(Bool.self, forKey: .showRail) ?? d.showRail
-        showMiniMap = try c.decodeIfPresent(Bool.self, forKey: .showMiniMap) ?? d.showMiniMap
+        miniMap = try c.decodeIfPresent(Bool.self, forKey: .miniMap) ?? d.miniMap
         whisperModel = try c.decodeIfPresent(String.self, forKey: .whisperModel) ?? d.whisperModel
         browserKeepLogins = try c.decodeIfPresent(Bool.self, forKey: .browserKeepLogins) ?? d.browserKeepLogins
         safariForAgents = try c.decodeIfPresent(Bool.self, forKey: .safariForAgents) ?? d.safariForAgents
@@ -123,15 +133,69 @@ public struct AppSettings: Codable, Equatable {
 }
 
 /// Which model does which job. Only Claude Code has an advisor.
+/// Empty means the program's own choice: what the person set in Claude Code itself. Enterm picks no model on its own.
 public struct ModelPlan: Codable, Equatable {
-    public var main = "sonnet"
-    public var mainEffort = "high"
+    public var main = ""
+    public var mainEffort = ""
     public var plan = "opus"
     public var search = "haiku"
-    public var subagents = "haiku"
+    public var subagents = ""
     public var advisor = "opus"
     public var useAdvisor = false
     public init() {}
+
+    // A plan saved before version 2 carried the old sonnet, high and haiku defaults, not a choice:
+    // those three are left empty. The key names stay, because an older phone app reads exactly these.
+    private enum CodingKeys: String, CodingKey { case main, mainEffort, plan, search, subagents, advisor, useAdvisor, version }
+    private static let version = 2
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = ModelPlan()
+        if try c.decodeIfPresent(Int.self, forKey: .version) ?? 1 >= Self.version {
+            main = try c.decodeIfPresent(String.self, forKey: .main) ?? d.main
+            mainEffort = try c.decodeIfPresent(String.self, forKey: .mainEffort) ?? d.mainEffort
+            subagents = try c.decodeIfPresent(String.self, forKey: .subagents) ?? d.subagents
+        }
+        plan = try c.decodeIfPresent(String.self, forKey: .plan) ?? d.plan
+        search = try c.decodeIfPresent(String.self, forKey: .search) ?? d.search
+        advisor = try c.decodeIfPresent(String.self, forKey: .advisor) ?? d.advisor
+        useAdvisor = try c.decodeIfPresent(Bool.self, forKey: .useAdvisor) ?? d.useAdvisor
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(main, forKey: .main)
+        try c.encode(mainEffort, forKey: .mainEffort)
+        try c.encode(plan, forKey: .plan)
+        try c.encode(search, forKey: .search)
+        try c.encode(subagents, forKey: .subagents)
+        try c.encode(advisor, forKey: .advisor)
+        try c.encode(useAdvisor, forKey: .useAdvisor)
+        try c.encode(Self.version, forKey: .version)
+    }
+}
+
+extension ModelPlan {
+    /// Where "Elle" starts: Opus at medium effort, Sonnet for the subagents, Fable ready as the advisor but off.
+    public static var suggested: ModelPlan {
+        var plan = ModelPlan()
+        plan.main = "opus"
+        plan.mainEffort = "medium"
+        plan.subagents = "sonnet"
+        plan.advisor = "fable"
+        plan.useAdvisor = false
+        return plan
+    }
+
+    /// An advisor is never weaker than the model it advises. With no main model chosen, what suits Opus and Sonnet alike.
+    public static func advisors(for main: String) -> [String] {
+        switch main {
+        case "fable": return ["fable"]
+        case "sonnet", "haiku": return ["fable", "opus", "sonnet"]
+        default: return ["fable", "opus"]
+        }
+    }
 }
 
 public struct PowerSettings: Codable, Equatable {
@@ -312,7 +376,7 @@ public struct TeamMember: Codable, Equatable, Identifiable {
     public var template: PermissionTemplate
     public var sources: String
     public var sessionID: String?
-    public init(name: String, role: String, tool: ToolKind = .claude, model: String = "sonnet", effort: String = "medium",
+    public init(name: String, role: String, tool: ToolKind = .claude, model: String = "", effort: String = "",
                 template: PermissionTemplate = .development, sources: String = "CLAUDE.md, README.md") {
         self.name = name
         self.role = role
@@ -341,16 +405,16 @@ public struct Team: Codable, Equatable {
             return [TeamMember(name: "Deniz", role: "Yönetici", template: .manager, sources: "ekip/EL-KITABI.md, README.md"),
                     TeamMember(name: "Arda", role: "Yazılım"),
                     TeamMember(name: "Selin", role: "Test", tool: .codex, model: "gpt-5-codex", sources: "tests/, README.md"),
-                    TeamMember(name: "Zeynep", role: "Kod İnceleme", model: "haiku", effort: "low", template: .readOnly)]
+                    TeamMember(name: "Zeynep", role: "Kod İnceleme", template: .readOnly)]
         case "marketing":
             return [TeamMember(name: "Deniz", role: "Yönetici", template: .manager, sources: "ekip/EL-KITABI.md"),
                     TeamMember(name: "Umay", role: "Strateji"), TeamMember(name: "Ece", role: "Metin"),
-                    TeamMember(name: "Yiğit", role: "Sosyal Medya", model: "haiku", effort: "low")]
+                    TeamMember(name: "Yiğit", role: "Sosyal Medya")]
         case "company":
             return [TeamMember(name: "Deniz", role: "Yönetici", template: .manager, sources: "ekip/EL-KITABI.md"),
                     TeamMember(name: "Arda", role: "Yazılım"), TeamMember(name: "Defne", role: "Tasarım"),
                     TeamMember(name: "Ece", role: "İçerik"), TeamMember(name: "Umay", role: "Pazarlama"),
-                    TeamMember(name: "Can", role: "Çeviri", model: "haiku", effort: "low")]
+                    TeamMember(name: "Can", role: "Çeviri")]
         default:
             return [TeamMember(name: "Deniz", role: "Yönetici", template: .manager, sources: "ekip/EL-KITABI.md")]
         }

@@ -25,7 +25,7 @@ struct FlowView: View {
                     Dim([info.model, info.effort.map(SessionText.effortTitle)].compactMap { $0 }.joined(separator: " · "))
                     if let tokens = info.contextTokens { Dim("\(SessionText.shortTokens(tokens)) Token") }
                 }
-                .padding(8)
+                .padding(12)
             }
             if agents.isEmpty {
                 Dim("Alt ajan başlamadı. Veri yoksa hareket de yoktur.")
@@ -131,8 +131,7 @@ struct LimitOpenedDialog: View {
                     T("Başladığınız hesabın limiti açıldı, dönülsün mü?")
                     Dim("Dönülecek: \(target.accountName). Dönüş, hesap değişimi gibi ilk mesajda konuşmayı baştan okur.")
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 20)
+                .padding(20)
                 DialogButtons {
                     Btn("Burada Kalsın", kind: .plain, key: "Esc") { LimitWatch.shared.stayHere() }
                     Btn("\(target.accountName) Hesabına Dön", kind: .primary, key: "⏎") { LimitWatch.shared.returnToStart() }
@@ -151,14 +150,15 @@ struct ResumeFailedDialog: View {
     var body: some View {
         Panel(border: Theme.palette.limit) {
             PanelHeader(title: "Konuşma Bu Hesapta Açılmadı") { T("■ Oturum Durdu", color: Theme.palette.limit, bold: true) }
-            VStack(alignment: .leading, spacing: 8) {
-                Dim("Bu konuşma başka hesapla sürdürülemedi. Çalışan iş kaybolmadı, eski konuşma yerinde duruyor. Programın hatası terminalde görünür.")
+            Dim("Bu konuşma başka hesapla sürdürülemedi. Çalışan iş kaybolmadı, eski konuşma yerinde duruyor. Programın hatası terminalde görünür.")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(EdgeInsets(top: 20, leading: 20, bottom: 0, trailing: 20))
+            // MenuList keeps the row text at 20, in line with the line above it.
+            MenuList {
                 ForEach(Array(LimitActions.resumeOptions(for: number).enumerated()), id: \.offset) { index, action in
                     MenuRow(title: action.title, note: action.note, key: "\(index + 1)") { action.run() }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
             DialogButtons {
                 Btn("Terminale Bak", kind: .plain, key: "Esc") { model.overlay = nil }
             }
@@ -174,11 +174,9 @@ struct CodexLimitDialog: View {
     var body: some View {
         Panel(border: Theme.palette.limit) {
             PanelHeader(title: "Limit Dolmuş Olabilir, Kontrol Edin") { T("■ Kontrol Edin", color: Theme.palette.limit, bold: true) }
-            VStack(alignment: .leading, spacing: 12) {
-                Dim("Codex limit sözü geçen bir hata yazdı, kesin bilgi gelmedi.")
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            Dim("Codex limit sözü geçen bir hata yazdı, kesin bilgi gelmedi.")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(20)
             DialogButtons {
                 Btn("Sorun Yok", kind: .plain, key: "Esc") { model.overlay = nil }
                 Btn("Terminale Bak", kind: .plain) { model.overlay = nil }
@@ -317,21 +315,23 @@ struct SchedulerPage: View {
             if !scheduler.missed.isEmpty {
                 T("Kaçan İşler", bold: true)
                 ForEach(scheduler.missed) { job in
+                    // A Row, like the job list below, so the text of both starts at the same inset.
                     Panel(border: Theme.palette.need) {
-                        HStack {
+                        Row {
                             VStack(alignment: .leading) {
                                 T(job.name, bold: true)
                                 Dim("Enterm kapalıyken zamanı geldi. Kendiliğinden çalıştırılmadı.")
                             }
                             Spacer()
-                            Btn("Şimdi Çalıştır", kind: .primary) { scheduler.run(job: job) }
-                            Btn("Atla", kind: .plain) {
-                                if let index = scheduler.jobs.firstIndex(where: { $0.id == job.id }) { scheduler.jobs[index].lastRun = Date() }
-                                scheduler.missed.removeAll { $0.id == job.id }
-                                scheduler.save()
+                            HStack(spacing: 8) {
+                                Btn("Şimdi Çalıştır", kind: .primary) { scheduler.run(job: job) }
+                                Btn("Atla", kind: .plain) {
+                                    if let index = scheduler.jobs.firstIndex(where: { $0.id == job.id }) { scheduler.jobs[index].lastRun = Date() }
+                                    scheduler.missed.removeAll { $0.id == job.id }
+                                    scheduler.save()
+                                }
                             }
                         }
-                        .padding(12)
                     }
                 }
             }
@@ -356,26 +356,32 @@ struct SchedulerPage: View {
                     .padding(12)
                 }
             }
-            if scheduler.jobs.isEmpty { Dim("Henüz iş yok.") }
-            Panel {
-                ForEach(scheduler.jobs) { job in
-                    Row {
-                        VStack(alignment: .leading) {
-                            T(job.name, bold: true)
-                            Dim("\(job.tool.title): \(job.command)").lineLimit(1)
-                        }
-                        Spacer()
-                        Dim(describe(job))
-                        Btn(job.enabled ? "Durdur" : "Başlat", kind: .plain) {
-                            if let index = scheduler.jobs.firstIndex(where: { $0.id == job.id }) { scheduler.jobs[index].enabled.toggle() }
-                            scheduler.save()
-                        }
-                        Btn("Sil", kind: .plain) {
-                            scheduler.jobs.removeAll { $0.id == job.id }
-                            scheduler.save()
+            if scheduler.jobs.isEmpty {
+                Dim("Henüz iş yok.")
+            } else {
+                Panel {
+                    ForEach(scheduler.jobs) { job in
+                        // A line only between rows: after the last one it would double the panel's border.
+                        if job.id != scheduler.jobs.first?.id { Line() }
+                        Row {
+                            VStack(alignment: .leading) {
+                                T(job.name, bold: true)
+                                Dim("\(job.tool.title): \(job.command)").lineLimit(1)
+                            }
+                            Spacer()
+                            Dim(describe(job))
+                            HStack(spacing: 8) {
+                                Btn(job.enabled ? "Durdur" : "Başlat", kind: .plain) {
+                                    if let index = scheduler.jobs.firstIndex(where: { $0.id == job.id }) { scheduler.jobs[index].enabled.toggle() }
+                                    scheduler.save()
+                                }
+                                Btn("Sil", kind: .plain) {
+                                    scheduler.jobs.removeAll { $0.id == job.id }
+                                    scheduler.save()
+                                }
+                            }
                         }
                     }
-                    Line()
                 }
             }
             T("Yeni İş", bold: true)
@@ -387,12 +393,15 @@ struct SchedulerPage: View {
                 EntermField(placeholder: "Dakika Saat Gün Ay Haftanın Günü", text: $cron)
                 if CronExpression(cron) == nil { T("Geçersiz Cron", color: Theme.palette.err) }
             }
-            HStack {
-                if kind != .cron {
+            if kind != .cron {
+                HStack {
                     T(kind == .once ? "Zaman" : "İlk Çalışma")
                     DatePicker("", selection: $first).labelsHidden()
                 }
-                if kind == .interval {
+            }
+            // On its own line: the native date picker is shorter than the field and has its own frame.
+            if kind == .interval {
+                HStack {
                     EntermField(placeholder: "Dakika", text: $minutes).frame(width: 90)
                     Dim("Dakikada Bir")
                 }

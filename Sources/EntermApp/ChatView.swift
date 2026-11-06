@@ -77,7 +77,7 @@ struct ChatView: View {
         VStack(spacing: 0) {
             ScrollViewReader { reader in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 14) {
+                    LazyVStack(alignment: .leading, spacing: 12) {
                         if feed.items.isEmpty {
                             Dim(feed.unavailable ? "Konuşma dosyası henüz yok. İlk yanıttan sonra burada görünür." : "Konuşma okunuyor.")
                                 .padding(.top, 24)
@@ -87,7 +87,8 @@ struct ChatView: View {
                         }
                         Color.clear.frame(height: 1).id("end")
                     }
-                    .padding(16)
+                    // The same 12 as the approval blocks and the input bar, so every left edge lines up.
+                    .padding(12)
                 }
                 .onChange(of: feed.items.count) { _ in reader.scrollTo("end", anchor: .bottom) }
                 .onAppear { reader.scrollTo("end", anchor: .bottom) }
@@ -96,7 +97,7 @@ struct ChatView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     T("Şu izni istiyor:", color: palette.need, style: .secondary, weight: .semibold)
                     Mono(request.summary).lineLimit(4).textSelection(.enabled)
-                    HStack {
+                    HStack(spacing: 8) {
                         Btn("İzin Ver", kind: .primary) { Approvals.decide(id: request.id, decision: "allow") }
                         Btn("Reddet", kind: .outline) { Approvals.decide(id: request.id, decision: "deny") }
                         Spacer()
@@ -113,7 +114,7 @@ struct ChatView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     T(trusted ? "Şu izni istiyor:" : "Program terminalde yanıtınızı bekliyor", color: palette.need, style: .secondary, weight: .semibold)
                     if trusted, let last = info.lastActivity { Mono(last).lineLimit(4).textSelection(.enabled) }
-                    HStack {
+                    HStack(spacing: 8) {
                         if trusted {
                             Btn("İzin Ver", kind: .primary) { model.hosts[number]?.type("\r") }
                             Btn("Reddet", kind: .outline) { model.hosts[number]?.type("\u{1b}") }
@@ -134,14 +135,12 @@ struct ChatView: View {
                     .lineLimit(1...5)
                     .focused($typing)
                     .onSubmit(send)
-                Button(action: send) {
-                    Text("⏎").font(.system(size: 14)).foregroundColor(Color(palette.need)).frame(width: 28, height: 26)
-                        .background(Color(palette.surface2)).cornerRadius(Theme.cornerControl)
-                }
-                .buttonStyle(.plain)
-                .disabled(draft.isEmpty)
+                IconBtn("return", label: "Gönder", action: send)
+                    .disabled(draft.isEmpty)
             }
+            // 7 + 30 + 7 = 44 on one line; a longer draft keeps 7 above and below as it grows.
             .padding(.horizontal, 12)
+            .padding(.vertical, 7)
             .frame(minHeight: 44)
             .background(Color(palette.surface1))
             .overlay(alignment: .top) { Line() }
@@ -184,8 +183,7 @@ struct ApprovalBar: View {
             }
             Mono(request.summary).lineLimit(2).truncationMode(.tail).frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(palette.surface2))
         .overlay(alignment: .top) { Rectangle().fill(Color(palette.need).opacity(0.6)).frame(height: 1) }
@@ -205,10 +203,9 @@ private struct ChatRow: View {
                     .font(.system(size: 14))
                     .foregroundColor(Color(palette.text1))
                     .textSelection(.enabled)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding(10)
                     .background(Color(palette.surface2))
-                    .cornerRadius(10)
+                    .cornerRadius(Theme.cornerCard)
             }
         case .assistant:
             ChatMarkdown(text: item.text)

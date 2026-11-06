@@ -308,7 +308,8 @@ extension AppModel {
         overlay = .input
     }
 
-    func confirm(title: String, detail: String, action title2: String, danger: Bool = true, perform: @escaping () -> Void) {
+    /// The main button wears the accent. Red only for what ends running work and cannot be undone: `danger: true`.
+    func confirm(title: String, detail: String, action title2: String, danger: Bool = false, perform: @escaping () -> Void) {
         confirmRequest = ConfirmRequest(title: title, detail: detail, confirm: title2, danger: danger, action: perform)
         overlay = .confirm
     }
@@ -342,15 +343,16 @@ struct InputDialog: View {
                 TextField("", text: $text, prompt: Text(request.placeholder).foregroundColor(Color(Theme.palette.text3)))
                     .textFieldStyle(.plain)
                     .font(Theme.uiFont(.body))
+                    .foregroundColor(Color(Theme.palette.text1))
                     .focused($focus)
                     .onSubmit { commit(request) }
-                    .padding(.horizontal, 10)
-                    .frame(height: 32)
+                    // EntermField's numbers; it is built here only because this field takes the focus on opening.
+                    .padding(.horizontal, 12)
+                    .frame(height: 30)
                     .background(Color(Theme.palette.terminal))
                     .cornerRadius(Theme.cornerControl)
-                    .overlay(RoundedRectangle(cornerRadius: Theme.cornerControl).stroke(Color(Theme.palette.need).opacity(0.6)))
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
+                    .overlay(RoundedRectangle(cornerRadius: Theme.cornerControl).stroke(focus ? Color(Theme.palette.need).opacity(0.7) : Color(Theme.palette.hair2)))
+                    .padding(20)
                 DialogButtons {
                     Btn("Vazgeç", kind: .plain, key: "Esc") { model.overlay = nil }
                     Btn(request.confirm, kind: .primary, key: "⏎") { commit(request) }
@@ -380,8 +382,7 @@ struct ConfirmDialog: View {
                 PanelHeader(title: request.title)
                 Dim(request.detail)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
+                    .padding(20)
                 DialogButtons {
                     Btn("Vazgeç", kind: .plain, key: "Esc") { model.overlay = nil }
                     Btn(request.confirm, kind: request.danger ? .danger : .primary) {
@@ -427,7 +428,7 @@ enum CanvasMenus {
         var items = ToolKind.programs.filter { !settings.hiddenTools.contains($0.rawValue) }.map { tool in
             ActionMenuItem(tool.title) { ToolLauncher.start(tool, cwd: cwd) } as NSMenuItem
         }
-        for program in settings.customPrograms {
+        for program in settings.startablePrograms {
             items.append(ActionMenuItem(program.name) { ToolLauncher.start(program, cwd: cwd) })
         }
         return items
@@ -554,21 +555,23 @@ struct ItemFrame: View {
     @State private var sizeStart: NSRect?
     var body: some View {
         let palette = Theme.palette
-        VStack(alignment: .leading, spacing: 0) {
+        // The tab overlaps the box by its line, so the two share one outline.
+        VStack(alignment: .leading, spacing: -1) {
             HStack(spacing: 8) {
-                Symbol(item.kind.icon, color: palette.text2, size: 14)
-                T(item.title, bold: true).lineLimit(1)
-                Button { AppModel.shared.removeItem(item.id) } label: {
-                    Symbol("xmark", color: palette.text3, size: 10).frame(width: 18, height: 18).contentShape(Rectangle())
+                // Title at 10 + 14 + 6 = 30, where a terminal box's tab puts it.
+                HStack(spacing: 6) {
+                    Symbol(item.kind.icon, color: palette.text2, size: 14)
+                    T(item.title, bold: true).lineLimit(1)
                 }
-                .buttonStyle(.plain)
-                .help("Kapat")
+                TabCloseButton { AppModel.shared.removeItem(item.id) }
             }
             .padding(.leading, 10)
             .padding(.trailing, 6)
             .frame(height: 30)
             .background(Color(palette.surface1))
             .cornerRadius(Theme.cornerCard, corners: [.topLeft, .topRight])
+            .overlay(TabOutline(radius: Theme.cornerCard).stroke(Color(palette.hair2), lineWidth: 1))
+            .zIndex(1)
             .gesture(DragGesture(coordinateSpace: .global).onChanged { value in
                 guard let canvas = canvas else { return }
                 if dragStart == nil {
@@ -588,6 +591,13 @@ struct ItemFrame: View {
                     .foregroundColor(Color(palette.text3))
                     .frame(width: 18, height: 18)
                     .contentShape(Rectangle())
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active: NSCursor.resizeCorner.set()
+                        // While shrinking stops at its least size the pointer leaves the grip: the drag keeps the arrow.
+                        case .ended: if sizeStart == nil { NSCursor.arrow.set() }
+                        }
+                    }
                     .gesture(DragGesture(coordinateSpace: .global).onChanged { value in
                         guard let canvas = canvas else { return }
                         if sizeStart == nil {
@@ -596,17 +606,40 @@ struct ItemFrame: View {
                         }
                         guard let sizeStart else { return }
                         canvas.resizeItem(item.id, to: NSSize(width: sizeStart.width + value.translation.width, height: sizeStart.height + value.translation.height))
-                    }.onEnded { _ in sizeStart = nil })
+                    }.onEnded { _ in
+                        sizeStart = nil
+                        NSCursor.arrow.set()
+                    })
             }
             .background(Color(palette.surface0))
             .cornerRadius(Theme.cornerCard, corners: [.topRight, .bottomLeft, .bottomRight])
-            .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard).stroke(Color(palette.hair2)))
+            .overlay(SomeCorners(radius: Theme.cornerCard, corners: [.topRight, .bottomLeft, .bottomRight]).stroke(Color(palette.hair2), lineWidth: 1).padding(0.5))
         }
         .clipped()
     }
 
     private var canvas: CanvasView? {
         (NSApp.windows.first { $0.contentView is RootView }?.contentView as? RootView)?.canvas
+    }
+}
+
+/// The x on a view box's tab. 18 in the 30 tab leaves 6 above, below and after it.
+private struct TabCloseButton: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        let palette = Theme.palette
+        Button(action: action) {
+            Symbol("xmark", color: hovering ? palette.text1 : palette.text3, size: 10)
+                .frame(width: 18, height: 18)
+                .background(hovering ? Color(palette.fill) : .clear)
+                .cornerRadius(Theme.cornerControl)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
+        .help("Kapat")
     }
 }
 
@@ -651,7 +684,8 @@ private struct StickyNote: View {
                 }
                 .disabled(text.isEmpty || AppModel.shared.focusedHost == nil)
             }
-            .padding(.trailing, 14)
+            // Clears the 18 resize grip and no more: 12 + 6.
+            .padding(.trailing, 6)
         }
         .padding(12)
         .onAppear { text = item.text }
@@ -684,7 +718,7 @@ final class GroupFrameView: NSView {
 
     private var color: NSColor { Self.colors[group.colorIndex % Self.colors.count] }
     private var labelRect: NSRect {
-        let width = (group.name as NSString).size(withAttributes: [.font: Theme.ui(.secondary, weight: .semibold)]).width + 20
+        let width = (group.name as NSString).size(withAttributes: [.font: Theme.ui(.secondary, weight: .semibold)]).width + 16
         return NSRect(x: 12, y: 0, width: width, height: 20)
     }
 
@@ -700,7 +734,7 @@ final class GroupFrameView: NSView {
         label.fill()
         color.withAlphaComponent(0.5).setStroke()
         label.stroke()
-        (group.name as NSString).draw(at: NSPoint(x: labelRect.minX + 10, y: labelRect.minY + 3), withAttributes: [
+        (group.name as NSString).draw(at: NSPoint(x: labelRect.minX + 8, y: labelRect.minY + 3), withAttributes: [
             .font: Theme.ui(.secondary, weight: .semibold), .foregroundColor: color,
         ])
     }
@@ -807,6 +841,20 @@ struct SomeCorners: Shape {
         path.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY - bl), control: CGPoint(x: rect.minX, y: rect.maxY))
         path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + tl))
         path.addQuadCurve(to: CGPoint(x: rect.minX + tl, y: rect.minY), control: CGPoint(x: rect.minX, y: rect.minY))
+        return path
+    }
+}
+
+/// A tab's line: up the left, over the rounded top, down the right. The bottom is the box's own line.
+struct TabOutline: Shape {
+    let radius: CGFloat
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let left = rect.minX + 0.5, right = rect.maxX - 0.5, top = rect.minY + 0.5
+        path.move(to: CGPoint(x: left, y: rect.maxY))
+        path.addArc(tangent1End: CGPoint(x: left, y: top), tangent2End: CGPoint(x: right, y: top), radius: radius)
+        path.addArc(tangent1End: CGPoint(x: right, y: top), tangent2End: CGPoint(x: right, y: rect.maxY), radius: radius)
+        path.addLine(to: CGPoint(x: right, y: rect.maxY))
         return path
     }
 }

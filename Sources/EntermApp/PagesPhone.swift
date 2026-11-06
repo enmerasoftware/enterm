@@ -84,7 +84,7 @@ struct PhonePage: View {
     }
 
     var body: some View {
-        PageFrame(title: "Telefonu Bağla") {
+        PageFrame(title: "Telefonu Bağla", centered: true) {
             if let removing {
                 removal(removing)
             } else {
@@ -136,8 +136,8 @@ struct PhonePage: View {
                 VStack(alignment: .leading, spacing: 8) {
                     T(reason, color: Theme.palette.err)
                     HStack {
-                        Btn("Yeni Kod", kind: .primary) { store.start(relay: relay) }
                         Btn("Vazgeç", kind: .plain) { store.pairing = .idle }
+                        Btn("Yeni Kod", kind: .primary) { store.start(relay: relay) }
                     }
                 }
                 .padding(12)
@@ -180,7 +180,7 @@ struct PhonePage: View {
                 PanelHeader(title: "Cihazlar")
                 ForEach(store.devices) { device in
                     HStack {
-                        VStack(alignment: .leading, spacing: 0) {
+                        VStack(alignment: .leading, spacing: 2) {
                             T(device.name)
                             Dim(subtitle(device))
                         }
@@ -188,8 +188,7 @@ struct PhonePage: View {
                         Dim(device.connected ? "✓ Bağlı" : "○ Bağlı Değil")
                         Btn("Kaldır", kind: .plain) { removing = device }
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding(12)
                     Line()
                 }
                 Dim("Telefon bu bilgisayara uçtan uca şifreli bağlanır. Oturumlar telefonda çalışmaz, yalnız görünür.")
@@ -241,7 +240,7 @@ struct QRCodeView: View {
     let text: String
     var body: some View {
         if let image = Self.image(text) {
-            Image(nsImage: image).interpolation(.none).resizable().padding(8).background(Color.white).cornerRadius(4)
+            Image(nsImage: image).interpolation(.none).resizable().padding(8).background(Color.white).cornerRadius(Theme.cornerControl)
         } else {
             Dim("Kod Üretilemedi")
         }

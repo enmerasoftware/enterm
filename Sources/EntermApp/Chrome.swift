@@ -7,6 +7,7 @@ struct TopBar: View {
     @ObservedObject var model = AppModel.shared
     @ObservedObject var inbox = Inbox.shared
     @ObservedObject var power = PowerCenter.shared
+    @State private var updateHovering = false
     var body: some View {
         let palette = Theme.palette
         HStack(spacing: 8) {
@@ -58,9 +59,15 @@ struct TopBar: View {
                         Circle().fill(Color(palette.need)).frame(width: 7, height: 7).neon(palette.need, radius: 3)
                         T("Yeni Sürüm Hazır", color: palette.need, style: .secondary, weight: .semibold)
                     }
+                    // The height and inset of a Btn, so it lines up with the buttons beside it.
+                    .padding(.horizontal, 12)
+                    .frame(height: 30)
+                    .background(updateHovering ? Color(palette.fill) : .clear)
+                    .cornerRadius(Theme.cornerControl)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.press)
+                .onHover { updateHovering = $0 }
                 .help("Arka plan servisi eski sürümden kalma. Oturumlar kapanana kadar eski servis çalışır.")
             }
             if power.settings.lowPower {
@@ -71,31 +78,20 @@ struct TopBar: View {
             }
             let waiting = model.sessions.filter { $0.status == .needsApproval }.count
             if waiting > 0 {
-                Button { Commands.perform("inbox") } label: {
-                    HStack(spacing: 6) {
-                        Symbol("diamond.fill", color: palette.need, size: 8)
-                        T("Onaylar \(waiting)", color: palette.need, style: .secondary, weight: .semibold)
-                    }
-                    .padding(.leading, 6)
-                    .padding(.trailing, 8)
-                    .frame(height: 20)
-                    .background(Color(palette.need).opacity(0.16))
-                    .cornerRadius(Theme.cornerControl)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                Btn("Onaylar \(waiting)", kind: .lit, icon: "diamond.fill") { Commands.perform("inbox") }
             }
             if model.focusedInfo?.tool != .terminal, model.focusedInfo != nil {
-                Btn("Ayrıntılar", kind: .plain, key: "⌘I") { model.detailsOpen.toggle() }
+                Btn("Ayrıntılar", kind: model.detailsOpen ? .lit : .plain, key: "⌘I") { model.detailsOpen.toggle() }
             }
             if !model.toolbarVisible {
-                IconBtn("plus", label: "Yeni Oturum") { Commands.perform("newSession") }
+                IconBtn("plus", label: "Yeni Oturum", active: model.overlay == .newSession) { Commands.perform("newSession") }
             }
-            IconBtn("iphone", label: "Telefon") { Commands.perform("phone") }.help("Telefon")
-            IconBtn("gearshape", label: "Ayarlar") { Commands.perform("settings") }.help("Ayarlar (⌘,)")
-            IconBtn("ellipsis", label: "Menü") { Commands.perform("menu") }
+            IconBtn("iphone", label: "Telefon", active: model.page == .phone) { Commands.perform("phone") }.help("Telefon")
+            IconBtn("gearshape", label: "Ayarlar", active: { if case .settings? = model.page { return true } else { return false } }()) { Commands.perform("settings") }.help("Ayarlar (⌘,)")
+            IconBtn("ellipsis", label: "Menü", active: model.overlay == .menu) { Commands.perform("menu") }
         }
-        .padding(.leading, 84)
+        // The same inset as PageFrame's bar, so nothing shifts between the canvas and a page.
+        .padding(.leading, 80)
         .padding(.trailing, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(palette.surface0))
@@ -152,13 +148,13 @@ struct ProjectTab: View {
                 T(name, color: on ? palette.text1 : palette.text3, weight: on ? .semibold : .regular).lineLimit(1)
                 if hovering {
                     Button {
-                        model.confirm(title: "\(name) Kapatılsın mı?", detail: "Bu projedeki \(members.count) oturum ve içinde çalışan programlar kapanır.", action: "Projeyi Kapat") {
+                        model.confirm(title: "\(name) Kapatılsın mı?", detail: "Bu projedeki \(members.count) oturum ve içinde çalışan programlar kapanır.", action: "Projeyi Kapat", danger: true) {
                             model.closeProject(name)
                         }
                     } label: {
                         Symbol("xmark", color: palette.text3, size: 10).frame(width: 14, height: 14).contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.press)
                     .help("Projeyi Kapat")
                 }
             }
@@ -171,7 +167,7 @@ struct ProjectTab: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .onHover { hovering = $0 }
     }
 }
@@ -191,13 +187,13 @@ private struct NewProjectTab: View {
             } label: {
                 Symbol("xmark", color: palette.text3, size: 10).frame(width: 14, height: 14).contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.press)
             .help("Vazgeç (Esc)")
         }
         .padding(.horizontal, 10)
         .frame(height: 44)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Color(palette.need)).frame(height: 2).neon(palette.need, radius: 3).padding(.horizontal, 10)
+            Rectangle().fill(Color(palette.need)).frame(height: 2).neon(palette.need, radius: 3).padding(.horizontal, 10).padding(.bottom, 6)
         }
     }
 }
@@ -223,12 +219,12 @@ struct ToolItem: View {
                 Key(key)
             }
             .padding(.horizontal, 8)
-            .frame(height: 28)
+            .frame(height: 30)
             .background(hovering ? Color(Theme.palette.fill) : .clear)
             .cornerRadius(Theme.cornerControl)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .onHover { hovering = $0 }
     }
 }
@@ -250,19 +246,23 @@ struct SessionStrip: View {
         let palette = Theme.palette
         GeometryReader { geometry in
             let labels = model.sessionLabels
-            let reserve = (summary as NSString).size(withAttributes: [.font: Theme.ui(.secondary)]).width + 24
-            let visible = fitting(labels: labels, width: geometry.size.width - reserve - 16)
+            let reserve = (summary as NSString).size(withAttributes: [.font: Theme.ui(.secondary)]).width + 30
+            let visible = fitting(labels: labels, width: geometry.size.width - reserve - 12)
             HStack(spacing: 2) {
                 ForEach(model.visibleSessions.prefix(visible)) { info in
                     item(info, label: labels[info.number] ?? "")
                 }
                 if visible < model.visibleSessions.count {
-                    Btn("+\(model.visibleSessions.count - visible)", kind: .plain) { Commands.perform("sessionList") }
+                    StripCell(action: { Commands.perform("sessionList") }) {
+                        T("+\(model.visibleSessions.count - visible)", color: palette.text2, style: .secondary)
+                    }
                 }
                 Spacer(minLength: 0)
-                T(summary, color: palette.text2, style: .secondary).padding(.trailing, 8)
+                // 6 + 14: the text ends 20 from the edge, like StatusLine's.
+                LimitSummaryButton(summary: summary).padding(.trailing, 14)
             }
-            .padding(.horizontal, 8)
+            // (36 - 24) / 2: a lit item has 6 on all four sides.
+            .padding(.horizontal, 6)
             .frame(maxHeight: .infinity)
         }
         .frame(height: 36)
@@ -291,7 +291,7 @@ struct SessionStrip: View {
         let look = StatusLook(info.status)
         let on = info.number == model.focused
         let color: NSColor = look.strong ? look.textColor : (on ? palette.text1 : palette.text2)
-        return Button { model.setFocus(info.number) } label: {
+        return StripCell(selected: on, width: width(label), action: { model.setFocus(info.number) }) {
             HStack(spacing: 6) {
                 if info.tool == .terminal {
                     Symbol("terminal", color: palette.text3, size: 14)
@@ -302,14 +302,37 @@ struct SessionStrip: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
-            .padding(.horizontal, 8)
-            .frame(height: 24)
-            .frame(width: width(label), alignment: .leading)
-            .background(on ? Color(palette.fillSelected) : .clear)
-            .cornerRadius(Theme.cornerControl)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+    }
+}
+
+/// One clickable cell of the session strip: 24 high, lit when selected, filled on hover.
+private struct StripCell<Content: View>: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let selected: Bool
+    let width: CGFloat?
+    let action: () -> Void
+    let content: Content
+    @State private var hovering = false
+    init(selected: Bool = false, width: CGFloat? = nil, action: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+        self.selected = selected
+        self.width = width
+        self.action = action
+        self.content = content()
+    }
+    var body: some View {
+        let palette = Theme.palette
+        Button(action: action) {
+            content
+                .padding(.horizontal, 8)
+                .frame(height: 24)
+                .frame(width: width, alignment: .leading)
+                .background(selected ? Color(palette.fillSelected) : (hovering ? Color(palette.fill) : .clear))
+                .cornerRadius(Theme.cornerControl)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
     }
 }
 
@@ -341,14 +364,14 @@ struct InlineCards: View {
                     case .notInstalled(let install):
                         CommandBox(text: install)
                         Dim("Komut bu terminalde görünür şekilde çalışır. Kendiniz de yazabilirsiniz.")
-                        HStack {
+                        HStack(spacing: 8) {
                             Btn("Bu Terminalde Çalıştır", kind: .primary, key: "⏎") { NotFoundActions.primary() }
                             Btn("Vazgeç", kind: .plain, key: "Esc") { model.notFound = nil }
                         }
                     case .notInPath(let path):
                         CommandBox(text: path)
                         Dim("Kurulum bitmiş, ama bu klasör PATH'te değil. PATH değişmez, Enterm bu kopyayı tam yolla çalıştırır.")
-                        HStack {
+                        HStack(spacing: 8) {
                             Btn("Buradan Çalıştır", kind: .primary, key: "⏎") { NotFoundActions.primary() }
                             Btn("Yeni Terminal", kind: .plain, key: "⌘T") { model.notFound = nil; model.newTerminal() }
                             Btn("Vazgeç", kind: .plain, key: "Esc") { model.notFound = nil }
@@ -356,13 +379,13 @@ struct InlineCards: View {
                     case .inApp(let path):
                         CommandBox(text: path)
                         Dim("PATH değişmez, Enterm bu kopyayı tam yolla çalıştırır.")
-                        HStack {
+                        HStack(spacing: 8) {
                             Btn("Buradan Çalıştır", kind: .primary, key: "⏎") { NotFoundActions.primary() }
                             Btn("Vazgeç", kind: .plain, key: "Esc") { model.notFound = nil }
                         }
                     case .geminiRejected:
                         Dim("Kişisel hesaplar için resmi program Antigravity (agy). Kurumsal lisans ya da ücretli API anahtarıyla gemini çalışmaya devam eder.")
-                        HStack {
+                        HStack(spacing: 8) {
                             Btn("agy Çalıştır", kind: .primary, key: "⏎") { NotFoundActions.primary() }
                             Btn("Vazgeç", kind: .plain, key: "Esc") { model.notFound = nil }
                         }

@@ -70,6 +70,7 @@ final class RootView: NSView {
             return self.handleKey(event)
         }
         mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            self?.releaseTyping(event)
             self?.noteClick(event)
             return event
         }
@@ -85,6 +86,10 @@ final class RootView: NSView {
     override var isFlipped: Bool { true }
 
     private func updateCover(overlay: Overlay?, page: Page?) {
+        updateHome()
+        // A dialog leaves the boxes visible under its veil. Their text cursor stays theirs: over the veil the pointer is an arrow.
+        if overlay != nil, page == nil { window?.disableCursorRects(); NSCursor.arrow.set() } else { window?.enableCursorRects() }
+        window?.resetCursorRects()
         if overlay == nil && page == nil {
             cover?.removeFromSuperview()
             cover = nil
@@ -124,7 +129,7 @@ final class RootView: NSView {
         if let number = model.notFound?.number, let box = canvas.boxes[number], !box.isHidden {
             anchor = canvas.convert(box.frame, to: self)
         }
-        cards.frame = NSRect(x: anchor.minX + 12, y: anchor.maxY - cardsHeight - 8, width: min(anchor.width - 24, 720), height: cardsHeight)
+        cards.frame = NSRect(x: anchor.minX + 12, y: anchor.maxY - cardsHeight - 12, width: min(anchor.width - 24, 720), height: cardsHeight)
         cards.isHidden = cardsHeight == 0
     }
 
@@ -134,7 +139,9 @@ final class RootView: NSView {
         let empty = model.started && (nothingOpen || model.showHome)
         top.isHidden = model.started && nothingOpen
         // The boxes keep receiving their programs' output behind the home screen, they only leave the screen.
-        canvas.isHidden = empty
+        // A page covers the whole window. The boxes leave the screen under it too, so a terminal there
+        // cannot turn the pointer into a text cursor over the page.
+        canvas.isHidden = empty || model.page != nil
         if empty, home == nil {
             let view = NSHostingView(rootView: HomeView())
             view.safeAreaRegions = []
@@ -155,6 +162,20 @@ final class RootView: NSView {
     }
 
     /// A click anywhere in a box makes it the focused session, terminal area included.
+    /// A click outside the field being typed in ends the typing, the way a page in a browser does.
+    /// A click on another field leaves it to that field; a click on a terminal is the terminal's to take.
+    private func releaseTyping(_ event: NSEvent) {
+        guard let window, event.window === window, window.firstResponder is NSTextView,
+              let frame = window.contentView?.superview else { return }
+        var view = frame.hitTest(event.locationInWindow)
+        while let current = view {
+            if current is NSTextView { return }
+            if let field = current as? NSTextField, field.isEditable { return }
+            view = current.superview
+        }
+        window.makeFirstResponder(nil)
+    }
+
     private func noteClick(_ event: NSEvent) {
         guard event.window === window, cover == nil, home == nil else { return }
         let point = canvas.convert(event.locationInWindow, from: nil)

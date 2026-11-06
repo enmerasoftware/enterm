@@ -123,8 +123,7 @@ struct RemoteLostDialog: View {
             VStack(alignment: .leading, spacing: 12) {
                 Dim("İnternet ya da sunucu yanıt vermiyor. Yazdıklarınız gönderilmedi. Sunucuda komut orada sürebilir; Enterm bunu bilemez.")
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .padding(20)
             DialogButtons {
                 Btn("Kapat", kind: .plain, key: "Esc") { model.overlay = nil }
                 Btn("Yeniden Bağlan", kind: .primary, key: "⏎") {
@@ -153,25 +152,31 @@ struct RunPage: View {
     var body: some View {
         PageFrame(title: "Çalıştır") {
             Dim(model.displayPath(folder)).lineLimit(1).truncationMode(.head)
-            if configs.isEmpty { Dim("Bu klasörde .vscode/launch.json ya da package.json betiği bulunamadı.") }
-            Panel {
-                ForEach(configs) { config in
-                    Row {
-                        VStack(alignment: .leading) {
-                            T(config.name, bold: true)
-                            Dim("\(config.command) · \(config.source)").lineLimit(1)
-                        }
-                        Spacer()
-                        if let info = session(config) {
-                            Dim("● Çalışıyor")
-                            Btn("Tarayıcıda Aç", kind: .plain) { openInBrowser(info) }
-                            Btn("Durdur", kind: .plain) { model.close(info.number) }
-                        } else {
-                            Dim("○ Durdu")
-                            Btn("Başlat") { start(config) }
+            if configs.isEmpty {
+                Dim("Bu klasörde .vscode/launch.json ya da package.json betiği bulunamadı.")
+            } else {
+                Panel {
+                    ForEach(configs) { config in
+                        if config.id != configs.first?.id { Line() }
+                        Row {
+                            VStack(alignment: .leading, spacing: 2) {
+                                T(config.name, bold: true)
+                                Dim("\(config.command) · \(config.source)").lineLimit(1)
+                            }
+                            Spacer()
+                            if let info = session(config) {
+                                Dim("● Çalışıyor")
+                                // A pair of buttons sits 8 apart, not at the row's 24.
+                                HStack(spacing: 8) {
+                                    Btn("Tarayıcıda Aç", kind: .plain) { openInBrowser(info) }
+                                    Btn("Durdur", kind: .plain) { model.close(info.number) }
+                                }
+                            } else {
+                                Dim("○ Durdu")
+                                Btn("Başlat") { start(config) }
+                            }
                         }
                     }
-                    Line()
                 }
             }
             if let config = pendingConfirm {
@@ -180,12 +185,12 @@ struct RunPage: View {
                         T("Depodaki Bu Komut İlk Kez Çalışacak", bold: true)
                         Mono(config.command).textSelection(.enabled)
                         HStack {
+                            Btn("Vazgeç", kind: .plain) { pendingConfirm = nil }
                             Btn("Çalıştır", kind: .primary) {
                                 RunTrust.accept(folder: folder, config: config)
                                 pendingConfirm = nil
                                 launch(config)
                             }
-                            Btn("Vazgeç", kind: .plain) { pendingConfirm = nil }
                         }
                     }
                     .padding(12)
@@ -269,7 +274,8 @@ struct WhiteboardPage: View {
             canvas
                 .frame(minHeight: boxed ? 120 : 520)
                 .background(Color(Theme.palette.panel))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(Theme.palette.line2)))
+                .cornerRadius(Theme.cornerCard)
+                .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard).stroke(Color(Theme.palette.hair)))
                 .overlay(MouseCatcher(changed: { dragged($0) }, ended: { ended() }))
             Dim("Dosya: .enterm/tahta/tahta.json. Kapalıyken yük yok. \(status)")
         }
@@ -445,17 +451,19 @@ struct SimulatorPage: View {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
                     if !feed.note.isEmpty { Dim(feed.note) }
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            ForEach(feed.devices) { device in
-                                MenuRow(title: device.name, note: device.booted ? "● Açık" : "○ Kapalı", selected: selected == device) {
-                                    selected = device
-                                    if device.booted { feed.startFeed(device) }
+                    Panel {
+                        ScrollView {
+                            MenuList {
+                                ForEach(feed.devices) { device in
+                                    MenuRow(title: device.name, note: device.booted ? "● Açık" : "○ Kapalı", selected: selected == device) {
+                                        selected = device
+                                        if device.booted { feed.startFeed(device) }
+                                    }
                                 }
                             }
                         }
+                        .frame(height: 420)
                     }
-                    .frame(height: 420)
                     if let device = selected, !device.booted {
                         Btn("\(device.name) Başlat", kind: .primary) { feed.boot(device) }
                         Dim("Simülatör belleği çok kullanır. Yalnız isterseniz başlatın.")
@@ -506,7 +514,7 @@ struct UninstallPage: View {
     @ObservedObject var model = AppModel.shared
     @State private var confirm = false
     var body: some View {
-        PageFrame(title: "Enterm'i Kaldır") {
+        PageFrame(title: "Enterm'i Kaldır", centered: true) {
             T("Silinecekler", bold: true)
             VStack(alignment: .leading, spacing: 4) {
                 Dim(model.displayPath(EntermPaths.support.path) + ": ayarlar, hesap dizinleri, dökümler, pano, ekip, mesajlar")
@@ -518,8 +526,8 @@ struct UninstallPage: View {
             Dim("~/.claude, ~/.codex ve ~/.gemini'ye Enterm yazmaz, dokunulmaz. Projelerdeki ekip/ ve .enterm/ klasörleri sizindir, kalır. Enterm.app dosyasını sonra Çöp Sepeti'ne taşıyın.")
             if confirm {
                 HStack {
-                    Btn("Evet, Hepsini Sil Ve Kapat", kind: .danger) { Uninstaller.removeEverything() }
                     Btn("Vazgeç", kind: .plain) { confirm = false }
+                    Btn("Evet, Hepsini Sil Ve Kapat", kind: .danger) { Uninstaller.removeEverything() }
                 }
             } else {
                 Btn("Kaldır", kind: .danger) { confirm = true }

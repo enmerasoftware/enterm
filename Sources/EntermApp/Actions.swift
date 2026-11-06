@@ -100,7 +100,7 @@ enum Commands {
         for layout in model.state.layouts {
             list.append(Command(id: "layout:\(layout.id)", title: "Yerleşim: \(layout.name)", key: ""))
         }
-        for program in SettingsStore.shared.settings.customPrograms {
+        for program in SettingsStore.shared.settings.startablePrograms {
             list.append(Command(id: "custom:\(program.id)", title: "Yeni \(program.name)", key: ""))
         }
         return list
@@ -275,10 +275,11 @@ enum ToolLauncher {
         var spec = SessionSpec(name: name, tool: tool, cwd: cwd ?? AppModel.shared.focusedInfo?.cwd, rows: 30, cols: 100, group: group, accountID: accountID)
         var env = AccountStore.shared.environment(for: accountID)
         let resolvedPlan = plan ?? SettingsStore.shared.settings.defaultPlan
+        // Only what was chosen in Enterm goes along. Nothing chosen: Claude Code starts with the person's own settings.
         if tool == .claude {
-            env["ENTERM_MODEL"] = resolvedPlan.main
-            env["ENTERM_EFFORT"] = resolvedPlan.mainEffort
-            env["CLAUDE_CODE_SUBAGENT_MODEL"] = resolvedPlan.subagents
+            if !resolvedPlan.main.isEmpty { env["ENTERM_MODEL"] = resolvedPlan.main }
+            if !resolvedPlan.mainEffort.isEmpty { env["ENTERM_EFFORT"] = resolvedPlan.mainEffort }
+            if !resolvedPlan.subagents.isEmpty { env["CLAUDE_CODE_SUBAGENT_MODEL"] = resolvedPlan.subagents }
             if resolvedPlan.useAdvisor { env["ENTERM_ADVISOR"] = resolvedPlan.advisor }
         }
         var start = ToolCatalog.shared.startCommand(tool, command: command)

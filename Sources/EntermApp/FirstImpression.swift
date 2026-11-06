@@ -75,12 +75,13 @@ private struct EnterButton: View {
                 Text("⏎")
                     .font(.system(size: 15))
                     .foregroundColor(Color(palette.btn))
-                    .frame(width: 26, height: 26)
+                    // 24 in a 44 button: 10 above, below and to the right.
+                    .frame(width: 24, height: 24)
                     .background(Color(palette.btnfg))
                     .cornerRadius(Theme.cornerControl)
             }
             .foregroundColor(Color(palette.btnfg))
-            .padding(.leading, 18)
+            .padding(.leading, 16)
             .padding(.trailing, 10)
             .frame(height: 44)
             .background(Color(palette.btn).brightness(hovering ? 0.06 : 0))
@@ -88,7 +89,7 @@ private struct EnterButton: View {
             .neon(palette.btn, radius: 10)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .keyboardShortcut(.return, modifiers: [])
         .onHover { hovering = $0 }
     }
@@ -111,7 +112,7 @@ private struct QuietButton: View {
                 .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard).stroke(Color(Theme.palette.hair2)))
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .onHover { hovering = $0 }
     }
 }
@@ -241,12 +242,10 @@ private struct WelcomeCover: View {
                     .padding(.horizontal, 96)
                     .frame(width: width, height: height - 44, alignment: .bottom)
                 }
-                Button(action: finish) {
-                    Text("Atla").font(.system(size: 13)).foregroundColor(Color(palette.text2)).padding(.horizontal, 12).frame(height: 28).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .padding(.leading, 84)
-                .padding(.top, 8)
+                // Where every page's back button stands: 80 in, centred in the same 44 band.
+                Btn("Atla", kind: .plain, action: finish)
+                    .padding(.leading, 80)
+                    .padding(.top, 7)
             }
         }
         .onAppear {
@@ -380,10 +379,7 @@ private struct TourView: View {
                     HStack(spacing: 10) {
                         EnterButton(title: step == .phone ? "Başla" : "Devam") { next() }
                         if step != .program {
-                            Button { go(TourStep(rawValue: step.rawValue - 1) ?? .program) } label: {
-                                Text("Geri").font(.system(size: 14)).foregroundColor(Color(palette.text2)).padding(.horizontal, 14).frame(height: 44).contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
+                            QuietButton(title: "Geri") { go(TourStep(rawValue: step.rawValue - 1) ?? .program) }
                         }
                     }
                 }
@@ -402,12 +398,9 @@ private struct TourView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .overlay(alignment: .topLeading) {
-            Button(action: finish) {
-                Text("Atla").font(.system(size: 13)).foregroundColor(Color(palette.text2)).padding(.horizontal, 12).frame(height: 28).contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(.leading, 84)
-            .padding(.top, 8)
+            Btn("Atla", kind: .plain, action: finish)
+                .padding(.leading, 80)
+                .padding(.top, 7)
         }
     }
 
@@ -433,23 +426,7 @@ private struct TourView: View {
             Rectangle().fill(Color(palette.need)).frame(width: 2, height: spacing * CGFloat(step.rawValue)).neon(palette.need, radius: 3).padding(.leading, 5).padding(.top, 18)
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(all, id: \.rawValue) { item in
-                    let done = item.rawValue <= step.rawValue
-                    let here = item == step
-                    Button { go(item) } label: {
-                        HStack(spacing: 12) {
-                            Circle()
-                                .fill(done ? Color(palette.need) : Color(palette.terminal))
-                                .overlay(Circle().stroke(done ? Color(palette.need) : Color(palette.hair2), lineWidth: 2))
-                                .frame(width: 12, height: 12)
-                                .shadow(color: here && Neon.on ? Color(palette.need) : .clear, radius: 6)
-                            Text(item.short)
-                                .font(.system(size: 12, weight: here ? .semibold : .regular))
-                                .foregroundColor(Color(here ? palette.text1 : palette.text3))
-                        }
-                        .frame(height: spacing, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+                    TourRailItem(title: item.short, done: item.rawValue <= step.rawValue, here: item == step, height: spacing) { go(item) }
                 }
             }
         }
@@ -509,13 +486,10 @@ private struct TourView: View {
                 keyRow("Onay Kutusu", "⌘⇧O")
             }
         case .phone:
-            Button {
+            TourLink(title: "Şimdi Eşleştir") {
                 finish()
                 Commands.perform("phone")
-            } label: {
-                Text("Şimdi Eşleştir").font(.system(size: 14, weight: .medium)).foregroundColor(Color(Theme.palette.need)).frame(height: 32).contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
         }
     }
 
@@ -531,23 +505,7 @@ private struct TourView: View {
     }
 
     private func option(_ title: String, note: String, on: Bool, action: @escaping () -> Void) -> some View {
-        let palette = Theme.palette
-        return Button(action: action) {
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(on ? Color(palette.need) : .clear)
-                    .overlay(Circle().stroke(on ? Color(palette.need) : Color(palette.hair2), lineWidth: 2))
-                    .frame(width: 12, height: 12)
-                    .shadow(color: on && Neon.on ? Color(palette.need) : .clear, radius: 5)
-                Text(title).font(.system(size: 14, weight: on ? .semibold : .regular)).foregroundColor(Color(palette.text1))
-                Spacer()
-                Text(note).font(.system(size: 12)).foregroundColor(Color(palette.text3))
-            }
-            .frame(height: 46)
-            .contentShape(Rectangle())
-            .overlay(alignment: .bottom) { Rectangle().fill(Color(palette.hair)).frame(height: 1) }
-        }
-        .buttonStyle(.plain)
+        TourOption(title: title, note: note, on: on, action: action)
     }
 
     private func keyRow(_ title: String, _ key: String) -> some View {
@@ -556,7 +514,8 @@ private struct TourView: View {
             Spacer()
             Key(key)
         }
-        .frame(height: 42)
+        // The same height as a choice row: both lists stand in the same spot.
+        .frame(height: TourOption.height)
         .overlay(alignment: .bottom) { Rectangle().fill(Color(Theme.palette.hair)).frame(height: 1) }
     }
 
@@ -581,7 +540,8 @@ private struct TourView: View {
                     Text("~/proje % \(tool.command ?? "")").font(Theme.swiftFont(size: 14)).foregroundColor(Color(palette.terminalText))
                     Text(tool == .terminal ? "Hazır" : "Resmi program açılıyor").font(Theme.swiftFont(size: 14)).foregroundColor(Color(palette.text3))
                 }
-                .padding(18)
+                // 12, like the tab above: the terminal text stands under the tab's dot.
+                .padding(12)
                 .frame(maxWidth: .infinity, minHeight: 170, alignment: .topLeading)
                 .background(Color(palette.surface0))
                 .cornerRadius(Theme.cornerCard, corners: [.topRight, .bottomLeft, .bottomRight])
@@ -604,7 +564,7 @@ private struct TourView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Spacer()
-                    Text("Testleri düzelt").font(.system(size: 14)).foregroundColor(Color(palette.text1)).padding(.horizontal, 14).padding(.vertical, 10).background(Color(palette.surface2)).cornerRadius(10)
+                    Text("Testleri düzelt").font(.system(size: 14)).foregroundColor(Color(palette.text1)).padding(10).background(Color(palette.surface2)).cornerRadius(10)
                 }
                 Text("Üç test düzeltildi, hepsi geçiyor. Yayına alayım mı?").font(.system(size: 15)).lineSpacing(5).foregroundColor(Color(palette.text1))
                 HStack {
@@ -732,6 +692,87 @@ private struct VoiceBars: View {
     }
 }
 
+/// One choice in the tour: a ring, the name and a quiet note.
+private struct TourOption: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    static let height: CGFloat = 44
+    let title: String
+    let note: String
+    let on: Bool
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        let palette = Theme.palette
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(on ? Color(palette.need) : .clear)
+                    .overlay(Circle().stroke(on ? Color(palette.need) : Color(hovering ? palette.focus.withAlphaComponent(0.35) : palette.hair2), lineWidth: 2))
+                    .frame(width: 12, height: 12)
+                    .shadow(color: on && Neon.on ? Color(palette.need) : .clear, radius: 5)
+                Text(title).font(.system(size: 14, weight: on ? .semibold : .regular)).foregroundColor(Color(palette.text1))
+                Spacer()
+                Text(note).font(.system(size: 12)).foregroundColor(Color(hovering ? palette.text2 : palette.text3))
+            }
+            .frame(height: Self.height)
+            .contentShape(Rectangle())
+            .overlay(alignment: .bottom) { Rectangle().fill(Color(palette.hair)).frame(height: 1) }
+        }
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
+    }
+}
+
+/// A stop on the tour's rail. No panel behind it, so the pointer lights the name and the ring.
+private struct TourRailItem: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let title: String
+    let done: Bool
+    let here: Bool
+    let height: CGFloat
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        let palette = Theme.palette
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(done ? Color(palette.need) : Color(palette.terminal))
+                    .overlay(Circle().stroke(done ? Color(palette.need) : Color(hovering ? palette.focus.withAlphaComponent(0.35) : palette.hair2), lineWidth: 2))
+                    .frame(width: 12, height: 12)
+                    .shadow(color: here && Neon.on ? Color(palette.need) : .clear, radius: 6)
+                Text(title)
+                    .font(.system(size: 12, weight: here ? .semibold : .regular))
+                    .foregroundColor(Color(here || hovering ? palette.text1 : palette.text3))
+            }
+            .frame(height: height, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
+    }
+}
+
+/// A word in the accent that does something. It underlines under the pointer.
+private struct TourLink: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let title: String
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .medium))
+                .underline(hovering)
+                .foregroundColor(Color(Theme.palette.need))
+                .frame(height: 32)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
+    }
+}
+
 struct WelcomeFlow: View {
     @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = SettingsStore.shared
@@ -772,8 +813,11 @@ struct HomeView: View {
     @ObservedObject var power = PowerCenter.shared
     @ObservedObject var accounts = AccountStore.shared
     @State private var text = ""
-    @State private var groups: [RecentConversation.Group] = []
+    @State private var found: [RecentConversation] = []
     @State private var swept = false
+    private var groups: [RecentConversation.Group] {
+        RecentConversation.grouped(RecentHiding.visible(found, store.settings), limit: 6)
+    }
     @FocusState private var typing: Bool
 
     var body: some View {
@@ -783,11 +827,16 @@ struct HomeView: View {
             CornerGlows(first: .top, second: .bottomTrailing)
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    // The welcome's mark, smaller: the same letters, spacing and blinking block, so home reads as the same place.
                     HStack(spacing: 6) {
-                        Text("enterm").font(Theme.swiftFont(bold: true, size: 17)).tracking(-0.4).foregroundColor(Color(palette.text1))
-                        Rectangle().fill(Color(palette.need)).frame(width: 8, height: 17).neon(palette.need, radius: 4)
+                        Text("enterm")
+                            .font(Theme.swiftFont(bold: true, size: 40))
+                            .tracking(-1.5)
+                            .foregroundColor(Color(palette.text1))
+                        BlinkingCursor(width: 15, height: 35)
                     }
-                    commandLine.padding(.top, 28)
+                    .frame(height: 50)
+                    commandLine.padding(.top, 24)
                     actions.padding(.top, 16)
                     if !groups.isEmpty { recents.padding(.top, 36) }
                 }
@@ -796,25 +845,18 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity)
             }
             VStack {
-                // With sessions open the top bar is above this and has them already.
-                if model.sessions.isEmpty && model.state.items.isEmpty {
-                    HStack(spacing: 2) {
-                        Spacer()
-                        IconBtn("iphone", label: "Telefon") { Commands.perform("phone") }
-                        IconBtn("gearshape", label: "Ayarlar") { Commands.perform("settings") }
-                    }
-                    .padding(.horizontal, 8)
-                    .frame(height: 40)
-                }
                 Spacer()
                 HStack(spacing: 16) {
-                    MemoryLabel()
-                    if !limitSummary.isEmpty { T(limitSummary, color: palette.text2, style: .secondary) }
+                    Button { Commands.perform("memory") } label: { MemoryLabel().contentShape(Rectangle()) }
+                        .buttonStyle(.press)
+                        .help("Bellek Ayrıntısı")
+                    LimitSummaryButton(summary: limitSummary)
                     Spacer()
                     T("Her Şeyi Bul ⌘K", color: palette.text3, style: .secondary)
                 }
+                // As tall as the status line on the canvas, so the bar does not jump when a session opens.
                 .padding(.horizontal, 20)
-                .frame(height: 32)
+                .frame(height: 36)
                 .background(Color(palette.terminal))
                 .overlay(alignment: .top) { Line() }
             }
@@ -826,8 +868,8 @@ struct HomeView: View {
             ToolCatalog.shared.refresh()
             let projects = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".claude/projects")
             DispatchQueue.global(qos: .utility).async {
-                let found = RecentConversation.grouped(RecentConversation.scan(projects: projects), limit: 6)
-                DispatchQueue.main.async { groups = found }
+                let scanned = RecentConversation.scan(projects: projects)
+                DispatchQueue.main.async { found = scanned }
             }
             if Motion.allowed {
                 withAnimation(.timingCurve(0.6, 0, 0.2, 1, duration: 0.6)) { swept = true }
@@ -852,26 +894,17 @@ struct HomeView: View {
         let palette = Theme.palette
         return VStack(spacing: 0) {
             HStack(spacing: 14) {
-                Text("❯").font(Theme.swiftFont(size: 22)).foregroundColor(Color(palette.need))
+                Text("❯").font(Theme.swiftFont(size: 16)).foregroundColor(Color(palette.need))
                 TextField("Komut, klasör ya da proje yazın", text: $text)
                     .textFieldStyle(.plain)
-                    .font(Theme.swiftFont(size: 22))
+                    .font(Theme.swiftFont(size: 16))
                     .foregroundColor(Color(palette.text1))
                     .focused($typing)
                     .onSubmit(run)
-                Button(action: run) {
-                    Text("⏎")
-                        .font(.system(size: 16))
-                        .foregroundColor(Color(palette.need))
-                        .frame(width: 34, height: 30)
-                        .background(Color(palette.surface2))
-                        .cornerRadius(Theme.cornerControl)
-                        .overlay(RoundedRectangle(cornerRadius: Theme.cornerControl).stroke(Color(palette.need).opacity(0.5)))
-                }
-                .buttonStyle(.plain)
-                .help("Çalıştır")
+                RunKey(action: run)
+                    .help("Çalıştır")
             }
-            .frame(height: 64)
+            .frame(height: 48)
             ZStack(alignment: .leading) {
                 Rectangle().fill(Color(palette.hair2)).frame(height: 1)
                 GeometryReader { geometry in
@@ -886,7 +919,8 @@ struct HomeView: View {
     }
 
     private var actions: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 24), GridItem(.flexible())], spacing: 0) {
+        // The same gap across and down, so no two tiles touch.
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible())], spacing: 10) {
             ActionRow(title: "\(defaultTool == .terminal ? "Terminal" : defaultTool.title) Aç", key: "⏎", strong: true) { open(cwd: nil) }
             ActionRow(title: "Klasör Aç", key: "") { chooseFolder() }
             ActionRow(title: "Depo Klonla", key: "") {
@@ -909,11 +943,7 @@ struct HomeView: View {
                 ForEach(Array(groups.enumerated()), id: \.element.folder) { index, group in
                     let color = index.isMultiple(of: 2) ? palette.g1 : palette.g2
                     VStack(alignment: .leading, spacing: 2) {
-                        HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            Text((group.folder as NSString).lastPathComponent).font(.system(size: 13, weight: .semibold)).foregroundColor(Color(palette.text1))
-                            Text(model.displayPath(group.folder)).font(Theme.swiftFont(size: 11)).foregroundColor(Color(palette.text3)).lineLimit(1).truncationMode(.head)
-                        }
-                        .padding(.bottom, 2)
+                        RecentFolderHeader(folder: group.folder)
                         ForEach(group.items) { item in
                             RecentRow(item: item)
                         }
@@ -984,40 +1014,70 @@ private struct ActionRow: View {
             HStack(spacing: 12) {
                 Text(title).font(.system(size: 14, weight: strong ? .semibold : .regular)).foregroundColor(Color(palette.text1))
                 Spacer()
-                if !key.isEmpty {
-                    Text(key)
-                        .font(.system(size: 13))
-                        .foregroundColor(Color(palette.need))
-                        .frame(width: 24, height: 24)
-                        .background(Color(palette.surface2))
-                        .cornerRadius(5)
-                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color(palette.need).opacity(0.5)))
-                }
+                // The key reads like every other key hint in the app: quiet text, no badge.
+                if !key.isEmpty { Key(key) }
             }
             .padding(.horizontal, 12)
             .frame(height: 42)
             .background(strong ? Color(palette.need).opacity(hovering ? 0.14 : 0.09) : (hovering ? Color(palette.fill) : .clear))
             .cornerRadius(Theme.cornerControl)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.cornerControl)
+                    .strokeBorder(strong ? Color(palette.need).opacity(0.35) : Color(hovering ? palette.focus.withAlphaComponent(0.35) : palette.hair2), lineWidth: 1)
+            )
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
+    }
+}
+
+/// The home line's Enter key. A quiet square like an icon button: the lit line under the field is the accent here.
+private struct RunKey: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        let palette = Theme.palette
+        Button(action: action) {
+            Text("⏎")
+                .font(.system(size: 13))
+                .foregroundColor(Color(hovering ? palette.text1 : palette.text2))
+                .frame(width: 30, height: 30)
+                .background(hovering ? Color(palette.fill) : .clear)
+                .cornerRadius(Theme.cornerControl)
+                .overlay(RoundedRectangle(cornerRadius: Theme.cornerControl).strokeBorder(Color(hovering ? palette.focus.withAlphaComponent(0.35) : palette.hair2), lineWidth: 1))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
         .onHover { hovering = $0 }
     }
 }
 
 /// Every recent conversation, by folder.
 struct RecentsPage: View {
-    @State private var groups: [RecentConversation.Group] = []
+    @ObservedObject var store = SettingsStore.shared
+    @State private var found: [RecentConversation] = []
     @State private var loaded = false
+    private var groups: [RecentConversation.Group] {
+        RecentConversation.grouped(RecentHiding.visible(found, store.settings), limit: 80)
+    }
     var body: some View {
         PageFrame(title: "Geçmiş Konuşmalar") {
             if loaded, groups.isEmpty { Dim("Henüz Claude Code konuşması yok.") }
+            if RecentHiding.count(store.settings) > 0 {
+                HStack(spacing: 12) {
+                    Dim("\(RecentHiding.count(store.settings)) öğe listeden kaldırıldı. Konuşma kayıtları yerinde duruyor.")
+                    Spacer(minLength: 0)
+                    Btn("Hepsini Geri Getir", kind: .plain) { RecentHiding.restoreAll() }
+                }
+            }
             ForEach(groups, id: \.folder) { group in
                 VStack(alignment: .leading, spacing: 4) {
                     T((group.folder as NSString).lastPathComponent, bold: true)
                     Dim(AppModel.shared.displayPath(group.folder)).lineLimit(1).truncationMode(.head)
                     Panel {
-                        ForEach(group.items) { item in RecentRow(item: item) }
+                        MenuList { ForEach(group.items) { item in RecentRow(item: item) } }
                     }
                 }
             }
@@ -1025,9 +1085,9 @@ struct RecentsPage: View {
         .onAppear {
             let projects = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".claude/projects")
             DispatchQueue.global(qos: .utility).async {
-                let found = RecentConversation.grouped(RecentConversation.scan(projects: projects, newest: 80), limit: 80)
+                let scanned = RecentConversation.scan(projects: projects, newest: 80)
                 DispatchQueue.main.async {
-                    groups = found
+                    found = scanned
                     loaded = true
                 }
             }
@@ -1047,26 +1107,122 @@ private struct RecentRow: View {
     }()
     var body: some View {
         let palette = Theme.palette
-        Button {
-            AppModel.shared.startingFromHome = true
-            ToolLauncher.start(.claude, cwd: item.folder, extraArguments: "--resume \(NotFoundActions.shellQuote(item.id))")
-        } label: {
-            HStack(spacing: 10) {
-                Text(item.title).font(.system(size: 13)).foregroundColor(Color(palette.text1)).lineLimit(1)
-                Text("Claude Code").font(.system(size: 12)).foregroundColor(Color(palette.text3))
-                Spacer(minLength: 8)
-                Text(hovering ? "Sürdür ⏎" : Self.relative.localizedString(for: item.modified, relativeTo: Date()))
-                    .font(.system(size: 12))
-                    .foregroundColor(Color(hovering ? palette.need : palette.text3))
+        HStack(spacing: 8) {
+            Button {
+                AppModel.shared.startingFromHome = true
+                ToolLauncher.start(.claude, cwd: item.folder, extraArguments: "--resume \(NotFoundActions.shellQuote(item.id))")
+            } label: {
+                HStack(spacing: 10) {
+                    Text(item.title).font(.system(size: 13)).foregroundColor(Color(palette.text1)).lineLimit(1)
+                    Text("Claude Code").font(.system(size: 12)).foregroundColor(Color(palette.text3))
+                    Spacer(minLength: 8)
+                    Text(hovering ? "Sürdür ⏎" : Self.relative.localizedString(for: item.modified, relativeTo: Date()))
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(hovering ? palette.need : palette.text3))
+                }
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 8)
-            .frame(height: 32)
-            .background(hovering ? Color(palette.fill) : .clear)
-            .cornerRadius(Theme.cornerControl)
-            .contentShape(Rectangle())
+            .buttonStyle(.press)
+            // Always in place, seen only under the pointer: the row does not shift when it appears.
+            RemoveKey(help: "Listeden Kaldır") { RecentHiding.hide(item) }
+                .opacity(hovering ? 1 : 0)
         }
-        .buttonStyle(.plain)
+        // The same 10 on every side as a menu row, so a lit row looks even.
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
+        .background(hovering ? Color(palette.fill) : .clear)
+        .cornerRadius(Theme.cornerControl)
         .onHover { hovering = $0 }
+        .contextMenu {
+            Button("Listeden Kaldır") { RecentHiding.hide(item) }
+            Button("Bu Klasörü Listeden Kaldır") { RecentHiding.hideFolder(item.folder) }
+        }
+    }
+}
+
+/// A folder's name over its conversations. Under the pointer it offers to take the whole folder off the list.
+private struct RecentFolderHeader: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let folder: String
+    @State private var hovering = false
+    var body: some View {
+        let palette = Theme.palette
+        HStack(spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text((folder as NSString).lastPathComponent).font(.system(size: 13, weight: .semibold)).foregroundColor(Color(palette.text1))
+                Text(AppModel.shared.displayPath(folder)).font(Theme.swiftFont(size: 11)).foregroundColor(Color(palette.text3)).lineLimit(1).truncationMode(.head)
+            }
+            Spacer(minLength: 8)
+            RemoveKey(help: "Bu Klasörü Listeden Kaldır") { RecentHiding.hideFolder(folder) }
+                .opacity(hovering ? 1 : 0)
+        }
+        // The same 10 as the text inside a row, so the folder name lines up with its rows.
+        .padding(.horizontal, 10)
+        .padding(.bottom, 2)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .contextMenu {
+            Button("Bu Klasörü Listeden Kaldır") { RecentHiding.hideFolder(folder) }
+        }
+    }
+}
+
+/// A small ✕ that lights under the pointer, for taking one thing off a list.
+private struct RemoveKey: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let help: String
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        let palette = Theme.palette
+        Button(action: action) {
+            Symbol("xmark", color: hovering ? palette.text1 : palette.text3, size: 10)
+                .frame(width: 18, height: 18)
+                .background(hovering ? Color(palette.fillSelected) : .clear)
+                .cornerRadius(Theme.cornerControl)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
+        .help(help)
+        .accessibilityLabel(help)
+    }
+}
+
+/// Taking conversations off the home list and bringing them back. The program's transcripts stay as they are.
+enum RecentHiding {
+    static func visible(_ items: [RecentConversation], _ settings: AppSettings) -> [RecentConversation] {
+        RecentConversation.visible(items, hidingConversations: settings.hiddenConversations, hidingFolders: settings.hiddenConversationFolders)
+    }
+    static func count(_ settings: AppSettings) -> Int {
+        settings.hiddenConversations.count + settings.hiddenConversationFolders.count
+    }
+    static func hide(_ item: RecentConversation) {
+        let store = SettingsStore.shared
+        if !store.settings.hiddenConversations.contains(item.id) { store.settings.hiddenConversations.append(item.id) }
+    }
+    static func hideFolder(_ folder: String) {
+        let store = SettingsStore.shared
+        if !store.settings.hiddenConversationFolders.contains(folder) { store.settings.hiddenConversationFolders.append(folder) }
+    }
+    static func restoreAll() {
+        SettingsStore.shared.settings.hiddenConversations = []
+        SettingsStore.shared.settings.hiddenConversationFolders = []
+    }
+}
+
+/// The programs' limits in one line. A click opens Kullanım, where each account has its own row.
+struct LimitSummaryButton: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let summary: String
+    var body: some View {
+        if !summary.isEmpty {
+            Button { AppModel.shared.page = .settings(.usage) } label: {
+                T(summary, color: Theme.palette.text2, style: .secondary).lineLimit(1).contentShape(Rectangle())
+            }
+            .buttonStyle(.press)
+            .help("Limit Ayrıntısı")
+        }
     }
 }
 
@@ -1099,7 +1255,7 @@ struct SessionRail: View {
                 }
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(list) { info in
-                        stop(info)
+                        RailStop(info: info)
                     }
                 }
             }
@@ -1107,25 +1263,32 @@ struct SessionRail: View {
         }
         .background(Color(palette.surface0).opacity(0.001))
     }
+}
 
-    private func stop(_ info: SessionInfo) -> some View {
+/// One stop on the rail. No panel behind it, so the pointer lights the name and the ring.
+private struct RailStop: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    @ObservedObject var model = AppModel.shared
+    let info: SessionInfo
+    @State private var hovering = false
+    var body: some View {
         let palette = Theme.palette
         let unread = model.unread.contains(info.number)
         let light = Neon.color(info) ?? (unread ? palette.add : nil)
         let color = light ?? palette.text3
         let on = info.number == model.focused
         let attention = info.status == .needsApproval || info.status == .limitReached || info.status == .failed
-        return Button { model.setFocus(info.number) } label: {
+        Button { model.setFocus(info.number) } label: {
             HStack(spacing: 10) {
                 Circle()
                     .fill(Color(palette.surface0))
-                    .overlay(Circle().stroke(Color(color), lineWidth: 2))
+                    .overlay(Circle().stroke(Color(light == nil && hovering ? palette.focus.withAlphaComponent(0.35) : color), lineWidth: 2))
                     .frame(width: 12, height: 12)
                     .shadow(color: light != nil && Neon.on ? Color(color) : .clear, radius: Neon.radius)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(model.name(for: info))
                         .font(.system(size: 12, weight: on || attention ? .semibold : .regular))
-                        .foregroundColor(Color(on || attention ? palette.text1 : palette.text2))
+                        .foregroundColor(Color(on || attention || hovering ? palette.text1 : palette.text2))
                         .lineLimit(1)
                     Text(info.tool == .terminal ? AppModel.projectName(for: info.cwd) : (unread ? "Yeni Yanıt" : info.status.title))
                         .font(.system(size: 11))
@@ -1138,7 +1301,8 @@ struct SessionRail: View {
             .frame(height: 44)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
     }
 }
 
@@ -1152,14 +1316,15 @@ struct CommandBar: View {
             Button { Commands.perform("palette") } label: {
                 HStack(spacing: 10) {
                     Text("❯").font(Theme.swiftFont(size: 14)).foregroundColor(Color(palette.need))
-                    T("Komut yazın ya da oturum arayın", color: palette.text3)
+                    T("Komut yazın ya da oturum arayın", color: hovering ? palette.text2 : palette.text3)
                     Spacer(minLength: 8)
                     Key("⌘K")
                 }
                 .frame(maxHeight: .infinity)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.press)
+            .onHover { hovering = $0 }
             Button { Commands.perform("newSession") } label: {
                 Symbol("plus", color: palette.btnfg, size: 14)
                     .frame(width: 30, height: 30)
@@ -1167,7 +1332,7 @@ struct CommandBar: View {
                     .cornerRadius(Theme.cornerControl)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.press)
             .help("Yeni Oturum")
         }
         .padding(.leading, 14)
@@ -1175,7 +1340,7 @@ struct CommandBar: View {
         .frame(width: 440, height: 44)
         .background(Color(palette.surface1))
         .cornerRadius(Theme.cornerCard)
-        .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard).stroke(Color(palette.hair2)))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard).stroke(Color(hovering ? palette.focus.withAlphaComponent(0.35) : palette.hair2)))
         .shadow(color: Color(palette.shadowFloat), radius: 12, y: 8)
     }
 }
@@ -1191,20 +1356,17 @@ struct StatusLine: View {
         let palette = Theme.palette
         HStack(spacing: 16) {
             Button { Commands.perform("memory") } label: { MemoryLabel().contentShape(Rectangle()) }
-                .buttonStyle(.plain)
+                .buttonStyle(.press)
                 .help("Bellek Kullanımı")
-            if !summary.isEmpty { T(summary, color: palette.text2, style: .secondary).lineLimit(1) }
+            LimitSummaryButton(summary: summary)
             Spacer(minLength: 0)
             if model.toolbarVisible {
                 HStack(spacing: 2) {
-                    IconBtn(model.canvasLocked ? "lock.fill" : "lock.open", label: "Tuval Kilidi") { Commands.perform("lockCanvas") }
+                    IconBtn(model.canvasLocked ? "lock.fill" : "lock.open", label: "Tuval Kilidi", active: model.canvasLocked) { Commands.perform("lockCanvas") }
                         .help(model.canvasLocked ? "Tuval Kilitli" : "Tuvali Kilitle")
                     IconBtn("minus", label: "Uzaklaştır") { Commands.perform("zoomOut") }
-                    Button { Commands.perform("fit") } label: {
-                        T("%\(Int(model.zoom * 100))", color: palette.text2, style: .secondary).frame(width: 40)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Sığdır (0)")
+                    ZoomFitButton(zoom: model.zoom)
+                        .help("Sığdır (0)")
                     IconBtn("plus", label: "Yakınlaştır") { Commands.perform("zoomIn") }
                 }
             }
@@ -1217,5 +1379,24 @@ struct StatusLine: View {
         .onReceive(ticker) { _ in
             if NSApp.isActive { PowerCenter.shared.measureUsage() }
         }
+    }
+}
+
+/// The zoom level between the two zoom buttons: as tall as they are, and lit the same way under the pointer.
+private struct ZoomFitButton: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let zoom: CGFloat
+    @State private var hovering = false
+    var body: some View {
+        let palette = Theme.palette
+        Button { Commands.perform("fit") } label: {
+            T("%\(Int(zoom * 100))", color: hovering ? palette.text1 : palette.text2, style: .secondary)
+                .frame(width: 40, height: 30)
+                .background(hovering ? Color(palette.fill) : .clear)
+                .cornerRadius(Theme.cornerControl)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
     }
 }

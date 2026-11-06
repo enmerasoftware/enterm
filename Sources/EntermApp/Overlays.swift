@@ -7,22 +7,22 @@ struct OverlayRouter: View {
     let overlay: Overlay
     var body: some View {
         switch overlay {
-        case .palette: Scrim(alignment: .top) { CommandPalette() }
+        case .palette: Scrim(alignment: .center) { CommandPalette() }
         case .newSession: Scrim(alignment: .topTrailing) { NewSessionMenu() }
         case .menu: Scrim(alignment: .topTrailing) { MainMenuPanel() }
-        case .newSessionOptions: Scrim(alignment: .top) { NewSessionOptions() }
-        case .linkPermission(let from, let to): Scrim(alignment: .top) { LinkPermissionDialog(from: from, to: to) }
-        case .linkDetail(let id): Scrim(alignment: .top) { LinkDetailDialog(id: id) }
-        case .approval(let id): Scrim(alignment: .top) { ApprovalDialog(id: id) }
-        case .limit(let number): Scrim(alignment: .top) { LimitDialog(number: number) }
-        case .sshList(let id): Scrim(alignment: .top) { SSHListDialog(sessionID: id) }
-        case .remoteLost(let number): Scrim(alignment: .top) { RemoteLostDialog(number: number) }
-        case .limitOpened: Scrim(alignment: .top) { LimitOpenedDialog() }
-        case .resumeFailed(let number): Scrim(alignment: .top) { ResumeFailedDialog(number: number) }
-        case .installTool(let tool): Scrim(alignment: .top) { InstallToolDialog(tool: tool) }
-        case .codexLimit(let number): Scrim(alignment: .top) { CodexLimitDialog(number: number) }
-        case .input: Scrim(alignment: .top) { InputDialog() }
-        case .confirm: Scrim(alignment: .top) { ConfirmDialog() }
+        case .newSessionOptions: Scrim(alignment: .center) { NewSessionOptions() }
+        case .linkPermission(let from, let to): Scrim(alignment: .center) { LinkPermissionDialog(from: from, to: to) }
+        case .linkDetail(let id): Scrim(alignment: .center) { LinkDetailDialog(id: id) }
+        case .approval(let id): Scrim(alignment: .center) { ApprovalDialog(id: id) }
+        case .limit(let number): Scrim(alignment: .center) { LimitDialog(number: number) }
+        case .sshList(let id): Scrim(alignment: .center) { SSHListDialog(sessionID: id) }
+        case .remoteLost(let number): Scrim(alignment: .center) { RemoteLostDialog(number: number) }
+        case .limitOpened: Scrim(alignment: .center) { LimitOpenedDialog() }
+        case .resumeFailed(let number): Scrim(alignment: .center) { ResumeFailedDialog(number: number) }
+        case .installTool(let tool): Scrim(alignment: .center) { InstallToolDialog(tool: tool) }
+        case .codexLimit(let number): Scrim(alignment: .center) { CodexLimitDialog(number: number) }
+        case .input: Scrim(alignment: .center) { InputDialog() }
+        case .confirm: Scrim(alignment: .center) { ConfirmDialog() }
         case .memory: Scrim(alignment: .bottomLeading) { MemoryPanel() }
         }
     }
@@ -34,14 +34,16 @@ struct Scrim<Content: View>: View {
     @ViewBuilder var content: () -> Content
     var body: some View {
         ZStack(alignment: alignment) {
-            Color(alignment == .top ? Theme.palette.scrim : .clear)
+            Color(alignment == .top || alignment == .center ? Theme.palette.scrim : .clear)
                 .contentShape(Rectangle())
                 .onTapGesture { AppModel.shared.overlay = nil }
             content()
                 .environment(\.floatingPanel, true)
-                .padding(.top, alignment == .topTrailing ? 44 : (alignment == .top ? 72 : 0))
+                // A centered dialog sits a little above the middle and keeps 16 from the top in a short window.
+                // A menu keeps 16 from the bottom, where it starts to scroll.
+                .padding(.top, alignment == .topTrailing ? 44 : (alignment == .top ? 72 : (alignment == .center ? 16 : 0)))
                 .padding(.trailing, alignment == .topTrailing ? 16 : 0)
-                .padding(.bottom, alignment == .bottomLeading ? 44 : 0)
+                .padding(.bottom, alignment == .bottomLeading ? 44 : (alignment == .center ? 60 : (alignment == .topTrailing ? 16 : 0)))
                 .padding(.leading, alignment == .bottomLeading ? 16 : 0)
         }
     }
@@ -65,16 +67,32 @@ struct MenuRow: View {
                 Spacer(minLength: 16)
                 if !key.isEmpty { Key(key) }
             }
-            .padding(.vertical, 4)
-            .padding(.horizontal, 12)
-            .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+            // The same space on every side of the text, so a lit row looks even.
+            .padding(10)
+            .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
             .background(selected || hovering ? Color(Theme.palette.fillSelected) : .clear)
             .cornerRadius(Theme.cornerControl)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .onHover { hovering = $0 }
     }
+}
+
+/// A menu's rows. The same 10 around the list as inside a row, so a lit row has the same space on all four sides.
+/// Rows are apart by one small gap, never by two paddings added together.
+/// Row text starts where a panel title does: 10 here and 10 inside the row make the title's 20.
+struct MenuList<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        VStack(spacing: MenuList.gap) { content() }.padding(10)
+    }
+    static var gap: CGFloat { 2 }
+}
+
+/// A line between groups of rows, 10 from the row above and the row below, like the list's edges.
+struct MenuDivider: View {
+    var body: some View { Line().padding(.vertical, 10 - MenuList<EmptyView>.gap) }
 }
 
 /// ⌘K: type to filter, arrows to move, Enter to run.
@@ -103,28 +121,31 @@ struct CommandPalette: View {
                     .onSubmit(run)
                     .onChange(of: query) { _ in index = 0 }
             }
-            .padding(.horizontal, 16)
+            // 20 at the sides: the prompt, the row titles and the hints share one edge.
+            .padding(.horizontal, 20)
             .frame(height: 48)
             Line()
             ScrollView {
-                VStack(spacing: 0) {
+                MenuList {
                     ForEach(Array(results.enumerated()), id: \.element.id) { offset, command in
                         MenuRow(title: command.title, key: command.key, selected: offset == index) {
                             perform(command)
                         }
                     }
                 }
-                .padding(4)
             }
-            .frame(maxHeight: 340)
+            // 340 whenever the window has room: in the middle of the window a list that shrank while typing would move the field.
+            // A short window gets a shorter list instead of a palette cut at its top.
+            .frame(minHeight: 120, maxHeight: 340)
             Line()
             HStack {
                 Dim("↑↓ Gez · ⏎ Çalıştır · Esc Kapat")
                 Spacer()
                 Dim("Her İş Klavyeden Yapılır")
             }
-            .padding(.horizontal, 16)
-            .frame(height: 32)
+            // The same band as the field bar above.
+            .padding(.horizontal, 20)
+            .frame(height: 48)
         }
         .frame(width: 560)
         .background(KeyCatcher(onUp: { index = max(0, index - 1) }, onDown: { index = min(results.count - 1, index + 1) }))
@@ -187,8 +208,7 @@ struct InstallToolDialog: View {
                 CommandBox(text: ToolPresence.installCommand(tool) ?? "")
                 Dim(explanation).fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .padding(20)
             DialogButtons {
                 Btn("Vazgeç", kind: .plain, key: "Esc") { AppModel.shared.overlay = nil }
                 Btn("Yeni Terminalde Çalıştır", kind: .primary, key: "⏎") { InstallToolActions.run(tool) }
@@ -222,28 +242,11 @@ struct NewSessionMenu: View {
     var body: some View {
         Panel {
             PanelHeader(title: "Yeni Oturum") { Dim(model.displayPath(model.focusedInfo?.cwd ?? NSHomeDirectory())).lineLimit(1).truncationMode(.head) }
-            VStack(spacing: 0) {
-                MenuRow(title: "Terminal", key: "⌘T") { run { model.newTerminal() } }
-                ForEach(ready, id: \.self) { tool in
-                    MenuRow(title: tool.title, note: catalog.note(tool), key: Self.letters[tool] ?? "") { run { ToolLauncher.start(tool) } }
-                }
-                ForEach(store.settings.customPrograms) { program in
-                    MenuRow(title: program.name, note: program.command) { run { ToolLauncher.start(program) } }
-                }
-                if !missing.isEmpty {
-                    if showAll {
-                        Line().padding(.vertical, 4)
-                        ForEach(missing, id: \.self) { tool in
-                            MenuRow(title: tool.title, note: "Kurulu Değil", key: Self.letters[tool] ?? "") { run { ToolLauncher.start(tool) } }
-                        }
-                    } else {
-                        MenuRow(title: "Diğer Programlar", note: "\(missing.count) Program Kurulabilir") { showAll = true }
-                    }
-                }
-                Line().padding(.vertical, 4)
-                MenuRow(title: "Seçeneklerle Aç", note: "Klasör, Hesap, Yetki, Model") { run { Commands.perform("newSessionOptions") } }
+            // Whole when the window is tall enough, scrolling when it is not: never cut at the bottom.
+            ViewThatFits(in: .vertical) {
+                list
+                ScrollView(showsIndicators: false) { list }
             }
-            .padding(4)
         }
         .frame(width: 340)
         .background(LetterKeys(actions: Dictionary(uniqueKeysWithValues: programs.compactMap { tool in
@@ -251,6 +254,30 @@ struct NewSessionMenu: View {
         })))
         .onAppear { catalog.refresh() }
     }
+    private var list: some View {
+        MenuList {
+            MenuRow(title: "Terminal", key: "⌘T") { run { model.newTerminal() } }
+            ForEach(ready, id: \.self) { tool in
+                MenuRow(title: tool.title, note: catalog.note(tool), key: Self.letters[tool] ?? "") { run { ToolLauncher.start(tool) } }
+            }
+            ForEach(store.settings.startablePrograms) { program in
+                MenuRow(title: program.name, note: program.command) { run { ToolLauncher.start(program) } }
+            }
+            if !missing.isEmpty {
+                if showAll {
+                    MenuDivider()
+                    ForEach(missing, id: \.self) { tool in
+                        MenuRow(title: tool.title, note: "Kurulu Değil", key: Self.letters[tool] ?? "") { run { ToolLauncher.start(tool) } }
+                    }
+                } else {
+                    MenuRow(title: "Diğer Programlar", note: "\(missing.count) Program Kurulabilir") { showAll = true }
+                }
+            }
+            MenuDivider()
+            MenuRow(title: "Seçeneklerle Aç", note: "Klasör, Hesap, Yetki, Model") { run { Commands.perform("newSessionOptions") } }
+        }
+    }
+
     private func run(_ action: @escaping () -> Void) {
         model.overlay = nil
         DispatchQueue.main.async(execute: action)
@@ -282,9 +309,18 @@ struct MainMenuPanel: View {
     @ObservedObject private var appearance = AppearanceTick.shared
     var body: some View {
         Panel {
-            VStack(spacing: 0) {
+            // Whole when the window is tall enough, scrolling when it is not: never cut at the bottom.
+            ViewThatFits(in: .vertical) {
+                items
+                ScrollView(showsIndicators: false) { items }
+            }
+        }
+        .frame(width: 320)
+    }
+    private var items: some View {
+        MenuList {
             item("Yeni Terminal", key: "⌘T", id: "newTerminal")
-            Line().padding(.vertical, 4)
+            MenuDivider()
             item("Yeni Görünüm", note: "Dosyalar, Düzenleyici, Not", id: "newView")
             item("Pano", note: "Kartlar, Üyeler, Son Tarihler", id: "board")
             item("Konuşarak Yaz", note: "Konuşun, Yazıya Dönsün", key: "⌃⌘ Basılı", id: "voice")
@@ -294,13 +330,10 @@ struct MainMenuPanel: View {
             item("Ekibini Kur", note: "Birkaç Claude Code Birlikte Çalışır", id: "team")
             item("Hesaplar", note: "Claude Code, Codex, Antigravity Girişleri", id: "accounts")
             item("Telefonu Bağla", note: "Bu Terminali Telefonda Açın", id: "phone")
-            Line().padding(.vertical, 4)
+            MenuDivider()
             item("Ayarlar", key: "⌘,", id: "settings")
             item("Tüm Komutlar", key: "⌘K", id: "palette")
-            }
-            .padding(4)
         }
-        .frame(width: 320)
     }
     private func item(_ title: String, note: String = "", key: String = "", id: String) -> some View {
         MenuRow(title: title, note: note, key: key) {

@@ -6,6 +6,47 @@ extension Color {
     init(_ color: NSColor) { self.init(nsColor: color) }
 }
 
+/// Every clickable thing in the app: plain to look at, a hand under the pointer so it reads as clickable.
+struct PressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        PressBody(label: configuration.label, pressed: configuration.isPressed)
+    }
+
+    private struct PressBody<Label: View>: View {
+        let label: Label
+        let pressed: Bool
+        @Environment(\.isEnabled) private var enabled
+        var body: some View {
+            label
+                .opacity(enabled ? (pressed ? 0.8 : 1) : 0.45)
+                .handCursor(enabled)
+        }
+    }
+}
+
+extension ButtonStyle where Self == PressStyle {
+    static var press: PressStyle { PressStyle() }
+}
+
+extension View {
+    /// The pointing hand while the pointer is over this view.
+    @ViewBuilder
+    func handCursor(_ on: Bool = true) -> some View {
+        if !on {
+            self
+        } else if #available(macOS 15, *) {
+            pointerStyle(.link)
+        } else {
+            onContinuousHover { phase in
+                switch phase {
+                case .active: NSCursor.pointingHand.set()
+                case .ended: NSCursor.arrow.set()
+                }
+            }
+        }
+    }
+}
+
 /// All text outside the terminal. Sizes come from the scale, never from a number here.
 struct T: View {
     @ObservedObject private var appearance = AppearanceTick.shared
@@ -68,14 +109,15 @@ struct CommandBox: View {
     @ObservedObject private var appearance = AppearanceTick.shared
     let text: String
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        // Centered, so the button stands as far from the top and the bottom as from the right.
+        HStack(alignment: .center, spacing: 12) {
             Mono(text)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             Btn("Kopyala", kind: .plain) { NotFoundActions.copy(text) }
         }
-        .padding(12)
+        .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(Theme.palette.terminal))
         .cornerRadius(Theme.cornerControl)
@@ -109,16 +151,22 @@ struct ApprovalCommand: View {
 }
 
 /// The row at the foot of a dialog. The main action is the last one, on the right.
+/// A short note may stand on the left, at the same 20 as the dialog's text.
 struct DialogButtons<Content: View>: View {
     @ObservedObject private var appearance = AppearanceTick.shared
+    var note: String?
     @ViewBuilder var content: () -> Content
+    init(note: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.note = note
+        self.content = content
+    }
     var body: some View {
         HStack(spacing: 8) {
+            if let note { Dim(note).lineLimit(1) }
             Spacer(minLength: 0)
             content()
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 20)
+        .padding(20)
         .frame(maxWidth: .infinity)
         .background(Color(Theme.palette.surface1))
         .overlay(alignment: .top) { Line() }
@@ -129,13 +177,14 @@ extension View {
     /// A row inside a settings group.
     func settingsRow() -> some View {
         padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.vertical, 12)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .overlay(alignment: .top) { Line() }
     }
 }
 
-enum BtnKind { case plain, outline, primary, danger, selected }
+/// `lit`: a switch that is on, such as an open side panel. It wears the accent so the open state reads at a glance.
+enum BtnKind { case plain, outline, primary, danger, selected, lit }
 
 struct Btn: View {
     @ObservedObject private var appearance = AppearanceTick.shared
@@ -156,7 +205,7 @@ struct Btn: View {
         let palette = Theme.palette
         Button(action: action) {
             HStack(spacing: 6) {
-                if let icon { Symbol(icon, color: kind == .primary ? palette.btnfg : palette.text2) }
+                if let icon { Symbol(icon, color: kind == .primary ? palette.btnfg : (kind == .lit ? palette.need : palette.text2)) }
                 Text(title)
                     .font(Theme.uiFont(.body, weight: weight))
                     .monospacedDigit()
@@ -168,20 +217,32 @@ struct Btn: View {
                         .foregroundColor(kind == .primary ? Color(palette.btnfg).opacity(0.7) : Color(palette.text3))
                 }
             }
-            .padding(.horizontal, kind == .plain ? 8 : 12)
+            .padding(.horizontal, 12)
             .frame(height: 30)
             .background(background)
             .cornerRadius(Theme.cornerControl)
+            .overlay {
+                // A quiet edge, so a plain button still shows where it can be clicked.
+                if kind == .plain {
+                    RoundedRectangle(cornerRadius: Theme.cornerControl)
+                        .strokeBorder(Color(hovering ? palette.focus.withAlphaComponent(0.35) : palette.hair2), lineWidth: 1)
+                } else if kind == .lit {
+                    RoundedRectangle(cornerRadius: Theme.cornerControl)
+                        .strokeBorder(Color(palette.need).opacity(0.5), lineWidth: 1)
+                }
+            }
             .shadow(color: kind == .primary && Neon.on ? Color(palette.btn).opacity(hovering ? 0.45 : 0.28) : .clear, radius: 8)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .onHover { hovering = $0 }
+        // A button's name is never cut: the space around it gives way first.
+        .fixedSize()
     }
     private var weight: Font.Weight {
         switch kind {
         case .primary: return .semibold
-        case .danger, .selected: return .medium
+        case .danger, .selected, .lit: return .medium
         default: return .regular
         }
     }
@@ -189,6 +250,7 @@ struct Btn: View {
         switch kind {
         case .primary: return Theme.palette.btnfg
         case .danger: return Theme.palette.err
+        case .lit: return Theme.palette.need
         default: return Theme.palette.text1
         }
     }
@@ -200,6 +262,7 @@ struct Btn: View {
         case .plain: return hovering ? Color(palette.fill) : .clear
         case .danger: return Color(palette.err).opacity(0.16)
         case .selected: return Color(palette.fillSelected)
+        case .lit: return Color(palette.need).opacity(hovering ? 0.22 : 0.14)
         }
     }
 }
@@ -223,27 +286,34 @@ struct Symbol: View {
     }
 }
 
-/// 28 square, no frame.
+/// 30 square, no frame: the height of every other control, so it can stand beside a Btn or a field.
 struct IconBtn: View {
     @ObservedObject private var appearance = AppearanceTick.shared
     let icon: String
     let label: String
+    /// What the button opens is open now: it wears the accent, like `BtnKind.lit`.
+    var active: Bool
     var action: () -> Void
     @State private var hovering = false
-    init(_ icon: String, label: String, action: @escaping () -> Void) {
+    init(_ icon: String, label: String, active: Bool = false, action: @escaping () -> Void) {
         self.icon = icon
         self.label = label
+        self.active = active
         self.action = action
     }
     var body: some View {
+        let palette = Theme.palette
         Button(action: action) {
-            Symbol(icon, color: hovering ? Theme.palette.text1 : Theme.palette.text2)
-                .frame(width: 28, height: 28)
-                .background(hovering ? Color(Theme.palette.fill) : .clear)
+            Symbol(icon, color: active ? palette.need : (hovering ? palette.text1 : palette.text2))
+                .frame(width: 30, height: 30)
+                .background(active ? Color(palette.need).opacity(hovering ? 0.22 : 0.14) : (hovering ? Color(palette.fill) : .clear))
                 .cornerRadius(Theme.cornerControl)
+                .overlay {
+                    if active { RoundedRectangle(cornerRadius: Theme.cornerControl).strokeBorder(Color(palette.need).opacity(0.5), lineWidth: 1) }
+                }
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.press)
         .onHover { hovering = $0 }
         .accessibilityLabel(label)
     }
@@ -258,22 +328,103 @@ struct Seg<Value: Hashable>: View {
         let palette = Theme.palette
         HStack(spacing: 2) {
             ForEach(options, id: \.0) { option in
-                let on = option.0 == value
-                Button { value = option.0 } label: {
-                    T(option.1, color: on ? palette.text1 : palette.text2, style: .secondary, weight: on ? .medium : .regular)
-                        .lineLimit(1)
-                        .padding(.horizontal, 10)
-                        .frame(height: 24)
-                        .background(on ? Color(palette.fillSelected) : .clear)
-                        .cornerRadius(Theme.cornerControl)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                SegOption(title: option.1, on: option.0 == value) { value = option.0 }
             }
         }
         .padding(2)
         .background(Color(palette.fill))
         .cornerRadius(Theme.cornerCard)
+        .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard).strokeBorder(Color(palette.hair2), lineWidth: 1))
+    }
+}
+
+/// `Seg` for more choices than one line holds: the same look, in as many rows as the width needs. No name is cut.
+struct WrapChoice<Value: Hashable>: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let options: [(Value, String)]
+    let selected: Value?
+    let choose: (Value) -> Void
+    var body: some View {
+        let palette = Theme.palette
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 108), spacing: 2)], alignment: .leading, spacing: 2) {
+            ForEach(options, id: \.0) { option in
+                SegOption(title: option.1, on: option.0 == selected, fill: true) { choose(option.0) }
+            }
+        }
+        .padding(2)
+        .background(Color(palette.fill))
+        .cornerRadius(Theme.cornerCard)
+        .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard).strokeBorder(Color(palette.hair2), lineWidth: 1))
+    }
+}
+
+/// One choice of `Seg` or `WrapChoice`. 26 tall, so the group is 30 like a button beside it.
+private struct SegOption: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let title: String
+    let on: Bool
+    var fill = false
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        let palette = Theme.palette
+        Button(action: action) {
+            T(title, color: on || hovering ? palette.text1 : palette.text2, style: .secondary, weight: on ? .medium : .regular)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 10)
+                .frame(maxWidth: fill ? .infinity : nil)
+                .frame(height: 26)
+                .background(on ? Color(palette.fillSelected) : (hovering ? Color(palette.fill) : .clear))
+                .cornerRadius(Theme.cornerControl)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
+    }
+}
+
+/// A number with − and + beside it, drawn like `Seg` so the two stand at the same height in one row.
+struct NumberStepper: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let value: Int
+    var minimum = Int.min
+    var maximum = Int.max
+    let change: (Int) -> Void
+    var body: some View {
+        let palette = Theme.palette
+        HStack(spacing: 2) {
+            StepKey(symbol: "minus", enabled: value > minimum) { change(value - 1) }
+            T("\(value)", style: .secondary, weight: .medium)
+                .monospacedDigit()
+                .frame(minWidth: 28)
+            StepKey(symbol: "plus", enabled: value < maximum) { change(value + 1) }
+        }
+        .padding(2)
+        .background(Color(palette.fill))
+        .cornerRadius(Theme.cornerCard)
+        .overlay(RoundedRectangle(cornerRadius: Theme.cornerCard).strokeBorder(Color(palette.hair2), lineWidth: 1))
+    }
+}
+
+private struct StepKey: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let symbol: String
+    let enabled: Bool
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        let palette = Theme.palette
+        Button(action: action) {
+            Symbol(symbol, color: enabled ? palette.text1 : palette.text3, size: 10)
+                .frame(width: 26, height: 26)
+                .background(hovering && enabled ? Color(palette.fillSelected) : .clear)
+                .cornerRadius(Theme.cornerControl)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .disabled(!enabled)
+        .onHover { hovering = $0 }
     }
 }
 
@@ -325,8 +476,7 @@ struct StatusBadge: View {
             Symbol(look.symbol, color: look.symbolColor, size: 8)
             T(status.title, color: look.textColor, style: .secondary, weight: look.strong ? .semibold : .medium)
         }
-        .padding(.leading, 6)
-        .padding(.trailing, 8)
+        .padding(.horizontal, 8)
         .frame(height: 20)
         .background(Color(look.background))
         .cornerRadius(Theme.cornerControl)
@@ -381,19 +531,29 @@ struct Panel<Content: View>: View {
 }
 
 struct PanelHeader<Trailing: View>: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
     let title: String
     @ViewBuilder var trailing: () -> Trailing
     @Environment(\.floatingPanel) private var floating
     var body: some View {
+        let palette = Theme.palette
         HStack {
             T(title, bold: true, style: .section)
             Spacer()
             trailing()
         }
         .padding(.leading, floating ? 20 : 12)
-        .padding(.trailing, floating ? 20 : 8)
-        .padding(.top, floating ? 8 : 0)
-        .frame(minHeight: floating ? 44 : 36)
+        .padding(.trailing, floating ? 20 : 12)
+        .frame(minHeight: floating ? 48 : 36)
+        // In a dialog or a menu the title is its own band: a hairline under it and the accent lit in its corner.
+        .background {
+            if floating {
+                RadialGradient(colors: [Color(palette.need).opacity(Theme.isLight ? 0.12 : 0.18), .clear], center: .topTrailing, startRadius: 0, endRadius: 180)
+                    .opacity(Neon.on ? 1 : 0)
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay(alignment: .bottom) { if floating { Line() } }
     }
 }
 
@@ -409,15 +569,17 @@ struct Row<Content: View>: View {
     var selected = false
     var action: (() -> Void)?
     @ViewBuilder var content: () -> Content
+    @State private var hovering = false
     var body: some View {
+        let palette = Theme.palette
         let inner = HStack(spacing: 24, content: content)
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.vertical, 12)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .background(selected ? Color(Theme.palette.fillSelected) : .clear)
+            .background(selected ? Color(palette.fillSelected) : (action != nil && hovering ? Color(palette.fill) : .clear))
             .contentShape(Rectangle())
         if let action {
-            Button(action: action) { inner }.buttonStyle(.plain)
+            Button(action: action) { inner }.buttonStyle(.press).onHover { hovering = $0 }
         } else {
             inner
         }
@@ -454,6 +616,8 @@ struct PageFrame<Content: View>: View {
     @ObservedObject private var appearance = AppearanceTick.shared
     var title: String?
     var wide = false
+    /// A short page that asks one thing stands in the middle of the window, the way a dialog would.
+    var centered = false
     @ViewBuilder var content: () -> Content
     @Environment(\.embeddedPage) private var embedded
     @Environment(\.boxedPage) private var boxed
@@ -479,14 +643,16 @@ struct PageFrame<Content: View>: View {
             .padding(.leading, 80)
             .padding(.trailing, 16)
             .frame(height: 44)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if let title { PageTitle(text: title) }
-                    content()
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if let title { PageTitle(text: title) }
+                        content()
+                    }
+                    .padding(EdgeInsets(top: 24, leading: 32, bottom: centered ? 68 : 40, trailing: 32))
+                    .frame(maxWidth: wide ? .infinity : 760, alignment: .leading)
+                    .frame(maxWidth: .infinity, minHeight: centered ? geometry.size.height : nil)
                 }
-                .padding(EdgeInsets(top: 24, leading: 32, bottom: 40, trailing: 32))
-                .frame(maxWidth: wide ? .infinity : 760, alignment: .leading)
-                .frame(maxWidth: .infinity)
             }
         }
         .background(ZStack { Color(palette.surface0); CornerGlows() })
@@ -523,8 +689,8 @@ struct EntermField: View {
             .font(Theme.uiFont(.body))
             .foregroundColor(Color(palette.text1))
             .focused($focused)
-            .padding(.horizontal, 10)
-            .frame(height: 32)
+            .padding(.horizontal, 12)
+            .frame(height: 30)
             .background(Color(palette.terminal))
             .cornerRadius(Theme.cornerControl)
             .overlay(RoundedRectangle(cornerRadius: Theme.cornerControl).stroke(focused ? Color(palette.need).opacity(0.7) : Color(palette.hair2)))
