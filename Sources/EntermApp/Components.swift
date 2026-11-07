@@ -643,6 +643,7 @@ struct PageFrame<Content: View>: View {
             .padding(.leading, 80)
             .padding(.trailing, 16)
             .frame(height: 44)
+            .background(TitleBarArea())
             GeometryReader { geometry in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {

@@ -94,7 +94,7 @@ struct TopBar: View {
         .padding(.leading, 80)
         .padding(.trailing, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(palette.surface0))
+        .background(ZStack { Color(palette.surface0); TitleBarArea() })
     }
 }
 
@@ -424,5 +424,32 @@ enum NotFoundActions {
 
     static func shellQuote(_ path: String) -> String {
         "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+}
+
+/// The empty part of a top bar: drag it to move the window, double-click it to fill the screen.
+/// It lies under the bar's buttons, so they keep their clicks.
+struct TitleBarArea: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { TitleBarAreaView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+private final class TitleBarAreaView: NSView {
+    override var mouseDownCanMoveWindow: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        guard event.clickCount == 2 else {
+            window.performDrag(with: event)
+            return
+        }
+        let defaults = UserDefaults.standard
+        switch TitleBarDoubleClick.action(setting: defaults.string(forKey: "AppleActionOnDoubleClick"),
+                                          legacyMinimize: defaults.bool(forKey: "AppleMiniaturizeOnDoubleClick")) {
+        case .zoom: window.zoom(nil)
+        case .minimize: window.miniaturize(nil)
+        case .none: break
+        }
     }
 }

@@ -550,6 +550,8 @@ final class AppModel: ObservableObject {
         focused = number
         if let number, unread.contains(number) { unread.remove(number) }
         followFocus(number)
+        let shown = FullScreenFocus.shown(current: maximized, focusing: number, visible: visibleSessions.map(\.number))
+        if shown != maximized { maximized = shown; onLayoutChange?() }
         if changed, PowerCenter.shared.settings.lowPower { flushPending() }
         if changed, let info = focusedInfo, info.status == .notFound, let command = info.tool.command {
             notFound = NotFoundCard.make(number: info.number, command: command)

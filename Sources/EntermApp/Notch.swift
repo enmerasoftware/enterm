@@ -12,6 +12,15 @@ final class NotchCenter: ObservableObject {
     var debugView: NSView? { panel?.contentView }
 #endif
     private var collapseWork: DispatchWorkItem?
+    /// The panel stays at the open size until the capsule has finished shrinking inside it.
+    private var panelOpen = false
+    private var shrinkWork: DispatchWorkItem?
+
+    /// A soft spring, so the capsule grows out of the notch instead of jumping.
+    private var motion: Animation? {
+        guard SettingsStore.shared.settings.motion, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return nil }
+        return .spring(response: 0.42, dampingFraction: 0.84)
+    }
 
     private var wanted: Bool {
         guard SettingsStore.shared.settings.notch, !PowerCenter.shared.settings.lowPower else { return false }
@@ -26,6 +35,7 @@ final class NotchCenter: ObservableObject {
             panel?.orderOut(nil)
             panel = nil
             expanded = false
+            panelOpen = false
             return
         }
         if panel == nil { makePanel() }
@@ -72,14 +82,18 @@ final class NotchCenter: ObservableObject {
     static let rowHeight: CGFloat = 40
     var height: CGFloat { barHeight }
 
+    var closedWidth: CGFloat { notchWidth + 2 * side }
+    var openWidth: CGFloat { max(360, closedWidth) }
+
     private func place() {
         guard let panel, let screen else { return }
         let count = AppModel.shared.sessions.filter { $0.tool != .terminal }.count
-        let width = expanded ? max(360, notchWidth + 2 * side) : notchWidth + 2 * side
+        let open = expanded || panelOpen
+        let width = open ? openWidth : closedWidth
         // MenuList: rows with its gap between them and 10 on every side.
         let rows = CGFloat(min(count, 6))
         let listHeight = rows * Self.rowHeight + max(rows - 1, 0) * MenuList<EmptyView>.gap + 20
-        let height = barHeight + (expanded ? listHeight : 0)
+        let height = barHeight + (open ? listHeight : 0)
         let frame = NSRect(x: screen.frame.midX - width / 2, y: screen.frame.maxY - height, width: width, height: height)
         panel.setFrame(frame, display: true)
         panel.orderFrontRegardless()
@@ -88,25 +102,38 @@ final class NotchCenter: ObservableObject {
     func hover(_ inside: Bool) {
         collapseWork?.cancel()
         if inside {
-            if !expanded {
-                expanded = true
-                place()
-            }
+            if !expanded { setExpanded(true) }
         } else {
             // A short delay, so the list survives the mouse crossing its edge.
-            let work = DispatchWorkItem { [weak self] in
-                guard let self else { return }
-                self.expanded = false
-                self.place()
-            }
+            let work = DispatchWorkItem { [weak self] in self?.setExpanded(false) }
             collapseWork = work
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
         }
     }
 
+    /// Opening makes room first and then grows the capsule into it; closing shrinks the capsule first
+    /// and gives the room back once it is small again.
+    private func setExpanded(_ value: Bool) {
+        shrinkWork?.cancel()
+        if value {
+            panelOpen = true
+            place()
+            withAnimation(motion) { expanded = true }
+        } else {
+            withAnimation(motion) { expanded = false }
+            let work = DispatchWorkItem { [weak self] in
+                guard let self, !self.expanded else { return }
+                self.panelOpen = false
+                self.place()
+            }
+            shrinkWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + (motion == nil ? 0 : 0.5), execute: work)
+        }
+    }
+
     func open(_ number: UInt32) {
-        expanded = false
-        place()
+        collapseWork?.cancel()
+        setExpanded(false)
         NSApp.activate(ignoringOtherApps: true)
         NSApp.windows.first { $0.contentView is RootView }?.makeKeyAndOrderFront(nil)
         let model = AppModel.shared
@@ -159,12 +186,16 @@ private struct NotchView: View {
                         NotchRow(info: info)
                     }
                 }
+                .frame(width: center.openWidth)
+                .transition(.opacity.combined(with: .offset(y: -10)))
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // The capsule grows inside a panel that already has room for it, so the edge moves smoothly.
+        .frame(width: center.expanded ? center.openWidth : center.closedWidth, alignment: .top)
         .background(Color.black)
         .clipShape(BottomRounded(radius: center.expanded ? 16 : 10))
         .onHover { center.hover($0) }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     static func dot(_ color: NSColor) -> some View {
@@ -201,7 +232,11 @@ private struct NotchRow: View {
 }
 
 private struct BottomRounded: Shape {
-    let radius: CGFloat
+    var radius: CGFloat
+    var animatableData: CGFloat {
+        get { radius }
+        set { radius = newValue }
+    }
     func path(in rect: CGRect) -> Path {
         var path = Path()
         path.move(to: CGPoint(x: rect.minX, y: rect.minY))
