@@ -73,6 +73,10 @@ struct WindowState: Codable {
     var layouts: [SavedLayout] = []
     var projects: [String: String] = [:]
     var activeProject: String?
+    /// The all-areas surface was on screen, so a relaunch or a reconnect comes back to it.
+    var showingAll = false
+    /// The mode the areas had before the all-areas surface, which always shows boxes.
+    var modeBeforeAll: ViewMode?
 
     init() {}
 
@@ -88,6 +92,8 @@ struct WindowState: Codable {
         layouts = try c.decodeIfPresent([SavedLayout].self, forKey: .layouts) ?? d.layouts
         projects = try c.decodeIfPresent([String: String].self, forKey: .projects) ?? d.projects
         activeProject = try c.decodeIfPresent(String.self, forKey: .activeProject)
+        showingAll = try c.decodeIfPresent(Bool.self, forKey: .showingAll) ?? d.showingAll
+        modeBeforeAll = try c.decodeIfPresent(ViewMode.self, forKey: .modeBeforeAll)
     }
 }
 
@@ -126,7 +132,48 @@ extension AppModel {
     /// How many boxes share the surface right now.
     var tileCount: Int { visibleSessions.count + visibleItems.count }
 
+    /// No area chosen while there is more than one: every area on one surface, each in its own frame.
+    var showsAllProjects: Bool { activeProject == nil && projectNames.count > 1 }
+
+    /// The areas the all-areas surface shows, in tab order, with what each holds.
+    /// An area's id is its project name; the views that belong to no project share an id no folder can have.
+    static let sharedAreaID = "\u{1}ortak"
+
+    var areaContents: [(id: String, title: String, sessions: [SessionInfo], items: [CanvasItem])] {
+        var areas = projectNames.map { name in
+            (id: name, title: name, sessions: sessions.filter { project(of: $0) == name }, items: state.items.filter { $0.project == name })
+        }
+        let shared = state.items.filter { $0.project == nil }
+        if !shared.isEmpty { areas.append((id: Self.sharedAreaID, title: "Ortak", sessions: [], items: shared)) }
+        return areas
+    }
+
+    func showAllProjects() {
+        activeProject = nil
+        state.activeProject = nil
+        state.showingAll = true
+        showHome = false
+        maximized = nil
+        // The surface always shows boxes; the mode the areas had comes back when one is opened.
+        if mode != .canvas {
+            state.modeBeforeAll = mode
+            mode = .canvas
+        }
+        onLayoutChange?()
+        saveState()
+    }
+
+    /// Leaving the all-areas surface gives the areas back the mode they had.
+    private func leaveAllProjects() {
+        state.showingAll = false
+        if let previous = state.modeBeforeAll {
+            mode = previous
+            state.modeBeforeAll = nil
+        }
+    }
+
     func switchProject(_ name: String) {
+        leaveAllProjects()
         activeProject = name
         showHome = false
         maximized = nil
@@ -164,6 +211,8 @@ extension AppModel {
         guard let number, let info = sessions.first(where: { $0.number == number }) else { return }
         let name = project(of: info)
         lastFocus[name] = number
+        // On the all-areas surface everything is already in view, so picking a box stays there.
+        if showsAllProjects { return }
         if activeProject != name {
             activeProject = name
             state.activeProject = name
@@ -172,11 +221,17 @@ extension AppModel {
 
     func assignProject(_ info: SessionInfo) {
         guard state.projects[info.id] == nil else { return }
-        let folders = sessions.filter { $0.id != info.id && state.projects[$0.id] == activeProject }.map(\.cwd)
-        let name = ProjectPlacement.project(folder: info.cwd, home: NSHomeDirectory(), active: activeProject, activeFolders: folders, startingFromHome: startingFromHome)
+        // On the all-areas surface the box in focus stands for the area the person is working in.
+        let all = showsAllProjects && !startingFromHome
+        let context = all ? focusedInfo.map { project(of: $0) } : activeProject
+        let folders = sessions.filter { $0.id != info.id && state.projects[$0.id] == context }.map(\.cwd)
+        let name = ProjectPlacement.project(folder: info.cwd, home: NSHomeDirectory(), active: context, activeFolders: folders, startingFromHome: startingFromHome)
         state.projects[info.id] = name
         startingFromHome = false
         showHome = false
+        // The new box appears in its frame on the all-areas surface, so the person stays there.
+        if all { return }
+        leaveAllProjects()
         activeProject = name
         state.activeProject = name
     }
@@ -575,6 +630,7 @@ struct ItemFrame: View {
             .gesture(DragGesture(coordinateSpace: .global).onChanged { value in
                 guard let canvas = canvas else { return }
                 if dragStart == nil {
+                    guard canvas.allowsDrag else { return }
                     dragStart = canvas.origin(ofItem: item.id)
                     AppModel.shared.pushLayoutUndo()
                 }
@@ -601,6 +657,7 @@ struct ItemFrame: View {
                     .gesture(DragGesture(coordinateSpace: .global).onChanged { value in
                         guard let canvas = canvas else { return }
                         if sizeStart == nil {
+                            guard canvas.allowsDrag else { return }
                             sizeStart = canvas.frame(ofItem: item.id)
                             AppModel.shared.pushLayoutUndo()
                         }
@@ -862,5 +919,54 @@ struct TabOutline: Shape {
 extension View {
     func cornerRadius(_ radius: CGFloat, corners: CornerSet) -> some View {
         clipShape(SomeCorners(radius: radius, corners: corners))
+    }
+}
+
+/// One work area's outline on the all-areas surface. Its label opens that area.
+final class AreaFrameView: NSView {
+    let id: String
+    let name: String
+
+    init(id: String, name: String) {
+        self.id = id
+        self.name = name
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override var isFlipped: Bool { true }
+
+    private var labelRect: NSRect {
+        let width = (name as NSString).size(withAttributes: [.font: Theme.ui(.secondary, weight: .semibold)]).width + 16
+        return NSRect(x: 12, y: 0, width: width, height: 20)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let palette = Theme.palette
+        let frame = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 10), xRadius: Theme.cornerCard, yRadius: Theme.cornerCard)
+        frame.lineWidth = 1
+        palette.hair2.setStroke()
+        frame.stroke()
+        let label = NSBezierPath(roundedRect: labelRect, xRadius: Theme.cornerControl, yRadius: Theme.cornerControl)
+        palette.surface0.setFill()
+        label.fill()
+        palette.hair2.setStroke()
+        label.stroke()
+        (name as NSString).draw(at: NSPoint(x: labelRect.minX + 8, y: labelRect.minY + 3), withAttributes: [
+            .font: Theme.ui(.secondary, weight: .semibold), .foregroundColor: palette.text2,
+        ])
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        labelRect.contains(convert(point, from: superview)) ? self : nil
+    }
+
+    override func resetCursorRects() { addCursorRect(labelRect, cursor: .pointingHand) }
+
+    override func mouseDown(with event: NSEvent) {
+        guard AppModel.shared.projectNames.contains(id) else { return }
+        AppModel.shared.switchProject(id)
     }
 }

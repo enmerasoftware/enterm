@@ -15,6 +15,7 @@ struct TopBar: View {
                 Btn("Tümünü Gör", kind: .plain, key: "⌘⏎") { model.toggleMaximize() }
             }
             if model.showsProjectTabs || model.showHome {
+                if model.projectNames.count > 1 { AllAreasTab() }
                 ForEach(model.projectNames, id: \.self) { name in
                     ProjectTab(name: name)
                 }
@@ -169,6 +170,30 @@ struct ProjectTab: View {
         }
         .buttonStyle(.press)
         .onHover { hovering = $0 }
+    }
+}
+
+/// Every area on one surface, each in its own frame, so boxes of different areas can be linked.
+struct AllAreasTab: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    @ObservedObject var model = AppModel.shared
+    var body: some View {
+        let palette = Theme.palette
+        let on = model.showsAllProjects && !model.showHome
+        Button { model.showAllProjects() } label: {
+            T("Tüm Alanlar", color: on ? palette.text1 : palette.text3, weight: on ? .semibold : .regular)
+                .lineLimit(1)
+                .padding(.horizontal, 10)
+                .frame(height: 44)
+                .overlay(alignment: .bottom) {
+                    if on {
+                        Rectangle().fill(Color(palette.need)).frame(height: 2).neon(palette.need, radius: 3).padding(.horizontal, 10).padding(.bottom, 6)
+                    }
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .help("Bütün çalışma alanlarını kutu kutu göster")
     }
 }
 

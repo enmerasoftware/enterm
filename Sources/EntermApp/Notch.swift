@@ -194,6 +194,7 @@ private struct NotchView: View {
         .frame(width: center.expanded ? center.openWidth : center.closedWidth, alignment: .top)
         .background(Color.black)
         .clipShape(BottomRounded(radius: center.expanded ? 16 : 10))
+        .overlay(NotchScan(lit: NotchScan.lit(working: agents.contains { $0.status == .running }), color: palette.g1, radius: center.expanded ? 16 : 10).allowsHitTesting(false))
         .onHover { center.hover($0) }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
@@ -247,5 +248,100 @@ private struct BottomRounded: Shape {
         path.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY - radius), control: CGPoint(x: rect.minX, y: rect.maxY))
         path.closeSubpath()
         return path
+    }
+}
+
+/// While a program works, a light runs along the capsule's edge, like the one round a working box.
+/// The turn is Core Animation's: nothing is drawn per frame.
+private struct NotchScan: NSViewRepresentable {
+    /// Every input is a field, so a change of the glow or motion setting reaches the view too.
+    let lit: Bool
+    let color: NSColor
+    let radius: CGFloat
+
+    static func lit(working: Bool) -> Bool {
+        working && Neon.on && SettingsStore.shared.settings.motion && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    func makeNSView(context: Context) -> NotchScanView { NotchScanView() }
+    func updateNSView(_ view: NotchScanView, context: Context) {
+        view.radius = radius
+        view.apply(lit: lit, color: color)
+    }
+}
+
+private final class NotchScanView: NSView {
+    private let light = CAGradientLayer()
+    private let mask = CAShapeLayer()
+    var radius: CGFloat = 10 { didSet { if radius != oldValue { needsLayout = true } } }
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        light.type = .conic
+        light.startPoint = CGPoint(x: 0.5, y: 0.5)
+        light.endPoint = CGPoint(x: 0.5, y: 0)
+        light.locations = [0, 0.13, 0.26, 0.5, 0.63, 0.76, 1]
+        mask.fillColor = nil
+        mask.strokeColor = NSColor.black.cgColor
+        mask.lineWidth = 1.5
+        mask.shadowColor = NSColor.black.cgColor
+        mask.shadowOffset = .zero
+        mask.shadowOpacity = 1
+        layer?.addSublayer(light)
+        layer?.mask = mask
+        isHidden = true
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    func apply(lit: Bool, color: NSColor) {
+        isHidden = !lit
+        guard lit else {
+            light.removeAnimation(forKey: "scan")
+            return
+        }
+        light.colors = [color.withAlphaComponent(0).cgColor, color.cgColor, color.withAlphaComponent(0).cgColor,
+                        color.withAlphaComponent(0).cgColor, color.cgColor, color.withAlphaComponent(0).cgColor,
+                        color.withAlphaComponent(0).cgColor]
+        light.opacity = Neon.opacity
+        mask.shadowRadius = Neon.radius
+        guard light.animation(forKey: "scan") == nil else { return }
+        let turn = CABasicAnimation(keyPath: "transform.rotation.z")
+        turn.fromValue = 0
+        turn.toValue = -2 * CGFloat.pi
+        turn.duration = 3.2
+        turn.repeatCount = .infinity
+        turn.isRemovedOnCompletion = false
+        light.add(turn, forKey: "scan")
+    }
+
+    /// The sides and the rounded bottom. The top is the screen's edge, so it has no line.
+    override func layout() {
+        super.layout()
+        let width = bounds.width, height = bounds.height
+        guard width > 0, height > 0 else { return }
+        // Inside the capsule by half a line, so the window's edge does not cut the light in two.
+        let inset: CGFloat = 0.75, r = min(radius, height / 2)
+        let path = CGMutablePath()
+        // The layer counts upwards: the capsule's bottom is y = 0.
+        path.move(to: CGPoint(x: inset, y: height))
+        path.addLine(to: CGPoint(x: inset, y: inset + r))
+        path.addQuadCurve(to: CGPoint(x: inset + r, y: inset), control: CGPoint(x: inset, y: inset))
+        path.addLine(to: CGPoint(x: width - inset - r, y: inset))
+        path.addQuadCurve(to: CGPoint(x: width - inset, y: inset + r), control: CGPoint(x: width - inset, y: inset))
+        path.addLine(to: CGPoint(x: width - inset, y: height))
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        mask.frame = bounds
+        mask.path = path
+        mask.shadowPath = path.copy(strokingWithWidth: 1.5, lineCap: .round, lineJoin: .round, miterLimit: 4)
+        let side = ceil(hypot(width, height))
+        light.bounds = CGRect(x: 0, y: 0, width: side, height: side)
+        light.position = CGPoint(x: width / 2, y: height / 2)
+        CATransaction.commit()
     }
 }

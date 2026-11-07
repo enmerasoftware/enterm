@@ -311,7 +311,8 @@ final class AppModel: ObservableObject {
             } else {
                 hint = "Enterm Yeniden Açıldı · Oturumlar Hiç Durmadı"
                 let names = projectNames
-                activeProject = state.activeProject.flatMap { names.contains($0) ? $0 : nil } ?? names.first
+                // Left on the all-areas surface, it comes back there.
+                activeProject = state.showingAll && names.count > 1 ? nil : (state.activeProject.flatMap { names.contains($0) ? $0 : nil } ?? names.first)
                 mode = tileCount > 1 ? (state.mode == .single ? .canvas : state.mode) : .single
                 setFocus(visibleSessions.first?.number)
                 onLayoutChange?()
