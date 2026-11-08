@@ -19,6 +19,11 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin/EntermApp" "$app/Contents/MacOS/EntermApp"
 cp "$bin/entermd" "$app/Contents/MacOS/entermd"
 cp "$bin/enterm" "$app/Contents/MacOS/enterm"
+# Sparkle, the updater, lives in Frameworks; the app finds it there.
+mkdir -p "$app/Contents/Frameworks"
+ditto "$bin/Sparkle.framework" "$app/Contents/Frameworks/Sparkle.framework"
+otool -l "$app/Contents/MacOS/EntermApp" | grep -q '@executable_path/../Frameworks' ||
+  install_name_tool -add_rpath @executable_path/../Frameworks "$app/Contents/MacOS/EntermApp"
 [[ -x "$root/vendor/whisper/bin/whisper-cli" ]] && cp "$root/vendor/whisper/bin/whisper-cli" "$app/Contents/MacOS/whisper-cli"
 cp "$root/Resources/Info.plist" "$app/Contents/Info.plist"
 [[ -f "$root/Resources/Enterm.icns" ]] && cp "$root/Resources/Enterm.icns" "$app/Contents/Resources/Enterm.icns"

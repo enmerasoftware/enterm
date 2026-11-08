@@ -18,6 +18,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/migueldeicaza/SwiftTerm.git", from: "1.2.0"),
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
     ],
     targets: [
         .target(name: "CPTY"),
@@ -28,6 +29,7 @@ let package = Package(
         .executableTarget(name: "EntermApp", dependencies: [
             "EntermCore",
             .product(name: "SwiftTerm", package: "SwiftTerm"),
+            .product(name: "Sparkle", package: "Sparkle"),
         ], swiftSettings: driverSettings),
         .testTarget(name: "EntermCoreTests", dependencies: ["EntermCore"]),
     ],

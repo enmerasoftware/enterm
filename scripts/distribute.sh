@@ -33,9 +33,19 @@ version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$plist
 # The build number only ever grows, so an update always reads as newer.
 build=$(git rev-list --count HEAD)
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $build" "$plist"
+# Only a distributed build asks GitHub for updates.
+feed="https://github.com/enmerasoftware/enterm/releases/latest/download/appcast.xml"
+/usr/libexec/PlistBuddy -c "Add :SUFeedURL string $feed" "$plist"
 
 # Inner programs first, the app last; every one with the hardened runtime and a secure timestamp.
 sign() { codesign --force --timestamp --options runtime --sign "$identity" "$@"; }
+# Sparkle's helpers first, inside out, as its documentation orders them.
+sparkle="$app/Contents/Frameworks/Sparkle.framework/Versions/B"
+sign "$sparkle/XPCServices/Installer.xpc"
+sign --preserve-metadata=entitlements "$sparkle/XPCServices/Downloader.xpc"
+sign "$sparkle/Autoupdate"
+sign "$sparkle/Updater.app"
+sign "$app/Contents/Frameworks/Sparkle.framework"
 for program in "$app"/Contents/MacOS/*; do
   [[ "${program:t}" == "EntermApp" ]] && continue
   sign "$program"

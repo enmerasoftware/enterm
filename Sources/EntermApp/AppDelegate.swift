@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         applyTheme()
         Theme.refreshPalette()
+        Updates.shared.start()
         buildMenu()
         root = RootView()
         let frame = NSRect(x: 0, y: 0, width: 1200, height: 760)
@@ -155,6 +156,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         submenu("Enterm") { menu in
             add(menu, "Ayarlar", "settings")
+            if Updates.shared.available {
+                let check = NSMenuItem(title: "Güncellemeleri Denetle…", action: #selector(Updates.check(_:)), keyEquivalent: "")
+                check.target = Updates.shared
+                menu.addItem(check)
+            }
             menu.addItem(.separator())
             menu.addItem(withTitle: "Enterm'i Gizle", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
             menu.addItem(withTitle: "Enterm'den Çık", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
