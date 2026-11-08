@@ -3,17 +3,27 @@ import Combine
 import EntermCore
 import SwiftUI
 
+/// A SwiftUI bar that takes clicks only inside its own frame, and none while hidden.
+/// A closed side pane is 0 wide, yet its content still answered clicks over the boxes beside it,
+/// so the close button at a box's right end did nothing.
+final class BoundedHostingView<Content: View>: NSHostingView<Content> {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard !isHidden, frame.contains(point) else { return nil }
+        return super.hitTest(point)
+    }
+}
+
 /// The window content. The canvas and terminals are AppKit; bars, pages and dialogs are SwiftUI.
 final class RootView: NSView {
     let model = AppModel.shared
     let canvas: CanvasView
-    private let top: NSHostingView<TopBar>
-    private let bottom: NSHostingView<BottomBars>
-    private let side: NSHostingView<DetailPane>
-    private let rail: NSHostingView<SessionRail>
+    private let top: BoundedHostingView<TopBar>
+    private let bottom: BoundedHostingView<BottomBars>
+    private let side: BoundedHostingView<DetailPane>
+    private let rail: BoundedHostingView<SessionRail>
     private var home: NSHostingView<HomeView>?
     private var cover: NSHostingView<CoverContent>?
-    private var cards: NSHostingView<InlineCards>
+    private var cards: BoundedHostingView<InlineCards>
     private var bags = Set<AnyCancellable>()
     private var keyMonitor: Any?
     private var flagsMonitor: Any?
@@ -21,19 +31,17 @@ final class RootView: NSView {
 
     init() {
         canvas = CanvasView(model: model)
-        top = NSHostingView(rootView: TopBar())
-        bottom = NSHostingView(rootView: BottomBars())
-        side = NSHostingView(rootView: DetailPane())
-        cards = NSHostingView(rootView: InlineCards())
-        rail = NSHostingView(rootView: SessionRail())
+        top = BoundedHostingView(rootView: TopBar())
+        bottom = BoundedHostingView(rootView: BottomBars())
+        side = BoundedHostingView(rootView: DetailPane())
+        cards = BoundedHostingView(rootView: InlineCards())
+        rail = BoundedHostingView(rootView: SessionRail())
         super.init(frame: .zero)
         rail.safeAreaRegions = []
-        for view in [top as NSView, bottom, side, cards] {
-            (view as? NSHostingView<TopBar>)?.safeAreaRegions = []
-            (view as? NSHostingView<BottomBars>)?.safeAreaRegions = []
-            (view as? NSHostingView<DetailPane>)?.safeAreaRegions = []
-            (view as? NSHostingView<InlineCards>)?.safeAreaRegions = []
-        }
+        top.safeAreaRegions = []
+        bottom.safeAreaRegions = []
+        side.safeAreaRegions = []
+        cards.safeAreaRegions = []
         wantsLayer = true
         layer?.backgroundColor = Theme.palette.surface0.cgColor
         addSubview(canvas)
