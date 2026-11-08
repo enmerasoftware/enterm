@@ -81,6 +81,8 @@ final class NotchCenter: ObservableObject {
     let side: CGFloat = 52
     static let rowHeight: CGFloat = 40
     var height: CGFloat { barHeight }
+    /// The capsule reaches this far below the notch, so the light along its bottom runs clear of the notch's edge.
+    let drop: CGFloat = 5
 
     var closedWidth: CGFloat { notchWidth + 2 * side }
     var openWidth: CGFloat { max(360, closedWidth) }
@@ -93,7 +95,7 @@ final class NotchCenter: ObservableObject {
         // MenuList: rows with its gap between them and 10 on every side.
         let rows = CGFloat(min(count, 6))
         let listHeight = rows * Self.rowHeight + max(rows - 1, 0) * MenuList<EmptyView>.gap + 20
-        let height = barHeight + (open ? listHeight : 0)
+        let height = barHeight + drop + (open ? listHeight : 0)
         let frame = NSRect(x: screen.frame.midX - width / 2, y: screen.frame.maxY - height, width: width, height: height)
         panel.setFrame(frame, display: true)
         panel.orderFrontRegardless()
@@ -180,6 +182,7 @@ private struct NotchView: View {
             }
             // As wide as the closed capsule, so the dots do not move when the list opens.
             .frame(width: center.gap + 2 * center.side, height: center.height)
+            Color.clear.frame(height: center.drop)
             if center.expanded {
                 MenuList {
                     ForEach(agents.prefix(6)) { info in
