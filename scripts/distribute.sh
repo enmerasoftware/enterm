@@ -46,10 +46,10 @@ codesign --verify --deep --strict "$app"
 # The app is notarized and stapled on its own, so it opens offline even after leaving the DMG.
 notarize() {
   xcrun notarytool submit "$1" --keychain-profile "$profile" --wait --output-format plist > "$out/notary.plist"
-  status=$(/usr/libexec/PlistBuddy -c "Print :status" "$out/notary.plist")
-  if [[ "$status" != "Accepted" ]]; then
+  result=$(/usr/libexec/PlistBuddy -c "Print :status" "$out/notary.plist")
+  if [[ "$result" != "Accepted" ]]; then
     id=$(/usr/libexec/PlistBuddy -c "Print :id" "$out/notary.plist")
-    echo "Apple onayı reddetti ($status). Ayrıntı: xcrun notarytool log $id --keychain-profile $profile" >&2
+    echo "Apple onayı reddetti ($result). Ayrıntı: xcrun notarytool log $id --keychain-profile $profile" >&2
     exit 1
   fi
 }
