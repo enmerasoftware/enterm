@@ -2,13 +2,13 @@
 # Builds Enterm for anyone to download: signed with Developer ID, notarized by Apple, in a DMG.
 # Usage: scripts/distribute.sh
 # Output: build/dist-<commit>/Enterm-<version>.dmg
-# ENTERM_NOTARY_PROFILE names the notarytool keychain profile (default: couchsubs, same team).
+# ENTERM_NOTARY_PROFILE names the notarytool keychain profile (default: enterm).
 set -e
 root=${0:A:h:h}
 cd "$root"
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 team=79N3CT6T46
-profile="${ENTERM_NOTARY_PROFILE:-couchsubs}"
+profile="${ENTERM_NOTARY_PROFILE:-enterm}"
 commit=$(git rev-parse --short HEAD)
 out="$root/build/dist-$commit"
 

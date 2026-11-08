@@ -4,11 +4,17 @@ Terminal görünümlü çalışma ortamı. Resmi programları (Claude Code, Code
 
 Üç temel kural: hafif çalışır, ayar dosyalarınıza dokunmaz, kullanmadığınız özellik yük bindirmez.
 
+Açık kaynak ve ücretsiz, MIT lisanslı (`LICENSE`).
+
+## İndirme
+
+Son sürüm: [github.com/enmerasoftware/enterm/releases/latest](https://github.com/enmerasoftware/enterm/releases/latest). DMG'yi açıp Enterm'i Uygulamalar klasörüne sürükleyin. Sürümler Apple onaylıdır (Developer ID ve notarization), yeni sürüm çıkınca Enterm kendisi sorar (Sparkle). macOS 14 ve üstü.
+
 ## Derleme
 
 ```bash
 scripts/bundle.sh release
-open build/Enterm.app
+open build/release-$(git rev-parse --short HEAD)/Enterm.app
 ```
 
 Xcode kurulu olmalı (`/Applications/Xcode.app`). Testler:
@@ -57,7 +63,15 @@ Kurallar: `.zshrc`, `~/.claude`, `~/.codex` değişmez. Entegrasyon başlatma ar
 - Eşleşen cihazlar `devices.json` içinde, 0600 izinle. Telefonda anahtar Anahtar Zinciri'nde.
 - Mac penceresindeki işler (hesaplar, Git, bağlantılar, tarayıcı, ekip, yeni oturum) telefondan `appCall` ile çağrılır: `Sources/EntermApp/PhoneBridge.swift`. Pencere kapalıysa servis onu arkada açar, öne getirmez.
 
-## İmzalı Sürümden Önce
+## Sürüm Yayınlama
+
+1. `Resources/Info.plist` içinde `CFBundleShortVersionString` artırılır ve commit edilir.
+2. `scripts/distribute.sh`: Developer ID ile imzalar, Apple'a onaylatır, `build/dist-<commit>/Enterm-<sürüm>.dmg` çıkar. Onay bilgisi `enterm` adlı notarytool profilinden okunur (`ENTERM_NOTARY_PROFILE` ile değişir).
+3. `scripts/publish.sh <dmg> "sürüm notu"`: GitHub'da sürümü açar, DMG ile imzalı `appcast.xml` dosyasını yükler. Uygulamalar güncellemeyi `releases/latest/download/appcast.xml` üzerinden bulur.
+
+Sparkle'ın gizli imza anahtarı yalnız yayın yapan Mac'in Anahtar Zinciri'nde durur (hesap adı `enterm`). Kaybolursa eski sürümler yeni güncellemeyi kabul etmez; yedeği `generate_keys --account enterm -x <dosya>` ile alınır ve parola yöneticisinde saklanır.
+
+## Telefon Aktarımı Açılmadan Önce
 
 - **Anahtar taşıma:** Eşleşen cihaz anahtarları şu an `devices.json` içinde 0600 izinle duruyor. Bu yalnız imzasız sürüm için kabul edildi (Ufuk, 2026-11-04), çünkü imzasız servis Anahtar Zinciri'ne her erişimde parola penceresi açar. İmzalı sürümde `PhoneCenter` anahtarları Anahtar Zinciri'ne taşır, `devices.json` içinde yalnız ad, tarih ve bildirim jetonu kalır, ilk açılışta eski dosyadaki anahtarlar taşınıp silinir.
 
