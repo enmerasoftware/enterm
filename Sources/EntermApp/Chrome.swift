@@ -8,6 +8,7 @@ struct TopBar: View {
     @ObservedObject var inbox = Inbox.shared
     @ObservedObject var power = PowerCenter.shared
     @State private var updateHovering = false
+    @ObservedObject private var updates = Updates.shared
     var body: some View {
         let palette = Theme.palette
         HStack(spacing: 8) {
@@ -70,6 +71,10 @@ struct TopBar: View {
                 .buttonStyle(.press)
                 .onHover { updateHovering = $0 }
                 .help("Arka plan servisi eski sürümden kalma. Oturumlar kapanana kadar eski servis çalışır.")
+            }
+            if let version = updates.waitingVersion {
+                Btn("Sürüm \(version) Hazır", kind: .lit) { Updates.shared.check(nil) }
+                    .help("Yeni sürümü indirip kurar")
             }
             if power.settings.lowPower {
                 Btn("Düşük Güçlü Açık", kind: .plain) { Commands.perform("power") }

@@ -710,6 +710,11 @@ struct AboutSettings: View {
         VStack(alignment: .leading, spacing: 16) {
             Panel {
                 HStack { T("Sürüm"); Spacer(); Mono(EntermVersion.current) }.settingsRow()
+                if Updates.shared.available {
+                    SettingsLine(title: "Güncellemeler", note: "Günde bir kez kendiliğinden bakar") {
+                        Btn("Güncellemeleri Denetle") { Updates.shared.check(nil) }
+                    }
+                }
                 SettingsLine(title: "Kurulum Turu", note: "Karşılama ekranını yeniden gösterir") {
                     Btn("Aç") { AppModel.shared.page = .welcome }
                 }
