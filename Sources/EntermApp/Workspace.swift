@@ -922,10 +922,12 @@ extension View {
     }
 }
 
-/// One work area's outline on the all-areas surface. Its label opens that area.
+/// One work area on the all-areas surface: its label, which opens the area, and an outline
+/// that only appears when there are several boxes to hold together.
 final class AreaFrameView: NSView {
     let id: String
     let name: String
+    var outlined = false
 
     init(id: String, name: String) {
         self.id = id
@@ -945,10 +947,12 @@ final class AreaFrameView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         let palette = Theme.palette
-        let frame = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 10), xRadius: Theme.cornerCard, yRadius: Theme.cornerCard)
-        frame.lineWidth = 1
-        palette.hair2.setStroke()
-        frame.stroke()
+        if outlined {
+            let frame = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 10), xRadius: Theme.cornerCard, yRadius: Theme.cornerCard)
+            frame.lineWidth = 1
+            palette.hair2.setStroke()
+            frame.stroke()
+        }
         let label = NSBezierPath(roundedRect: labelRect, xRadius: Theme.cornerControl, yRadius: Theme.cornerControl)
         palette.surface0.setFill()
         label.fill()

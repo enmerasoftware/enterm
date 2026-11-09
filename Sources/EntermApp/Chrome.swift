@@ -85,7 +85,9 @@ struct TopBar: View {
                 Btn("Ayrıntılar", kind: model.detailsOpen ? .lit : .plain, key: "⌘I") { model.detailsOpen.toggle() }
             }
             if !model.toolbarVisible {
-                IconBtn("plus", label: "Yeni Oturum", active: model.overlay == .newSession) { Commands.perform("newSession") }
+                // Named, so it is not mistaken for the plus beside the project tabs.
+                Btn("Yeni Oturum", kind: model.overlay == .newSession ? .lit : .plain, icon: "plus") { Commands.perform("newSession") }
+                    .help("Bu projeye yeni oturum ekle")
             }
             IconBtn("iphone", label: "Telefon", active: model.page == .phone) { Commands.perform("phone") }.help("Telefon")
             IconBtn("gearshape", label: "Ayarlar", active: { if case .settings? = model.page { return true } else { return false } }()) { Commands.perform("settings") }.help("Ayarlar (⌘,)")
@@ -129,6 +131,11 @@ extension AppModel {
     var showsProjectTabs: Bool { projectNames.count > 1 || tileCount > 1 }
 }
 
+private enum ProjectTabMetrics {
+    /// Wide enough on each side to hold a tab's close cross without the tab changing size.
+    static let inset: CGFloat = 16
+}
+
 /// A project on the bar: its name, what it is doing, and a lit line under the one on screen.
 struct ProjectTab: View {
     @ObservedObject private var appearance = AppearanceTick.shared
@@ -147,6 +154,16 @@ struct ProjectTab: View {
             HStack(spacing: 6) {
                 if let dot { Circle().fill(Color(dot)).frame(width: 7, height: 7).neon(dot, radius: 3) }
                 T(name, color: on ? palette.text1 : palette.text3, weight: on ? .semibold : .regular).lineLimit(1)
+            }
+            .padding(.horizontal, ProjectTabMetrics.inset)
+            .frame(height: 44)
+            .overlay(alignment: .bottom) {
+                if on {
+                    Rectangle().fill(Color(palette.need)).frame(height: 2).neon(palette.need, radius: 3).padding(.horizontal, ProjectTabMetrics.inset).padding(.bottom, 6)
+                }
+            }
+            // The cross lives in the tab's own margin, so showing it moves nothing.
+            .overlay(alignment: .trailing) {
                 if hovering {
                     Button {
                         model.confirm(title: "\(name) Kapatılsın mı?", detail: "Bu projedeki \(members.count) oturum ve içinde çalışan programlar kapanır.", action: "Projeyi Kapat", danger: true) {
@@ -157,13 +174,7 @@ struct ProjectTab: View {
                     }
                     .buttonStyle(.press)
                     .help("Projeyi Kapat")
-                }
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 44)
-            .overlay(alignment: .bottom) {
-                if on {
-                    Rectangle().fill(Color(palette.need)).frame(height: 2).neon(palette.need, radius: 3).padding(.horizontal, 10).padding(.bottom, 6)
+                    .padding(.trailing, 1)
                 }
             }
             .contentShape(Rectangle())
@@ -173,7 +184,7 @@ struct ProjectTab: View {
     }
 }
 
-/// Every area on one surface, each in its own frame, so boxes of different areas can be linked.
+/// Every area on one surface, so boxes of different areas can be linked.
 struct AllAreasTab: View {
     @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
@@ -183,11 +194,11 @@ struct AllAreasTab: View {
         Button { model.showAllProjects() } label: {
             T("Tüm Alanlar", color: on ? palette.text1 : palette.text3, weight: on ? .semibold : .regular)
                 .lineLimit(1)
-                .padding(.horizontal, 10)
+                .padding(.horizontal, ProjectTabMetrics.inset)
                 .frame(height: 44)
                 .overlay(alignment: .bottom) {
                     if on {
-                        Rectangle().fill(Color(palette.need)).frame(height: 2).neon(palette.need, radius: 3).padding(.horizontal, 10).padding(.bottom, 6)
+                        Rectangle().fill(Color(palette.need)).frame(height: 2).neon(palette.need, radius: 3).padding(.horizontal, ProjectTabMetrics.inset).padding(.bottom, 6)
                     }
                 }
                 .contentShape(Rectangle())

@@ -740,7 +740,7 @@ final class CanvasView: NSView {
     private var itemBoxes: [String: ItemBox] = [:]
     private var groupViews: [String: GroupFrameView] = [:]
     /// On the all-areas surface: each area's outline, as computeFrames laid it out.
-    private var areaFrames: [(id: String, title: String, frame: NSRect)] = []
+    private var areaFrames: [(id: String, title: String, frame: NSRect, boxes: Int)] = []
     /// The font scale on the all-areas surface: small boxes keep their columns by drawing smaller, as a zoomed-out canvas does.
     private var areaScale: CGFloat = 1
     /// How large a box's contents draw: the canvas zoom, or the all-areas scale on that surface.
@@ -923,6 +923,7 @@ final class CanvasView: NSView {
             }()
             // AreaFrameView draws its outline 10 inside its top and bottom and 1 inside its sides.
             view.frame = area.frame.insetBy(dx: -1, dy: -10)
+            view.outlined = area.boxes > 1
             view.needsDisplay = true
         }
         for (name, view) in areaViews where !live.contains(name) {
@@ -1009,7 +1010,7 @@ final class CanvasView: NSView {
                 for (key, rect) in zip(keys, cluster.boxes) {
                     if let number = key.number { frames[number] = rect } else { itemFrames[key.id] = rect }
                 }
-                areaFrames.append((contents.id, contents.title, cluster.frame))
+                areaFrames.append((contents.id, contents.title, cluster.frame, keys.count))
             }
             return (frames, itemFrames)
         }
