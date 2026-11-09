@@ -294,7 +294,7 @@ final class Scheduler: ObservableObject {
             spec.env = ["ENTERM_STARTUP": job.command]
             AppModel.shared.create(spec)
         } else {
-            ToolLauncher.start(job.tool, cwd: job.cwd, name: job.name, extraArguments: NotFoundActions.shellQuote(job.command))
+            ToolLauncher.start(job.tool, cwd: job.cwd, name: job.name, extraArguments: NotFoundActions.shellQuote(job.command), announcesQueue: false)
         }
     }
 }

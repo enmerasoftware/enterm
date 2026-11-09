@@ -661,15 +661,24 @@ struct PageFrame<Content: View>: View {
     }
 }
 
+/// How full something is, in one color language: fine, getting full, nearly out.
+enum UsageTone {
+    static func color(used: Double) -> NSColor {
+        let palette = Theme.palette
+        return used >= 90 ? palette.err : (used >= 70 ? palette.limit : palette.add)
+    }
+}
+
 struct Meter: View {
     @ObservedObject private var appearance = AppearanceTick.shared
     let percent: Double
     var warn = false
+    var tone: NSColor?
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 Rectangle().fill(Color(Theme.palette.fill))
-                Rectangle().fill(Color(warn ? Theme.palette.limit : Theme.palette.add))
+                Rectangle().fill(Color(tone ?? (warn ? Theme.palette.limit : Theme.palette.add)))
                     .frame(width: geometry.size.width * min(max(percent, 0), 100) / 100)
             }
         }

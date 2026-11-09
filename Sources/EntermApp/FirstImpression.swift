@@ -1214,15 +1214,68 @@ enum RecentHiding {
 /// The programs' limits in one line. A click opens Kullanım, where each account has its own row.
 struct LimitSummaryButton: View {
     @ObservedObject private var appearance = AppearanceTick.shared
+    @ObservedObject private var accounts = AccountStore.shared
+    @ObservedObject private var settings = SettingsStore.shared
     let summary: String
+    /// Where the line is shared with other things, only the short form is offered.
+    var roomy = true
     var body: some View {
         if !summary.isEmpty {
             Button { AppModel.shared.page = .settings(.usage) } label: {
-                T(summary, color: Theme.palette.text2, style: .secondary).lineLimit(1).contentShape(Rectangle())
+                // The most that fits: with the weekly reset, with the weekly bar, or the current window alone.
+                ViewThatFits(in: .horizontal) {
+                    if roomy {
+                        row { entry($0, week: true, reset: true) }
+                        row { entry($0, week: true, reset: false) }
+                    }
+                    row { entry($0, week: false, reset: false) }
+                    T(summary, color: Theme.palette.text2, style: .secondary).lineLimit(1)
+                }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.press)
             .help("Limit Ayrıntısı")
         }
+    }
+
+    private var known: [Account] { accounts.accounts.filter { $0.lastLimit?.fiveHour != nil || $0.lastLimit?.sevenDay != nil } }
+
+    private func row<Content: View>(@ViewBuilder _ content: @escaping (Account) -> Content) -> some View {
+        HStack(spacing: 16) {
+            ForEach(known) { content($0) }
+        }
+        .fixedSize()
+    }
+
+    private func entry(_ account: Account, week: Bool, reset: Bool) -> some View {
+        let label = account.kind == .system ? account.tool.title : "\(account.tool.title) (\(account.name))"
+        let five = account.lastLimit?.fiveHour
+        let seven = account.lastLimit?.sevenDay
+        return HStack(spacing: 8) {
+            T(label, color: Theme.palette.text2, style: .secondary)
+            if let window = five ?? seven {
+                gauge(title: five == nil ? "H" : nil, window, help: five == nil ? "Haftalık" : "5 Saatlik")
+            }
+            if week, five != nil, let seven {
+                gauge(title: "Hafta", seven, help: "Haftalık")
+                if reset, let date = seven.resetsAt, date > Date() {
+                    T(TimeText.short(date), color: Theme.palette.text3, style: .secondary)
+                        .help(TimeText.reset(date))
+                }
+            }
+        }
+    }
+
+    private func gauge(title: String?, _ window: LimitWindow, help: String) -> some View {
+        let used = window.usedPercent
+        let remaining = settings.settings.usageRemaining
+        let value = remaining ? 100 - used : used
+        return HStack(spacing: 6) {
+            if let title { T(title, color: Theme.palette.text3, style: .secondary) }
+            Meter(percent: value, tone: UsageTone.color(used: used)).frame(width: 44)
+            T("%\(Int(value))", color: Theme.palette.text1, style: .secondary).monospacedDigit()
+        }
+        .help("\(help): %\(Int(value)) \(remaining ? "Kaldı" : "Dolu")")
     }
 }
 

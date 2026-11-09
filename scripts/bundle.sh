@@ -27,6 +27,14 @@ otool -l "$app/Contents/MacOS/EntermApp" | grep -q '@executable_path/../Framewor
 [[ -x "$root/vendor/whisper/bin/whisper-cli" ]] && cp "$root/vendor/whisper/bin/whisper-cli" "$app/Contents/MacOS/whisper-cli"
 cp "$root/Resources/Info.plist" "$app/Contents/Info.plist"
 [[ -f "$root/Resources/Enterm.icns" ]] && cp "$root/Resources/Enterm.icns" "$app/Contents/Resources/Enterm.icns"
-codesign --force --sign - --entitlements "$root/Resources/Enterm.entitlements" "$app/Contents/MacOS/entermd" "$app/Contents/MacOS/enterm" >/dev/null 2>&1 || true
-codesign --force --sign - --entitlements "$root/Resources/Enterm.entitlements" "$app" >/dev/null 2>&1 || true
+# macOS refuses notifications to an ad-hoc signature, so a delivery carries the Developer ID when this Mac has it.
+# Test builds stay ad-hoc: they never ask anyone for permission.
+identity="-"
+if [[ "$config" == "release" ]]; then
+  found=$(security find-identity -v -p codesigning | awk '/Developer ID Application/ && /\(79N3CT6T46\)/ { print $2; exit }')
+  [[ -n "$found" ]] && identity="$found"
+fi
+codesign --force --deep --sign "$identity" "$app/Contents/Frameworks/Sparkle.framework" >/dev/null 2>&1 || true
+codesign --force --sign "$identity" --entitlements "$root/Resources/Enterm.entitlements" "$app/Contents/MacOS/entermd" "$app/Contents/MacOS/enterm" >/dev/null 2>&1 || true
+codesign --force --sign "$identity" --entitlements "$root/Resources/Enterm.entitlements" "$app" >/dev/null 2>&1 || true
 echo "$app"

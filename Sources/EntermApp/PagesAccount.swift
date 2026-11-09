@@ -231,7 +231,7 @@ struct InboxPage: View {
                             Dim("\(queued.reason). Yer Açılınca Kendiliğinden Başlar, Token Harcamıyor.")
                         }
                         Spacer()
-                        Btn("Yine De Başlat") { power.startQueued(force: queued) }
+                        Btn("Yine De Başlat") { power.startAndShow(queued) }
                     }
                     .padding(12)
                 }

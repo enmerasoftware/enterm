@@ -214,10 +214,38 @@ final class PowerCenter: ObservableObject {
         return PowerRules.blockReason(running: runningAgents, maxSessions: effectiveMaxSessions, cpuLimit: settings.cpuLimit, cpuUsed: cpuUsed, pressure: pressure)
     }
 
-    func enqueue(_ spec: SessionSpec, reason: String, then: ((SessionInfo) -> Void)? = nil) {
-        queue.append(QueuedSession(spec: spec, reason: reason, then: then))
+    @discardableResult
+    func enqueue(_ spec: SessionSpec, reason: String, then: ((SessionInfo) -> Void)? = nil) -> QueuedSession {
+        let item = QueuedSession(spec: spec, reason: reason, then: then)
+        queue.append(item)
         updateSampling()
         PhoneBridge.tellPhones()
+        return item
+    }
+
+    /// Starts a waiting session because the person asked to here, and takes them to it.
+    func startAndShow(_ item: QueuedSession) {
+        guard queue.contains(where: { $0.id == item.id }) else { return }
+        queue.removeAll { $0.id == item.id }
+        AppModel.shared.create(item.spec) { info in
+            AppModel.shared.page = nil
+            item.then?(info)
+        }
+        PhoneBridge.tellPhones()
+    }
+
+    /// Says in the middle of the window that a session is waiting, and offers to start it anyway.
+    func announce(_ item: QueuedSession) {
+        // Whatever opened the launcher closes it first, so this waits its turn.
+        DispatchQueue.main.async {
+            let model = AppModel.shared
+            guard model.overlay == nil, self.queue.contains(where: { $0.id == item.id }) else { return }
+            model.confirm(
+                title: "\(item.spec.tool.title) Sırada",
+                detail: "\(item.reason). Yer açılınca kendiliğinden başlar, beklerken token harcamaz. Çalışan işler durmaz.",
+                action: "Yine De Başlat", cancel: "Bekle"
+            ) { self.startAndShow(item) }
+        }
     }
 
     func startQueued(force: QueuedSession? = nil) {
@@ -476,8 +504,13 @@ final class Notifier {
             send()
         } else {
             asked = true
-            center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
-                if granted { send() }
+            center.requestAuthorization(options: [.alert, .sound]) { granted, error in
+                if granted {
+                    send()
+                } else {
+                    if let error { NSLog("Enterm bildirim izni: %@", error.localizedDescription) }
+                    DispatchQueue.main.async { AppModel.shared.hint = "Bildirim İzni Yok · Sistem Ayarları › Bildirimler › Enterm" }
+                }
             }
         }
     }

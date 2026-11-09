@@ -261,7 +261,7 @@ enum ToolLauncher {
         AppModel.shared.create(spec)
     }
 
-    static func start(_ tool: ToolKind, cwd: String? = nil, name: String? = nil, accountID: String? = nil, extraArguments: String = "", group: String? = nil, plan: ModelPlan? = nil, then: ((SessionInfo) -> Void)? = nil) {
+    static func start(_ tool: ToolKind, cwd: String? = nil, name: String? = nil, accountID: String? = nil, extraArguments: String = "", group: String? = nil, plan: ModelPlan? = nil, announcesQueue: Bool = true, then: ((SessionInfo) -> Void)? = nil) {
         guard let command = tool.command else {
             AppModel.shared.newTerminal(cwd: cwd)
             return
@@ -290,7 +290,8 @@ enum ToolLauncher {
         env["ENTERM_STARTUP"] = extraArguments.isEmpty ? start : "\(start) \(extraArguments)"
         spec.env = env
         if let reason = PowerCenter.shared.blockReason() {
-            PowerCenter.shared.enqueue(spec, reason: reason, then: then)
+            let queued = PowerCenter.shared.enqueue(spec, reason: reason, then: then)
+            if announcesQueue { PowerCenter.shared.announce(queued) }
             AppModel.shared.hint = "◷ Sırada: \(reason). Çalışan iş durmadı."
             return
         }

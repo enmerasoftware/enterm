@@ -59,6 +59,19 @@ final class DebugDriver {
             case "click":
                 let numbers = rest.split(separator: " ").compactMap { Double($0) }
                 if numbers.count == 2 { mouse([(.leftMouseDown, numbers[0], numbers[1]), (.leftMouseUp, numbers[0], numbers[1])]) }
+            case "hostclick":
+                // Straight to the view under the point: a window that is not key drops a terminal's first click.
+                let numbers = rest.split(separator: " ").compactMap { Double($0) }
+                if numbers.count == 2, let window = NSApp.windows.first, let content = window.contentView {
+                    let location = NSPoint(x: numbers[0], y: content.bounds.height - numbers[1])
+                    if let view = content.hitTest(location) {
+                        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                            guard let event = NSEvent.mouseEvent(with: type, location: location, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                                                 windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) else { continue }
+                            if type == .leftMouseDown { view.mouseDown(with: event) } else { view.mouseUp(with: event) }
+                        }
+                    }
+                }
             case "drag":
                 let n = rest.split(separator: " ").compactMap { Double($0) }
                 if n.count == 4 {

@@ -295,7 +295,7 @@ struct SessionStrip: View {
                 }
                 Spacer(minLength: 0)
                 // 6 + 14: the text ends 20 from the edge, like StatusLine's.
-                LimitSummaryButton(summary: summary).padding(.trailing, 14)
+                LimitSummaryButton(summary: summary, roomy: false).padding(.trailing, 14)
             }
             // (36 - 24) / 2: a lit item has 6 on all four sides.
             .padding(.horizontal, 6)

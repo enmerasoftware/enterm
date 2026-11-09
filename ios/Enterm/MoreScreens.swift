@@ -260,6 +260,7 @@ struct RouteScreen: View {
             case .limitOpened: LimitOpenedScreen()
             case .resumeFailed(let number): ResumeFailedScreen(number: number)
             case .codexLimit(let number): CodexLimitScreen(number: number)
+            case .usage: UsageScreen()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

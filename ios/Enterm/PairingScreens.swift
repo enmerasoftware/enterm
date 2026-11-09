@@ -12,6 +12,7 @@ struct WelcomeScreen: View {
             Spacer()
             DimTxt("Bilgisayarda: ⋯ › Telefonu Bağla")
             ActionButton("Kodu Okut", style: .primary) { model.pairing = .scanning }
+            ActionButton("Bilgisayar Olmadan Görün", style: .plain) { model.startDemo() }
         }
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)

@@ -259,7 +259,7 @@ enum PhoneBridge {
         let account = args["account"].flatMap { $0.isEmpty || $0.hasPrefix("system-") ? nil : $0 }
         let template = args["template"].flatMap(PermissionTemplate.init(rawValue:))
         let before = PowerCenter.shared.queue.count
-        ToolLauncher.start(tool, cwd: folder ?? NSHomeDirectory(), name: name, accountID: account, plan: plan) { info in
+        ToolLauncher.start(tool, cwd: folder ?? NSHomeDirectory(), name: name, accountID: account, extraArguments: args["prompt"].flatMap { $0.isEmpty ? nil : NotFoundActions.shellQuote($0) } ?? "", plan: plan, announcesQueue: false) { info in
             if let template {
                 var book = PermissionBook.load()
                 book.cards[info.id] = template.card

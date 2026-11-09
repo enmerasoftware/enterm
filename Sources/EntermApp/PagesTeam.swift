@@ -123,7 +123,7 @@ enum TeamBuilder {
         // The model shows in the member's row and goes along. The effort has no field anywhere, so it never does.
         plan.main = member.model
         let arguments = member.tool == .antigravity ? "" : NotFoundActions.shellQuote(intro)
-        ToolLauncher.start(member.tool, cwd: team.folder, name: member.name, extraArguments: arguments, group: team.name, plan: plan) { info in
+        ToolLauncher.start(member.tool, cwd: team.folder, name: member.name, extraArguments: arguments, group: team.name, plan: plan, announcesQueue: false) { info in
             var updated = team
             updated.members[index].sessionID = info.id
             updated.save()

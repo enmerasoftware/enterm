@@ -55,73 +55,58 @@ struct ConnectingScreen: View {
     }
 }
 
+/// One place to start from. Everything else is in the drawer; decisions rise from below.
 struct MainTabs: View {
     @EnvironmentObject var model: PhoneModel
-    @ScaledMetric private var tabIcon: CGFloat = 22
+    @GestureState private var dragged: CGFloat = 0
+    private let drawerWidth: CGFloat = 320
+
     var body: some View {
-        VStack(spacing: 0) {
-            if let route = model.route.last {
-                RouteScreen(route: route)
-            } else if let number = model.openSession, let info = model.sessions.first(where: { $0.number == number }) {
-                SessionScreen(info: info)
-            } else {
-                Group {
+        ZStack(alignment: .leading) {
+            VStack(spacing: 0) {
+                if let route = model.route.last {
+                    RouteScreen(route: route)
+                } else if let number = model.openSession, let info = model.sessions.first(where: { $0.number == number }) {
+                    SessionScreen(info: info)
+                } else {
                     switch model.tab {
-                    case 0: SessionsScreen()
                     case 1: CanvasScreen()
                     case 2: ApprovalsScreen()
-                    default: MoreScreen()
+                    case 3: MoreScreen()
+                    default: HomeScreen()
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                tabBar
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(Palette.bg)
+            .overlay {
+                if model.drawerOpen {
+                    Color.black.opacity(0.55).ignoresSafeArea().onTapGesture { model.setDrawer(false) }.transition(.opacity)
+                }
+            }
+            if model.drawerOpen {
+                SessionDrawer()
+                    .frame(width: drawerWidth)
+                    .offset(x: min(0, dragged))
+                    .gesture(DragGesture().updating($dragged) { value, state, _ in state = value.translation.width }
+                        .onEnded { if $0.translation.width < -80 { model.setDrawer(false) } })
+                    .transition(.move(edge: .leading))
+                    .zIndex(1)
             }
         }
-        .background(Palette.bg)
-    }
-
-    private var tabBar: some View {
-        let waiting = model.waitingApprovals.count + model.attention.count
-        return HStack(spacing: 0) {
-            tabItem("Oturum", icon: "terminal", 0)
-            tabItem("Tuval", icon: "square.grid.2x2", 1)
-            tabItem("Onay", icon: "checkmark.shield", 2, count: waiting)
-            tabItem("Daha", icon: "ellipsis.circle", 3)
-        }
-        .frame(minHeight: 50)
-        .background(Palette.surface1)
-        .overlay(alignment: .top) { Rectangle().fill(Palette.hair).frame(height: 1) }
-    }
-
-    private func tabItem(_ title: String, icon: String, _ index: Int, count: Int = 0) -> some View {
-        let on = model.tab == index
-        return Button { model.tab = index } label: {
-            VStack(spacing: 2) {
-                Image(systemName: icon)
-                    .font(.system(size: tabIcon))
-                    .frame(height: tabIcon)
-                    .foregroundColor(on ? Palette.text1 : Palette.text2)
-                    .overlay(alignment: .topTrailing) {
-                        if count > 0 {
-                            Text("\(count)")
-                                .font(.caption2.weight(.semibold))
-                                .monospacedDigit()
-                                .foregroundColor(Palette.btnfg)
-                                .padding(.horizontal, 4)
-                                .background(Palette.btn)
-                                .clipShape(Capsule())
-                                .offset(x: 10, y: -6)
-                        }
-                    }
-                Txt(title, color: on ? Palette.text1 : Palette.text2, style: .caption2, weight: on ? .semibold : .regular)
+        .sheet(isPresented: Binding(get: { approvalInSheet != nil }, set: { if !$0 { model.sheetApproval = nil } })) {
+            if let approvalInSheet, let approval = approvalInSheet.pendingApproval {
+                ApprovalSheet(info: approvalInSheet, approval: approval)
+                    .environmentObject(model)
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
             }
-            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(count > 0 ? "\(title), \(count) Bekliyor" : title)
-        .accessibilityShowsLargeContentViewer()
+    }
+
+    private var approvalInSheet: SessionInfo? {
+        guard let number = model.sheetApproval else { return nil }
+        return model.sessions.first { $0.number == number && $0.pendingApproval != nil }
     }
 }
 
@@ -335,8 +320,8 @@ struct SessionScreen: View {
         let terminal = model.host(for: info.number)
         VStack(spacing: 0) {
             HStack(spacing: 4) {
-                Button { model.openSession = nil } label: {
-                    Image(systemName: "chevron.left").font(.body.weight(.semibold)).foregroundColor(Palette.text1).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                Button { model.setDrawer(true) } label: {
+                    Image(systemName: "line.3.horizontal").font(.body.weight(.semibold)).foregroundColor(Palette.text1).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Oturumlar")
@@ -362,7 +347,9 @@ struct SessionScreen: View {
             .padding(.horizontal, 4)
             .frame(minHeight: 52)
             .background(Palette.surface1)
-            .overlay(alignment: .bottom) { Rectangle().fill(Palette.hair).frame(height: 1) }
+            .overlay(alignment: .bottom) {
+                if info.status == .running { ScanLine() } else { Rectangle().fill(Palette.hair).frame(height: 1) }
+            }
             if let other = model.waitingApprovals.first(where: { $0.number != info.number }) {
                 Button { model.openSession = nil; model.tab = 2 } label: {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -498,7 +485,7 @@ struct ApprovalsScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             ConnectionBanner()
-            ScreenTitle(text: "Onay Kutusu")
+            ShellTitle(text: "Onay Kutusu")
             ScrollView {
                 VStack(spacing: 8) {
                     ForEach(model.waitingApprovals) { info in
@@ -544,7 +531,7 @@ struct CanvasScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             ConnectionBanner()
-            ScreenTitle(text: "Tuval")
+            ShellTitle(text: "Tuval")
             ScrollView {
                 LazyVGrid(columns: columns, spacing: 8) {
                     ForEach(model.sessions) { info in
@@ -553,6 +540,13 @@ struct CanvasScreen: View {
                                 Txt(model.title(info), bold: true).lineLimit(1)
                                 DimTxt(model.folder(info)).lineLimit(1)
                                 StatusText(info: info).lineLimit(1)
+                                if let activity = info.lastActivity {
+                                    Text(activity).font(.caption2.monospaced()).foregroundColor(Palette.text2).lineLimit(5)
+                                        .padding(8)
+                                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                                        .background(Palette.field)
+                                        .cornerRadius(8)
+                                }
                                 Spacer(minLength: 0)
                                 if let approval = info.pendingApproval {
                                     ActionButton("İzin Ver", style: .primary) { Approval.allow(id: approval.id) }
@@ -560,10 +554,11 @@ struct CanvasScreen: View {
                                 }
                             }
                             .padding(8)
-                            .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
+                            .frame(maxWidth: .infinity, minHeight: 220, alignment: .topLeading)
                             .background(Palette.surface1)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(info.pendingApproval != nil ? Palette.need : Palette.hair))
-                            .cornerRadius(12)
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(info.pendingApproval != nil ? Palette.need : (info.status == .running ? Palette.add : Palette.hair2)))
+                            .cornerRadius(16)
+                            .pulse(info.pendingApproval != nil ? Palette.need : (info.status == .running ? Palette.add : .clear), radius: 12)
                         }
                         .buttonStyle(.plain)
                     }
@@ -582,7 +577,7 @@ struct MoreScreen: View {
     var body: some View {
         VStack(spacing: 0) {
             ConnectionBanner()
-            ScreenTitle(text: "Daha")
+            ShellTitle(text: "Ayarlar")
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     Card {

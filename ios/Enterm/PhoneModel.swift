@@ -32,6 +32,7 @@ enum PhoneRoute: Hashable {
     case limitOpened
     case resumeFailed(UInt32)
     case codexLimit(UInt32)
+    case usage
 }
 
 /// The phone's view of the Mac. Sessions run there, this only shows them.
@@ -83,6 +84,23 @@ final class PhoneModel: ObservableObject {
     @Published private(set) var lastKnownAt: Date?
     @Published var pairing = Pairing.none
     @Published var tab = 0
+    @Published private(set) var drawerOpen = false
+    /// The session whose decision is open in the sheet.
+    @Published var sheetApproval: UInt32?
+    /// Sample sessions, for someone who has no Mac paired yet. Nothing here reaches any computer.
+    private(set) var isDemo = false
+
+    func beginDemo(sessions samples: [SessionInfo]) {
+        isDemo = true
+        peer = PairedPeer(name: "Örnek Mac", relay: "", key: Data())
+        sessions = samples
+        connection = .connected
+        locked = false
+    }
+
+    func setDrawer(_ open: Bool) {
+        withAnimation(.spring(response: 0.36, dampingFraction: 0.86)) { drawerOpen = open }
+    }
     @Published var openSession: UInt32?
     @Published var missingProgram: String?
     @Published var route: [PhoneRoute] = []
@@ -131,7 +149,22 @@ final class PhoneModel: ObservableObject {
     }
 
     func start() {
-        guard let peer, link == nil else { return }
+#if DEBUG
+        if let screen = ProcessInfo.processInfo.environment["ENTERM_DEMO_SCREEN"] {
+            startDemo()
+            switch screen {
+            case "drawer": setDrawer(true)
+            case "canvas": tab = 1
+            case "approvals": tab = 2
+            case "settings": tab = 3
+            case "usage": route = [.usage]
+            case "sheet": sheetApproval = 1
+            case "terminal": openSession = 2
+            default: break
+            }
+        }
+#endif
+        guard !isDemo, let peer, link == nil else { return }
         let link = TunnelLink(peer: peer, role: .phone, queue: linkQueue)
         link.onState = { state in Task { @MainActor in PhoneModel.shared.linkChanged(state) } }
         link.onData = { data in Task { @MainActor in PhoneModel.shared.received(data) } }
@@ -258,6 +291,7 @@ final class PhoneModel: ObservableObject {
 
     /// Forgets the Mac on this phone. Sessions on the Mac go on.
     func unpair() {
+        isDemo = false
         link?.stop()
         link = nil
         PeerStore.clear()
@@ -376,6 +410,10 @@ final class PhoneModel: ObservableObject {
     func attach(_ number: UInt32) {
         guard !attached.contains(number) else { return }
         attached.insert(number)
+        if isDemo {
+            host(for: number).view.feed(text: Self.demoTerminal)
+            return
+        }
         host(for: number).prepareForReplay()
         var message = WireMessage(op: "attach")
         message.number = number
@@ -403,9 +441,9 @@ final class PhoneModel: ObservableObject {
     }
 
     /// Started by the Mac's own code, so PATH, a copy outside it, the account and the queue work the same.
-    func start(tool: ToolKind, name: String = "", folder: String = "", account: String = "", template: String = "", model: String = "", effort: String = "") async {
+    func start(tool: ToolKind, name: String = "", folder: String = "", account: String = "", template: String = "", model: String = "", effort: String = "", prompt: String = "") async {
         if PhoneGuard.needsConfirmation(startingTool: tool), !(await PhoneAuth.confirm("\(tool.title) başlatmak için doğrulayın.")) { return }
-        let args = ["tool": tool.rawValue, "name": name, "folder": folder, "account": account, "template": template, "model": model, "effort": effort]
+        let args = ["tool": tool.rawValue, "name": name, "folder": folder, "account": account, "template": template, "model": model, "effort": effort, "prompt": prompt]
         switch await call(PhoneCall("start", args: args), as: PhoneStart.self) {
         case .failure(let problem):
             startProblem = problem.message
@@ -424,6 +462,7 @@ final class PhoneModel: ObservableObject {
 
     /// A question to the window on the Mac. It may take a moment when the window has to open first.
     func call<T: Decodable>(_ call: PhoneCall, as type: T.Type) async -> Result<T, PhoneProblem> {
+        if isDemo { return Self.demoAnswer(call, as: type) }
         guard connection == .connected else { return .failure(PhoneProblem(message: "Bilgisayara Bağlı Değil")) }
         guard let text = try? String(decoding: JSONEncoder().encode(call), as: UTF8.self) else { return .failure(PhoneProblem(message: "İstek Hazırlanamadı")) }
         var message = WireMessage(op: "appCall")

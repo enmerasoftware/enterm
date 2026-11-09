@@ -364,8 +364,8 @@ extension AppModel {
     }
 
     /// The main button wears the accent. Red only for what ends running work and cannot be undone: `danger: true`.
-    func confirm(title: String, detail: String, action title2: String, danger: Bool = false, perform: @escaping () -> Void) {
-        confirmRequest = ConfirmRequest(title: title, detail: detail, confirm: title2, danger: danger, action: perform)
+    func confirm(title: String, detail: String, action title2: String, danger: Bool = false, cancel: String = "Vazgeç", perform: @escaping () -> Void) {
+        confirmRequest = ConfirmRequest(title: title, detail: detail, confirm: title2, cancel: cancel, danger: danger, action: perform)
         overlay = .confirm
     }
 }
@@ -382,6 +382,7 @@ struct ConfirmRequest {
     let title: String
     let detail: String
     let confirm: String
+    let cancel: String
     let danger: Bool
     let action: () -> Void
 }
@@ -439,7 +440,7 @@ struct ConfirmDialog: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(20)
                 DialogButtons {
-                    Btn("Vazgeç", kind: .plain, key: "Esc") { model.overlay = nil }
+                    Btn(request.cancel, kind: .plain, key: "Esc") { model.overlay = nil }
                     Btn(request.confirm, kind: request.danger ? .danger : .primary) {
                         model.overlay = nil
                         request.action()

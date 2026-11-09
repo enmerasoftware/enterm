@@ -70,9 +70,11 @@ final class SessionBox: NSView {
     let badge = BadgeView()
     let stripLabel = NSTextField(labelWithString: "")
     let footerBar = PassThroughView()
+    let contextLabel = NSTextField(labelWithString: "")
+    let contextTrack = PassThroughView()
+    let contextFill = PassThroughView()
+    private var contextPercent: Int?
     let footer = NSTextField(labelWithString: "")
-    let details = NSTextField(labelWithString: "Ayrıntılar")
-    let detailsKey = NSTextField(labelWithString: "⌘I")
     let grip = PassThroughView()
     let gripIcon = NSImageView()
     var showsHeader = true
@@ -121,7 +123,7 @@ final class SessionBox: NSView {
         footerBar.layer?.cornerRadius = Theme.cornerCard
         footerBar.layer?.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         addSubview(footerBar)
-        for label in [titleLabel, folderLabel, footer, details, detailsKey, summaryLabel, stripLabel] {
+        for label in [titleLabel, folderLabel, footer, summaryLabel, stripLabel] {
             label.lineBreakMode = .byTruncatingTail
         }
         folderLabel.lineBreakMode = .byTruncatingHead
@@ -130,8 +132,6 @@ final class SessionBox: NSView {
         stripLabel.font = Theme.ui(.secondary)
         stripLabel.alignment = .right
         footer.font = Theme.ui(.secondary)
-        details.font = Theme.ui(.secondary)
-        detailsKey.font = Theme.ui(.hint)
         summaryLabel.font = Theme.ui(.body, weight: .semibold)
         header.addSubview(programIcon)
         header.addSubview(titleLabel)
@@ -139,8 +139,14 @@ final class SessionBox: NSView {
         addSubview(badge)
         addSubview(stripLabel)
         footerBar.addSubview(footer)
-        footerBar.addSubview(details)
-        footerBar.addSubview(detailsKey)
+        contextLabel.font = Theme.ui(.secondary)
+        footerBar.addSubview(contextLabel)
+        for bar in [contextTrack, contextFill] {
+            bar.wantsLayer = true
+            bar.layer?.cornerRadius = 2
+        }
+        footerBar.addSubview(contextTrack)
+        contextTrack.addSubview(contextFill)
         addSubview(summaryLabel)
         grip.wantsLayer = true
         grip.layer?.cornerRadius = Theme.cornerControl
@@ -218,9 +224,14 @@ final class SessionBox: NSView {
         showsFooter = isAgent && !showsHeader
         footerBar.isHidden = !showsFooter
         footer.textColor = palette.text2
-        details.textColor = palette.text2
-        detailsKey.textColor = palette.text3
-        footer.stringValue = SessionText.footer(info)
+        footer.stringValue = SessionText.footer(info, context: false)
+        contextPercent = info.contextPercent
+        contextLabel.stringValue = info.contextPercent.map { "%\($0) Bağlam" } ?? ""
+        contextLabel.textColor = palette.text2
+        contextTrack.layer?.backgroundColor = palette.fill.cgColor
+        contextFill.layer?.backgroundColor = UsageTone.color(used: Double(info.contextPercent ?? 0)).cgColor
+        contextLabel.isHidden = info.contextPercent == nil
+        contextTrack.isHidden = info.contextPercent == nil
         let line = SessionText.footer(info)
         stripLabel.stringValue = isAgent && line != info.tool.title ? line : ""
         stripLabel.textColor = palette.text3
@@ -334,16 +345,10 @@ final class SessionBox: NSView {
     private var overClose = false
     private var overMaximize = false
     private var overState = false
-    private var overDetails = false
 
     /// The state words and chip on the line: a click opens the details.
     private func onState(_ point: NSPoint) -> Bool {
         showsHeader && isAgent && !summaryOnly && (stripLabel.frame.contains(point) || badge.frame.contains(point))
-    }
-
-    /// Ayrıntılar and its key in the footer bar.
-    private var detailsArea: NSRect {
-        footerBar.convert(details.frame.union(detailsKey.frame), to: self).insetBy(dx: -4, dy: -4)
     }
 
     private func updateGrip() {
@@ -358,8 +363,6 @@ final class SessionBox: NSView {
         closeButton.contentTintColor = overClose ? palette.text1 : palette.text2
         maximizeButton.contentTintColor = overMaximize ? palette.text1 : palette.text2
         stripLabel.textColor = overState ? palette.text1 : palette.text3
-        details.textColor = overDetails ? palette.text1 : palette.text2
-        detailsKey.textColor = overDetails ? palette.text2 : palette.text3
     }
 
     @objc private func closeTapped() {
@@ -396,7 +399,6 @@ final class SessionBox: NSView {
         overClose = false
         overMaximize = false
         overState = false
-        overDetails = false
         updateGrip()
         layoutContents(host: AppModel.shared.hosts[number], fontScale: canvas?.contentScale ?? AppModel.shared.zoom)
     }
@@ -407,13 +409,11 @@ final class SessionBox: NSView {
         let inClose = !closeButton.isHidden && closeButton.frame.contains(point)
         let inMaximize = !maximizeButton.isHidden && maximizeButton.frame.contains(point)
         let inState = onState(point)
-        let inDetails = showsFooter && detailsArea.contains(point)
-        guard inGrip != overGrip || inClose != overClose || inMaximize != overMaximize || inState != overState || inDetails != overDetails else { return }
+        guard inGrip != overGrip || inClose != overClose || inMaximize != overMaximize || inState != overState else { return }
         overGrip = inGrip
         overClose = inClose
         overMaximize = inMaximize
         overState = inState
-        overDetails = inDetails
         updateGrip()
     }
 
@@ -471,12 +471,16 @@ final class SessionBox: NSView {
         let footerHeight: CGFloat = showsFooter ? 24 : 0
         footerBar.frame = NSRect(x: 0, y: bounds.height - footerHeight, width: width, height: footerHeight)
         if showsFooter {
-            detailsKey.sizeToFit()
-            details.sizeToFit()
-            // Same 8 inset as the terminal above, 8 from the text to Ayrıntılar.
-            detailsKey.frame.origin = NSPoint(x: width - detailsKey.frame.width - 8, y: (24 - detailsKey.frame.height) / 2)
-            details.frame.origin = NSPoint(x: detailsKey.frame.minX - details.frame.width - 6, y: (24 - details.frame.height) / 2)
-            footer.frame = NSRect(x: 8, y: (24 - 16) / 2, width: max(0, details.frame.minX - 16), height: 16)
+            // Same 8 inset as the terminal above.
+            var textEnd = width - 8
+            if let contextPercent {
+                contextLabel.sizeToFit()
+                contextLabel.frame.origin = NSPoint(x: width - contextLabel.frame.width - 8, y: (24 - contextLabel.frame.height) / 2)
+                contextTrack.frame = NSRect(x: contextLabel.frame.minX - 8 - 96, y: 10, width: 96, height: 4)
+                contextFill.frame = NSRect(x: 0, y: 0, width: 96 * CGFloat(min(max(contextPercent, 0), 100)) / 100, height: 4)
+                textEnd = contextTrack.frame.minX - 8
+            }
+            footer.frame = NSRect(x: 8, y: (24 - 16) / 2, width: max(0, textEnd - 8), height: 16)
         }
         // Rows and columns do not depend on how many sessions are open.
         // The terminal sits 8 inside the panel on all four sides.
@@ -548,7 +552,6 @@ final class SessionBox: NSView {
             addCursorRect(stripLabel.frame, cursor: .pointingHand)
             addCursorRect(badge.frame, cursor: .pointingHand)
         }
-        if showsFooter { addCursorRect(detailsArea, cursor: .pointingHand) }
         guard showsHeader, canvas?.allowsDrag == true else { return }
         // The edges stop where the corner starts, so the corner never shows a one-way arrow.
         let reach = Self.cornerReach
@@ -614,8 +617,7 @@ final class SessionBox: NSView {
         resizing = nil
         resizeStart = nil
         let point = convert(event.locationInWindow, from: nil)
-        let onDetails = showsFooter && detailsArea.contains(point)
-        if onDetails || onState(point), let start = dragStart, hypot(event.locationInWindow.x - start.x, event.locationInWindow.y - start.y) < 4 {
+        if onState(point), let start = dragStart, hypot(event.locationInWindow.x - start.x, event.locationInWindow.y - start.y) < 4 {
             AppModel.shared.setFocus(number)
             AppModel.shared.detailsOpen.toggle()
         }
@@ -624,7 +626,7 @@ final class SessionBox: NSView {
 }
 
 enum SessionText {
-    static func footer(_ info: SessionInfo) -> String {
+    static func footer(_ info: SessionInfo, context: Bool = true) -> String {
         if info.status == .notFound {
             if case .elsewhere(let path)? = ToolCatalog.shared.presence[info.tool] { return "Bulundu: \(path)" }
             if let command = ToolPresence.installCommand(info.tool) { return "Kurulum: \(command)" }
@@ -635,7 +637,7 @@ enum SessionText {
         if let model = info.model { parts.append(ModelName.pretty(model)) }
         if let effort = info.effort { parts.append(effortTitle(effort)) }
         if let percent = info.contextPercent {
-            parts.append("%\(percent) Bağlam")
+            if context { parts.append("%\(percent) Bağlam") }
         } else if let tokens = info.contextTokens {
             parts.append(shortTokens(tokens) + " Token")
         }

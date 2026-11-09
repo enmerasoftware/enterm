@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import EntermCore
 import SwiftTerm
 
@@ -34,6 +35,8 @@ final class TerminalHost: TerminalView, TerminalViewDelegate {
         super.init(frame: NSRect(x: 0, y: 0, width: 640, height: 400))
         terminalDelegate = self
         optionAsMetaKey = false
+        // A link or a path underlines under the pointer and opens with a plain click.
+        linkHighlightMode = .hover
         changeScrollback(SettingsStore.shared.settings.scrollbackLines)
         registerForDraggedTypes([.fileURL])
         applyTheme()
@@ -64,8 +67,56 @@ final class TerminalHost: TerminalView, TerminalViewDelegate {
         setCursorStyle(style)
     }
 
+    private var pressLocation: NSPoint?
+
+    override func mouseDown(with event: NSEvent) {
+        pressLocation = event.locationInWindow
+        super.mouseDown(with: event)
+    }
+
+    /// The address or path under a click that did not drag, read from what is on screen.
+    private func detectedLink(at event: NSEvent) -> String? {
+        guard event.clickCount == 1, !event.modifierFlags.contains(.option), let press = pressLocation,
+              hypot(event.locationInWindow.x - press.x, event.locationInWindow.y - press.y) < 3,
+              let snapshot = terminalContentSnapshot(region: .viewport), !snapshot.rows.isEmpty else { return nil }
+        let characters = [UniChar(0x57)]
+        var glyphs = [CGGlyph(0)]
+        guard let font = self.font as CTFont?, CTFontGetGlyphsForCharacters(font, characters, &glyphs, 1) else { return nil }
+        let scale = window?.backingScaleFactor ?? 2
+        let cellWidth = (self.font.advancement(forGlyph: NSGlyph(glyphs[0])).width * scale).rounded() / scale
+        let cellHeight = getOptimalFrameSize().height / CGFloat(snapshot.rows.count)
+        guard cellWidth > 0, cellHeight > 0 else { return nil }
+        let point = convert(event.locationInWindow, from: nil)
+        let column = Int((point.x - bounds.minX) / cellWidth)
+        let row = Int((bounds.maxY - point.y) / cellHeight)
+        guard snapshot.rows.indices.contains(row), point.x >= bounds.minX else { return nil }
+        // A long address continues on the next rows: read the whole wrapped line.
+        var first = row
+        while first > 0, snapshot.rows[first].isWrapped { first -= 1 }
+        var last = row
+        while last + 1 < snapshot.rows.count, snapshot.rows[last + 1].isWrapped { last += 1 }
+        var line = ""
+        var offset: Int?
+        for index in first...last {
+            for (cellColumn, cell) in snapshot.rows[index].cells.enumerated() {
+                if index == row, cellColumn == column { offset = line.count }
+                if cell.width > 0 { line += cell.text.isEmpty ? " " : cell.text }
+            }
+        }
+        return offset.flatMap { TerminalLink.find(in: line, at: $0) }
+    }
+
     override func mouseUp(with event: NSEvent) {
+        let link = detectedLink(at: event)
+        // SwiftTerm would judge plain text against the app's own folder and answer in English.
+        // In this mode it leaves such clicks to us; a link a program marked itself still opens with Command.
+        linkHighlightMode = .alwaysWithModifier
         super.mouseUp(with: event)
+        linkHighlightMode = .hover
+        if let link {
+            open(link)
+            return
+        }
         guard SettingsStore.shared.settings.copyOnSelect, let text = getSelection(), !text.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
@@ -214,8 +265,28 @@ final class TerminalHost: TerminalView, TerminalViewDelegate {
     func scrolled(source: TerminalView, position: Double) {}
 
     func requestOpenLink(source: TerminalView, link: String, params: [String: String]) {
-        guard let url = URL(string: link), url.scheme == "http" || url.scheme == "https" else { return }
-        NSWorkspace.shared.open(url)
+        open(link)
+    }
+
+    private func open(_ link: String) {
+        let cwd = AppModel.shared.sessions.first { $0.number == number }?.cwd
+        switch TerminalLink.target(link, cwd: cwd, home: NSHomeDirectory()) {
+        case .web(let url): NSWorkspace.shared.open(url)
+        case .path(let path) where FileManager.default.fileExists(atPath: path): Self.openPath(path)
+        case .path: AppModel.shared.hint = "Bu Konum Bulunamadı"
+        case nil: break
+        }
+    }
+
+    /// Text on a screen must not be able to run anything: what could run is only shown in Finder.
+    private static func openPath(_ path: String) {
+        var isFolder: ObjCBool = false
+        _ = FileManager.default.fileExists(atPath: path, isDirectory: &isFolder)
+        let url = URL(fileURLWithPath: path)
+        let workspace = NSWorkspace.shared
+        let opens = isFolder.boolValue ? !workspace.isFilePackage(atPath: path)
+            : !FileManager.default.isExecutableFile(atPath: path) && !TerminalLink.runnableExtensions.contains(url.pathExtension.lowercased())
+        if opens { workspace.open(url) } else { workspace.activateFileViewerSelecting([url]) }
     }
 
     func bell(source: TerminalView) {}

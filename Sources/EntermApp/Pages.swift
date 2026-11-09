@@ -298,6 +298,14 @@ struct LimitBars: View {
 }
 
 enum TimeText {
+    /// For a tight line: the time today, otherwise the short day too.
+    static func short(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "tr_TR")
+        formatter.dateFormat = Calendar.current.isDateInToday(date) ? "HH:mm" : "EEE HH:mm"
+        return "Yenilenme " + formatter.string(from: date)
+    }
+
     static func reset(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "tr_TR")
