@@ -74,6 +74,104 @@ func writeClaudeFiles() -> (settings: String, mcp: String) {
     return (settingsURL.path, mcpURL.path)
 }
 
+// MARK: Other programs: everything lives in Enterm's own folder and reaches the program through an argument or a variable.
+
+func writeJSON(_ object: Any, to url: URL) {
+    try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    if let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .prettyPrinted]) { try? data.write(to: url, options: .atomic) }
+}
+
+func writeGeminiSettings() -> String {
+    func hook(_ matcher: String? = nil) -> [[String: Any]] {
+        var entry: [String: Any] = ["hooks": [["type": "command", "command": hookCommand("gemini"), "timeout": 5000]]]
+        if let matcher { entry["matcher"] = matcher }
+        return [entry]
+    }
+    let settings: [String: Any] = [
+        "hooks": ["SessionStart": hook(), "BeforeAgent": hook(), "BeforeTool": hook("*"), "AfterAgent": hook(), "Notification": hook()],
+        "mcpServers": ["enterm": ["command": selfPath, "args": ["mcp"]]],
+    ]
+    let url = EntermPaths.hooksDir.appendingPathComponent("gemini-system.json")
+    writeJSON(settings, to: url)
+    return url.path
+}
+
+func writeOpencodePlugin() -> String {
+    let dir = EntermPaths.hooksDir.appendingPathComponent("opencode", isDirectory: true)
+    let plugins = dir.appendingPathComponent("plugins", isDirectory: true)
+    try? FileManager.default.createDirectory(at: plugins, withIntermediateDirectories: true)
+    // Each event becomes one `enterm event` call, the way the shell integration reports a command.
+    let script = """
+    // Written by Enterm. Reports the session's state to the Enterm window; changes nothing in opencode.
+    const enterm = \(String(data: try! JSONSerialization.data(withJSONObject: [selfPath], options: []), encoding: .utf8)!)[0]
+    export const Enterm = async ({ $ }) => {
+      const send = async (kind, text = "") => { try { await $`${enterm} event ${kind} ${text}`.quiet() } catch {} }
+      return {
+        event: async ({ event }) => {
+          const p = event.properties || {}
+          if (event.type === "session.status") await send(p.status && p.status.type === "idle" ? "stop" : "working")
+          else if (event.type === "session.idle") await send("stop")
+          else if (event.type === "permission.asked" || event.type === "permission.updated") await send("ask")
+          else if (event.type === "permission.replied") await send("working")
+          else if (event.type === "session.error") await send("error", (p.error && p.error.name) || "")
+          else if (event.type === "session.updated" && p.info && p.info.title) await send("title", p.info.title)
+        },
+      }
+    }
+    """
+    try? script.write(to: plugins.appendingPathComponent("enterm.js"), atomically: true, encoding: .utf8)
+    return dir.path
+}
+
+func writeCopilotPlugin() -> (plugin: String, mcp: String) {
+    let dir = EntermPaths.hooksDir.appendingPathComponent("copilot-plugin", isDirectory: true)
+    writeJSON(["name": "enterm", "description": "Enterm durum bildirimi", "version": EntermVersion.current], to: dir.appendingPathComponent("plugin.json"))
+    let command: [String: Any] = ["type": "command", "bash": hookCommand("copilot"), "timeoutSec": 10]
+    let events = ["sessionStart", "userPromptSubmitted", "preToolUse", "postToolUse", "notification", "agentStop", "errorOccurred"]
+    writeJSON(["version": 1, "hooks": Dictionary(uniqueKeysWithValues: events.map { ($0, [command]) })], to: dir.appendingPathComponent("hooks.json"))
+    let mcp = EntermPaths.hooksDir.appendingPathComponent("copilot-mcp.json")
+    writeJSON(["mcpServers": ["enterm": ["type": "local", "command": selfPath, "args": ["mcp"], "tools": ["*"]]]], to: mcp)
+    return (dir.path, mcp.path)
+}
+
+func writeCursorPlugin() -> String {
+    let dir = EntermPaths.hooksDir.appendingPathComponent("cursor-plugin", isDirectory: true)
+    writeJSON(["name": "enterm", "description": "Enterm durum bildirimi", "version": EntermVersion.current], to: dir.appendingPathComponent(".cursor-plugin/plugin.json"))
+    writeJSON(["mcpServers": ["enterm": ["command": selfPath, "args": ["mcp"]]]], to: dir.appendingPathComponent("mcp.json"))
+    let command: [String: Any] = ["command": hookCommand("cursor")]
+    writeJSON(["version": 1, "hooks": ["beforeSubmitPrompt": [command], "afterAgentResponse": [command], "stop": [command]]],
+              to: dir.appendingPathComponent("hooks/hooks.json"))
+    return dir.path
+}
+
+/// Gemini, Copilot and Cursor name their events differently; each becomes one of Enterm's few states.
+/// They only report. Approvals stay in the program's own prompt, so a wrong guess here can never allow anything.
+func handleOtherHook(_ program: String) {
+    let input = readInput()
+    guard !sessionID.isEmpty else { return }
+    let name = (input["hook_event_name"] as? String) ?? (input["hookEventName"] as? String) ?? (input["hook_event"] as? String)
+        ?? environment["GROK_HOOK_EVENT"] ?? ""
+    var event = AgentEvent(sessionID: sessionID, kind: "")
+    event.toolSessionID = (input["session_id"] as? String) ?? (input["sessionId"] as? String) ?? (input["conversation_id"] as? String)
+    event.transcriptPath = (input["transcript_path"] as? String) ?? (input["transcriptPath"] as? String)
+    let notification = ((input["notification_type"] as? String) ?? (input["notificationType"] as? String) ?? "").lowercased()
+    switch name.lowercased() {
+    case "sessionstart": event.kind = "start"
+    case "beforeagent", "userpromptsubmitted", "userpromptsubmit", "beforesubmitprompt": event.kind = "prompt"
+    case "beforetool", "pretooluse", "posttooluse": event.kind = "working"
+    case "afteragent", "agentstop", "stop", "afteragentresponse": event.kind = "stop"
+    case "erroroccurred", "stopfailure": event.kind = "error"
+    case "notification":
+        if notification.contains("permission") { event.kind = "ask" }
+        else if notification.contains("idle") || notification.contains("completed") { event.kind = "stop" }
+        else { return }
+    default: return
+    }
+    sendEvent(event)
+    // Cursor waits for an answer before sending a prompt; this one lets it through unchanged.
+    if program == "cursor", name.lowercased() == "beforesubmitprompt" { output(["continue": true]) }
+}
+
 func userStatusLine() -> String? {
     let dir = environment["CLAUDE_CONFIG_DIR"] ?? (NSHomeDirectory() + "/.claude")
     guard let data = try? Data(contentsOf: URL(fileURLWithPath: dir + "/settings.json")),
@@ -97,6 +195,9 @@ func wrap(_ tool: String, _ rest: [String]) -> Never {
             let files = writeClaudeFiles()
             if !rest.contains("--settings") { argv += ["--settings", files.settings] }
             if !rest.contains("--mcp-config") { argv += ["--mcp-config", files.mcp] }
+            // The preset skills that are on, from inside Enterm, for this session only.
+            let packs = JSONStore.load(AppSettings.self, from: EntermPaths.settingsFile)?.skillPacks ?? []
+            argv += SkillPack.pluginArguments(enabled: packs, root: SkillPack.root(executable: selfPath, environment: environment))
             if !rest.contains("--model"), let model = environment["ENTERM_MODEL"], !model.isEmpty { argv += ["--model", model] }
             if !rest.contains("--effort"), let effort = environment["ENTERM_EFFORT"], !effort.isEmpty { argv += ["--effort", effort] }
             if let advisor = environment["ENTERM_ADVISOR"], !advisor.isEmpty { argv += ["--advisor", advisor] }
@@ -111,6 +212,26 @@ func wrap(_ tool: String, _ rest: [String]) -> Never {
             }
         case "agy":
             confirmAntigravityOnce()
+        case "gemini":
+            // Gemini reads one extra settings layer from an environment variable. If the machine already has an
+            // administrator's system settings file, that file stays in charge and Enterm only watches the screen.
+            let system = "/Library/Application Support/GeminiCli/settings.json"
+            if environment["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] == nil, !FileManager.default.fileExists(atPath: system) {
+                extra["GEMINI_CLI_SYSTEM_SETTINGS_PATH"] = writeGeminiSettings()
+            }
+        case "opencode":
+            // A plugin folder of Enterm's own and the bridge as an inline override; a folder the person set wins.
+            if environment["OPENCODE_CONFIG_DIR"] == nil { extra["OPENCODE_CONFIG_DIR"] = writeOpencodePlugin() }
+            if environment["OPENCODE_CONFIG_CONTENT"] == nil {
+                let content: [String: Any] = ["mcp": ["enterm": ["type": "local", "command": [selfPath, "mcp"], "enabled": true]]]
+                if let data = try? JSONSerialization.data(withJSONObject: content) { extra["OPENCODE_CONFIG_CONTENT"] = String(decoding: data, as: UTF8.self) }
+            }
+        case "copilot":
+            let files = writeCopilotPlugin()
+            if !rest.contains("--plugin-dir") { argv += ["--plugin-dir", files.plugin] }
+            argv += ["--additional-mcp-config", "@" + files.mcp]
+        case "cursor-agent":
+            if !rest.contains("--plugin-dir") { argv += ["--plugin-dir", writeCursorPlugin()] }
         default:
             break
         }
@@ -160,6 +281,8 @@ func handleClaudeHook() {
     case "Stop":
         event.kind = "stop"
         event.text = input["last_assistant_message"] as? String
+        // The program's own title, from the end of its transcript. Costs a file read, no model call.
+        event.title = event.transcriptPath.flatMap { SessionTitles.tail(of: $0) }.flatMap(SessionTitles.claude(transcript:))
         sendEvent(event)
     case "StopFailure":
         let kind = input["error"] as? String ?? ""
@@ -213,6 +336,13 @@ func handlePreToolUse(_ input: [String: Any], base: AgentEvent) {
         return
     }
     if tool.hasPrefix("mcp__enterm__") { return }
+    if let loop = LoopText.from(tool: tool, input: toolInput) {
+        var note = base
+        note.kind = "loop"
+        note.text = loop?.summary
+        note.nextRun = loop?.next
+        sendEvent(note)
+    }
     let classified = PermissionClassifier.classify(tool: tool, input: toolInput)
     var activity = base
     activity.kind = "working"
@@ -351,14 +481,20 @@ func handleCodexNotify() {
     var event = AgentEvent(sessionID: sessionID, kind: "stop")
     event.text = object["last-assistant-message"] as? String
     event.toolSessionID = object["thread-id"] as? String
+    if let thread = event.toolSessionID {
+        let home = environment["CODEX_HOME"] ?? (NSHomeDirectory() + "/.codex")
+        event.title = SessionTitles.tail(of: home + "/session_index.jsonl").flatMap { SessionTitles.codex(index: $0, thread: thread) }
+    }
     sendEvent(event)
 }
 
 switch arguments.first {
 case "event":
-    guard arguments.count >= 3, !sessionID.isEmpty else { exit(0) }
+    guard arguments.count >= 2, !sessionID.isEmpty else { exit(0) }
     var event = AgentEvent(sessionID: sessionID, kind: arguments[1])
-    event.text = arguments[2]
+    event.text = arguments.count >= 3 && !arguments[2].isEmpty ? arguments[2] : nil
+    // A title from a plugin is a title, not a state.
+    if event.kind == "title" { event.title = SessionTitles.clean(event.text) }
     sendEvent(event)
 case "wrap":
     guard arguments.count >= 2 else { exit(2) }
@@ -367,6 +503,7 @@ case "hook":
     switch arguments.dropFirst().first {
     case "claude", "codex": handleClaudeHook()
     case "agy": handleAntigravityHook()
+    case .some(let program) where ["gemini", "copilot", "cursor"].contains(program): handleOtherHook(program)
     default: break
     }
 case "statusline":

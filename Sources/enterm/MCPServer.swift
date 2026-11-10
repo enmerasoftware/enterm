@@ -71,6 +71,24 @@ final class MCPServer {
         tool("tarayici_yaz", "Alana metin yazar. Alan, CSS seçici, ad ya da yer tutucu ile bulunur.",
              ["hedef": "Alan", "metin": "Yazılacak metin"], required: ["hedef", "metin"]),
         tool("tarayici_goruntu", "Sayfanın ekran görüntüsünü PNG dosyasına kaydeder, yolunu döndürür.", [:], required: []),
+        tool("tuval_durumu", "Tuvaldeki tüm kutuları (ad, program, durum, proje, klasör, bağlam), görünümleri ve pano özetini listeler.", [:], required: []),
+        tool("kutu_ac", "Tuvalde yeni bir ajan ya da terminal kutusu açar ve ona İş Verebilir bağlantınızı kurar. Yetki kartınızdaki Başka Ajana İş Verme iznine bağlıdır.",
+             ["program": "claude, codex, agy, gemini, opencode, grok, copilot, cursor ya da terminal (varsayılan claude)",
+              "ad": "Kutunun adı, sonra bununla çağırırsınız", "klasor": "Çalışma klasörü (varsayılan sizinki)",
+              "gorev": "Programa ilk mesaj olarak verilecek iş", "sonra": "Bu adlı kutu işini bitirince açılsın (sıraya koyar)"], required: []),
+        tool("ekip_kur", "Birden çok ajanı tek seferde açar, sizinle aynı grupta toplar, her birine görev kartı açar. En çok 6 üye.",
+             ["ad": "Ekibin adı", "uyeler": "Her üye 'ad: program: görev', üyeler ; ile ayrılır",
+              "klasor": "Çalışma klasörü (varsayılan sizinki)", "kart": "hayir yazılırsa pano kartı açılmaz"], required: ["uyeler"]),
+        tool("worktree_ac", "Projenin yanında yeni dal için git worktree açar, içinde ajanı başlatır ve gruplar. Aynı dosyaya iki ajanın yazmasını önler.",
+             ["dal": "Yeni dalın adı", "program": "Varsayılan claude", "ad": "Kutunun adı", "gorev": "İlk mesaj"], required: ["dal"]),
+        tool("kutu_kapat", "Yalnız sizin açtığınız bir kutuyu kapatır.", ["hedef": "Kutunun adı"], required: ["hedef"]),
+        tool("kart_ekle", "Panoya kart ekler, isterseniz bir kutuya atar.",
+             ["baslik": "Kart başlığı", "aciklama": "Ayrıntı", "hedef": "Atanacak kutunun adı", "oncelik": "yuksek ya da boş"], required: ["baslik"]),
+        tool("kart_tasi", "Pano kartını sütuna taşır: yapilacak, suruyor, kontrolde, karar. Bitti'ye yalnız kullanıcı alır. Sürüyor'a taşınan kart atanmış ajana iletilir.",
+             ["kart": "Kart başlığı ya da kimliğin ilk harfleri", "sutun": "Hedef sütun"], required: ["kart", "sutun"]),
+        tool("goster", "Tuvale bir şey koyar: not (metin), web (adres), gorsel ya da video (dosya yolu).",
+             ["tur": "not, web, gorsel ya da video", "icerik": "Metin, adres ya da dosya yolu"], required: ["tur", "icerik"]),
+        tool("duzenle", "Tuvali düzenler: diz (kutuları sıraya koyar) ya da sigdir (hepsini görünür yapar).", ["islem": "diz ya da sigdir"], required: ["islem"]),
     ]
 
     private func sessions() -> [SessionInfo] {
@@ -88,6 +106,18 @@ final class MCPServer {
         switch name {
         case "tarayici_ac", "tarayici_oku", "tarayici_tikla", "tarayici_yaz", "tarayici_goruntu":
             return browser(name, args)
+        case "kutu_ac", "ekip_kur", "worktree_ac", "kutu_kapat":
+            let what: String
+            switch name {
+            case "ekip_kur": what = "Ekip Kurmak İstiyor: \(args["uyeler"] as? String ?? "")"
+            case "worktree_ac": what = "Worktree Açmak İstiyor: \(args["dal"] as? String ?? "")"
+            case "kutu_kapat": what = "Kutu Kapatmak İstiyor: \(args["hedef"] as? String ?? "")"
+            default: what = "Kutu Açmak İstiyor: \(args["program"] as? String ?? "claude") · \(args["gorev"] as? String ?? args["ad"] as? String ?? "")"
+            }
+            guard allowed(.delegate, what) else { return ("İzin verilmedi. Yetki kartınızda Başka Ajana İş Verme kapalı ya da kullanıcı reddetti.", true) }
+            return canvas(name, args)
+        case "tuval_durumu", "kart_ekle", "kart_tasi", "goster", "duzenle":
+            return canvas(name, args)
         case "ajan_listesi":
             let visible = list.filter { other in
                 other.id != me && links.contains { $0.allows(from: me, to: other.id, need: .summary) }
@@ -139,6 +169,27 @@ final class MCPServer {
         default:
             return ("Bilinmeyen araç.", true)
         }
+    }
+
+    /// The permission card decides: allowed goes on, ask shows the person the request, denied stops here.
+    private func allowed(_ category: PermissionCategory, _ text: String) -> Bool {
+        var event = AgentEvent(sessionID: me, kind: "approval")
+        event.tool = "Tuval"
+        event.text = text
+        event.errorKind = category.rawValue
+        var request = WireMessage(op: "approval")
+        request.event = event
+        return WireSocket.send(request, waitForReply: true, timeout: 590)?.decision == "allow"
+    }
+
+    private func canvas(_ name: String, _ args: [String: Any]) -> (String, Bool) {
+        var message = WireMessage(op: "canvas")
+        let payload: [String: Any] = ["name": name, "args": args]
+        message.text = (try? JSONSerialization.data(withJSONObject: payload)).map { String(decoding: $0, as: UTF8.self) }
+        message.event = AgentEvent(sessionID: me, kind: "canvas")
+        guard let reply = WireSocket.send(message, waitForReply: true, timeout: 30) else { return ("Enterm yanıt vermedi.", true) }
+        if let error = reply.error { return (error, true) }
+        return (reply.text ?? "", false)
     }
 
     private func browser(_ name: String, _ args: [String: Any]) -> (String, Bool) {

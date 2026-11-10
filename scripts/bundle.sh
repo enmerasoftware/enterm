@@ -26,6 +26,9 @@ otool -l "$app/Contents/MacOS/EntermApp" | grep -q '@executable_path/../Framewor
   install_name_tool -add_rpath @executable_path/../Frameworks "$app/Contents/MacOS/EntermApp"
 [[ -x "$root/vendor/whisper/bin/whisper-cli" ]] && cp "$root/vendor/whisper/bin/whisper-cli" "$app/Contents/MacOS/whisper-cli"
 cp "$root/Resources/Info.plist" "$app/Contents/Info.plist"
+# The preset skill packs; a session gets the ones that are on through --plugin-dir.
+rm -rf "$app/Contents/Resources/skills"
+ditto "$root/skills" "$app/Contents/Resources/skills"
 [[ -f "$root/Resources/Enterm.icns" ]] && cp "$root/Resources/Enterm.icns" "$app/Contents/Resources/Enterm.icns"
 # macOS refuses notifications to an ad-hoc signature, so a delivery carries the Developer ID when this Mac has it.
 # Test builds stay ad-hoc: they never ask anyone for permission.

@@ -4,7 +4,11 @@ Terminal görünümlü çalışma ortamı. Resmi programları (Claude Code, Code
 
 Üç temel kural: hafif çalışır, ayar dosyalarınıza dokunmaz, kullanmadığınız özellik yük bindirmez.
 
-Açık kaynak ve ücretsiz, MIT lisanslı (`LICENSE`).
+Açık kaynak ve ücretsiz, MIT lisanslı (`LICENSE`). English: [README.en.md](README.en.md).
+
+## Katkı
+
+Issue ve PR'lar açık; ilk katkı için en kolayı yeni bir hazır beceri (`skills/`). Önce [CONTRIBUTING.md](CONTRIBUTING.md). Güvenlik açığı gizli bildirilir: [SECURITY.md](SECURITY.md).
 
 ## İndirme
 
@@ -39,6 +43,16 @@ Kurallar: `.zshrc`, `~/.claude`, `~/.codex` değişmez. Entegrasyon başlatma ar
 - **Ana ekran:** Hiçbir şey açık değilken pencere tek komut satırıdır. Yazıp Enter'a basılır: boşsa varsayılan program, klasörse orada, başka bir şeyse komut olarak çalışır.
 - **Projeler:** Üst sekmeler. Her oturum açıldığı projeye bağlıdır, başka projedeki oturum çalışmaya devam eder.
 - **Tuval:** Oturumlar ve görünümler (Not, Web Sayfası, Tarayıcı, Beyaz Tahta, Dosyalar, Video, iOS Simülatörü). Taşıma, boyutlandırma, gruplar, kayıtlı yerleşimler, geri alma, yarım ekran yerleşimi: `CanvasView.swift`, `Workspace.swift`.
+- **Hazır beceriler:** `skills/` altında Video, Yazılım ve Görsel paketleri (Claude Code eklentisi biçiminde). Ayarlar → Hazır Beceriler'de açılan paket yeni Claude Code oturumuna `--plugin-dir` ile verilir, `~/.claude`'a yazılmaz: `Sources/EntermCore/SkillPacks.swift`. Codex, Gemini ve Antigravity'de ek klasör yalnız kendi ayar klasörlerinden okunduğu için şimdilik yok.
+- **Claude komutları:** Ayarlar → Claude Komutları, `/effort` seviyeleri dahil tüm komutların Türkçe açıklaması; Yaz düğmesi komutu seçili oturuma Enter'sız yazar: `Sources/EntermCore/ClaudeCommands.swift`.
+- **Ajanların tuvali yönetmesi:** MCP köprüsünde `tuval_durumu`, `kutu_ac` (`sonra` ile sıraya koyma), `ekip_kur`, `worktree_ac`, `kutu_kapat` (yalnız kendi açtığı), `kart_ekle`, `kart_tasi` (Bitti'ye yalnız kullanıcı), `goster`, `duzenle`. Kutu açan araçlar yetki kartındaki Başka Ajana İş Verme iznine bağlı: `Sources/EntermApp/CanvasAgent.swift`.
+- **Portlar:** Bir tur bitince ya da terminalde komut başlayınca oturumun dinlediği portlara üç kez bakılır (zamanlayıcı yok), kutunun alt satırında ve sağ tık menüsünde görünür: `Sources/EntermCore/PortScan.swift`.
+- **Başlık ve döngü:** Ad verilmemiş kutu, programın kendi başlığını gösterir (Claude Code dökümü, Codex `session_index.jsonl`), model çağrısı yok. `/loop` ve zamanlanmış görevler kutuda sıklığı ve sonraki çalışmasıyla görünür: `Sources/EntermCore/SessionTitles.swift`.
+- **Diğer programlar:** Gemini (`GEMINI_CLI_SYSTEM_SETTINGS_PATH`, sistem ayarı yoksa), opencode (`OPENCODE_CONFIG_DIR` eklentisi), Copilot (`--plugin-dir`, `--additional-mcp-config`) ve Cursor (`--plugin-dir`) Enterm'in kendi klasöründen kanca ve köprü alır; kullanıcının ayarına yazılmaz. Grok ve Antigravity için belgelenmiş yol yok.
+- **`enterm://`:** `open?path=…&program=…&task=…`, `session/<ad>`, `settings/<sekme>`, `board`. Program başlatan adres önce sorar.
+- **Simülatör:** iOS ve Android (adb ile dokunma, kaydırma, yazma).
+- **Homebrew:** `scripts/cask.sh <dmg>` tarif üretir, `enmerasoftware/homebrew-tap` deposuna konur.
+- **Ölçüm:** `scripts/measure.sh` Enterm'in boşta işlemci ve bellek kullanımını ölçer.
 - **Sohbet görünümü:** `⌘⇧M`. Programın kendi döküm dosyasını okur, terminale yazar: `ChatView.swift`, `Sources/EntermCore/Chat.swift`.
 - **Çentik:** `Notch.swift`. Yalnız program çalışırken vardır.
 - **Yerel dikte:** `Whisper.swift`. `whisper-cli` yalnız dikte sırasında çalışır, model isteyince iner.
@@ -57,7 +71,7 @@ Kurallar: `.zshrc`, `~/.claude`, `~/.codex` değişmez. Entegrasyon başlatma ar
 
 ## Telefon
 
-- `ios/`: iOS uygulaması. `scripts/build-ios.sh <simülatör kimliği>` ile derlenir, `ios/project.yml` xcodegen ile projeye dönüşür.
+- `enterm-ios/`: iOS uygulaması. Xcode ile `enterm-ios/EntermPhone.xcodeproj` açılır. Proje dosyası `enterm-ios/project.yml` içinden xcodegen ile üretilir; simülatör için `scripts/build-ios.sh <simülatör kimliği>`.
 - `relay/`: aktarım ve bildirim servisi, bağımlılığı yok. Canlıda değil, ayrıntı `relay/README.md`.
 - Eşleşme: QR kodunda geçici açık anahtar var, iki taraf X25519 ile ortak sır üretir, kişi altı haneli sayıyı karşılaştırır. Aktarım yalnız şifreli bayt görür, her bağlantı yeni anahtar kullanır.
 - Eşleşen cihazlar `devices.json` içinde, 0600 izinle. Telefonda anahtar Anahtar Zinciri'nde.

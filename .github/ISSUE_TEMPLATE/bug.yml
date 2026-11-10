@@ -1,0 +1,31 @@
+name: Hata / Bug
+description: Bir şey beklendiği gibi çalışmıyor. Something does not work as expected.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Ne oldu, ne bekliyordunuz? / What happened, what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Adımlar / Steps to reproduce
+      placeholder: "1. ...\n2. ..."
+  - type: input
+    id: version
+    attributes:
+      label: Enterm sürümü / version
+      description: Ayarlar → Hakkında / Settings → About
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS sürümü / version
+  - type: dropdown
+    id: program
+    attributes:
+      label: Oturumdaki program / Program in the session
+      options: [Claude Code, Codex, Antigravity, Gemini, opencode, Grok, GitHub Copilot, Cursor, Terminal, Diğer / Other]

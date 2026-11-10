@@ -67,6 +67,8 @@ public struct AppSettings: Codable, Equatable {
     public var browserKeepLogins = false
     /// Agents work in a window of the person's Safari, one permission per site.
     public var safariForAgents = false
+    /// The preset skill packs that new Claude Code sessions get. None until the person turns one on.
+    public var skillPacks: [String] = []
     public init() {}
 
     // Settings written by an older version keep working: a missing key takes its default.
@@ -127,6 +129,7 @@ public struct AppSettings: Codable, Equatable {
         whisperModel = try c.decodeIfPresent(String.self, forKey: .whisperModel) ?? d.whisperModel
         browserKeepLogins = try c.decodeIfPresent(Bool.self, forKey: .browserKeepLogins) ?? d.browserKeepLogins
         safariForAgents = try c.decodeIfPresent(Bool.self, forKey: .safariForAgents) ?? d.safariForAgents
+        skillPacks = try c.decodeIfPresent([String].self, forKey: .skillPacks) ?? d.skillPacks
         templateChosen = try c.decodeIfPresent(Bool.self, forKey: .templateChosen) ?? d.templateChosen
         oneClickApprovals = try c.decodeIfPresent(Bool.self, forKey: .oneClickApprovals) ?? d.oneClickApprovals
     }

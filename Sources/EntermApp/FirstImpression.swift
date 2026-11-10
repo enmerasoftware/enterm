@@ -850,12 +850,13 @@ struct HomeView: View {
                     Button { Commands.perform("memory") } label: { MemoryLabel().contentShape(Rectangle()) }
                         .buttonStyle(.press)
                         .help("Bellek Ayrıntısı")
+                    MemoryDivider(summary: limitSummary)
                     LimitSummaryButton(summary: limitSummary)
                     Spacer()
                     T("Her Şeyi Bul ⌘K", color: palette.text3, style: .secondary)
                 }
                 // As tall as the status line on the canvas, so the bar does not jump when a session opens.
-                .padding(.horizontal, 20)
+                .padding(.horizontal, FootBar.inset)
                 .frame(height: 36)
                 .background(Color(palette.terminal))
                 .overlay(alignment: .top) { Line() }
@@ -1242,7 +1243,10 @@ struct LimitSummaryButton: View {
 
     private func row<Content: View>(@ViewBuilder _ content: @escaping (Account) -> Content) -> some View {
         HStack(spacing: 16) {
-            ForEach(known) { content($0) }
+            ForEach(known) { account in
+                if account.id != known.first?.id { GroupDivider() }
+                content(account)
+            }
         }
         .fixedSize()
     }
@@ -1276,6 +1280,20 @@ struct LimitSummaryButton: View {
             T("%\(Int(value))", color: Theme.palette.text1, style: .secondary).monospacedDigit()
         }
         .help("\(help): %\(Int(value)) \(remaining ? "Kaldı" : "Dolu")")
+    }
+}
+
+enum FootBar {
+    /// The window buttons stand this far in, so the bar's ends line up with them.
+    static let inset: CGFloat = 16
+}
+
+/// Between the memory and the limits, only while both are on the bar.
+struct MemoryDivider: View {
+    @ObservedObject var power = PowerCenter.shared
+    let summary: String
+    var body: some View {
+        if power.enterm.memoryMB > 0, !summary.isEmpty { GroupDivider() }
     }
 }
 
@@ -1412,6 +1430,7 @@ struct StatusLine: View {
             Button { Commands.perform("memory") } label: { MemoryLabel().contentShape(Rectangle()) }
                 .buttonStyle(.press)
                 .help("Bellek Kullanımı")
+            MemoryDivider(summary: summary)
             LimitSummaryButton(summary: summary)
             Spacer(minLength: 0)
             if model.toolbarVisible {
@@ -1425,7 +1444,7 @@ struct StatusLine: View {
                 }
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, FootBar.inset)
         .frame(height: 36)
         .background(Color(palette.surface0))
         .overlay(alignment: .top) { Line() }

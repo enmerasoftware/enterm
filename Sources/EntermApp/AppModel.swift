@@ -39,7 +39,7 @@ enum Page: Equatable {
 }
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case programs, accounts, custom, gateway, usage, commits
+    case programs, accounts, custom, skills, commands, gateway, usage, commits
     case terminal, shell, session, behavior, browser
     case appearance, notch, notifications, voice, shortcuts
     case phone, ssh
@@ -47,7 +47,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     static let groups: [(title: String, tabs: [SettingsTab])] = [
-        ("Programlar", [.programs, .accounts, .custom, .gateway, .usage, .commits]),
+        ("Programlar", [.programs, .accounts, .custom, .skills, .commands, .gateway, .usage, .commits]),
         ("Çalışma Alanı", [.terminal, .shell, .session, .behavior, .browser]),
         ("Arayüz", [.appearance, .notch, .notifications, .voice, .shortcuts]),
         ("Uzak", [.phone, .ssh]),
@@ -59,6 +59,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .programs: return "Programlar"
         case .accounts: return "Hesaplar"
         case .custom: return "Özel Programlar"
+        case .skills: return "Hazır Beceriler"
+        case .commands: return "Claude Komutları"
         case .gateway: return "Model Ağ Geçidi"
         case .usage: return "Kullanım"
         case .commits: return "Commit İletileri"
@@ -84,6 +86,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .programs: return "sparkle"
         case .accounts: return "person"
         case .custom: return "plus.square"
+        case .skills: return "books.vertical"
+        case .commands: return "slash.circle"
         case .gateway: return "point.3.connected.trianglepath.dotted"
         case .usage: return "chart.bar"
         case .commits: return "text.badge.checkmark"
@@ -118,6 +122,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .notifications: words = "ses bildirim betik"
         case .programs: words = "claude codex gemini grok cursor copilot opencode antigravity varsayılan"
         case .gateway: words = "model sunucu anahtar api"
+        case .skills: words = "skill beceri eklenti plugin video görsel yazılım"
+        case .commands: words = "komut slash effort efor model bağlam compact"
         case .usage: words = "limit yüzde maliyet"
         case .power: words = "işlemci bellek düşük güç"
         default: words = ""
@@ -342,6 +348,8 @@ final class AppModel: ObservableObject {
             PhoneStore.shared.devicesChanged(message.text)
         case "browserCmd":
             BrowserCenter.shared.handle(message: message)
+        case "canvasCmd":
+            CanvasAgent.handle(message)
         case "reload":
             if let text = message.text { hint = text }
             BoardStore.shared.reload()
@@ -374,6 +382,7 @@ final class AppModel: ObservableObject {
             sessions[index] = info
             if previous != info {
                 ExtensionsHub.shared.sessionUpdated(previous: previous, current: info)
+                CanvasAgent.sessionUpdated(previous: previous, current: info)
                 onLayoutChange?()
             }
         } else {

@@ -1,0 +1,9 @@
+{
+  "name": "video",
+  "description": "Cutting, subtitles, social formats and checks for video files with ffmpeg and whisper.cpp.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Enterm",
+    "url": "https://github.com/enmerasoftware/enterm"
+  }
+}

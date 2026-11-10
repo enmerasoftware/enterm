@@ -1,7 +1,7 @@
 import Foundation
 
 public enum EntermVersion {
-    public static let current = "0.1.2"
+    public static let current = "0.1.3"
 
     /// Tells two builds apart: a service that outlived an update reports the old value.
     public static func stamp(ofExecutable path: String) -> String? {

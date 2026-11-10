@@ -31,7 +31,7 @@ enum Commands {
         Command(id: "browserBox", title: "Tuvale Tarayıcı Ekle", key: ""),
         Command(id: "whiteboardBox", title: "Tuvale Beyaz Tahta Ekle", key: ""),
         Command(id: "filesBox", title: "Tuvale Dosyalar Ekle", key: ""),
-        Command(id: "simulatorBox", title: "Tuvale iOS Simülatörü Ekle", key: ""),
+        Command(id: "simulatorBox", title: "Tuvale Simülatör Ekle (iOS, Android)", key: ""),
         Command(id: "worktree", title: "Worktree Aç", key: ""),
         Command(id: "saveLayout", title: "Bu Yerleşimi Kaydet", key: ""),
         Command(id: "undoLayout", title: "Düzeni Geri Al", key: "⌥⌘Z"),

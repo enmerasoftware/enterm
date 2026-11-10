@@ -591,6 +591,12 @@ struct Line: View {
     var body: some View { Rectangle().fill(Color(Theme.palette.hair)).frame(height: 1) }
 }
 
+/// The upright line between groups on a bar.
+struct GroupDivider: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    var body: some View { Rectangle().fill(Color(Theme.palette.hair2)).frame(width: 1, height: 16) }
+}
+
 /// The title of a page: a short lit line under it, the only ornament a page has.
 struct PageTitle: View {
     @ObservedObject private var appearance = AppearanceTick.shared
@@ -644,6 +650,7 @@ struct PageFrame<Content: View>: View {
             .padding(.trailing, 16)
             .frame(height: 44)
             .background(TitleBarArea())
+            .overlay(alignment: .bottom) { Line() }
             GeometryReader { geometry in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {

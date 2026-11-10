@@ -187,7 +187,7 @@ public enum SessionLabel {
         var result: [UInt32: String] = [:]
         for info in sessions.sorted(by: { $0.number < $1.number }) {
             // Two sessions given the same name get told apart the same way.
-            let base = info.name.isEmpty ? info.tool.title : info.name
+            let base = !info.name.isEmpty ? info.name : (info.title ?? info.tool.title)
             seen[base, default: 0] += 1
             let count = seen[base] ?? 1
             result[info.number] = count > 1 ? "\(base) \(count)" : base
@@ -202,7 +202,7 @@ public enum SessionLabel {
         for info in sessions {
             let name = names[info.number] ?? info.tool.title
             let folder = info.cwd == NSHomeDirectory() ? "" : URL(fileURLWithPath: info.cwd).lastPathComponent
-            result[info.number] = !info.name.isEmpty || folder.isEmpty ? name : "\(name) · \(folder)"
+            result[info.number] = !info.name.isEmpty || info.title != nil || folder.isEmpty ? name : "\(name) · \(folder)"
         }
         return result
     }
@@ -267,6 +267,13 @@ public struct SessionInfo: Codable, Equatable, Identifiable {
     public var hooksTrusted: Bool?
     /// Why the last turn stopped with an error. Gone once the session moves on.
     public var failure: SessionFailure?
+    /// The title the program gave the conversation, shown while the person has not named the box.
+    public var title: String?
+    /// A Claude Code loop: how often, and when it runs next.
+    public var loop: String?
+    public var loopNext: Date?
+    /// TCP ports the session's programs listen on, such as a development server. Looked up after a turn, never on a timer.
+    public var ports: [Int]?
 
     public init(id: String, number: UInt32, name: String, tool: ToolKind, cwd: String,
                 status: SessionStatus, startedAt: Date) {
@@ -390,6 +397,8 @@ public struct AgentEvent: Codable, Equatable {
     public var agentID: String?
     public var agentType: String?
     public var errorKind: String?
+    public var title: String?
+    public var nextRun: Date?
 
     public init(sessionID: String, kind: String) {
         self.sessionID = sessionID

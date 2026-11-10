@@ -69,6 +69,7 @@ final class RootView: NSView {
             .receive(on: RunLoop.main)
             .sink { [weak self] _, _ in
                 self?.needsLayout = true
+                self?.canvas.relayout(animated: false)
                 self?.model.refocusTerminalLater()
             }
             .store(in: &bags)
@@ -117,7 +118,7 @@ final class RootView: NSView {
     private func layoutBars() {
         let barHeight: CGFloat = model.focusMode ? 28 : 44
         let foot: CGFloat = model.footVisible && !model.focusMode ? 36 : 0
-        let toolbar: CGFloat = model.toolbarVisible && !model.focusMode ? 52 : 0
+        let toolbar: CGFloat = model.toolbarVisible && !model.focusMode ? 60 : 0
         let sideWidth: CGFloat = model.detailsOpen ? 400 : 0
         updateHome()
         let railWidth: CGFloat = model.railVisible(width: bounds.width) && !model.focusMode ? 200 : 0
@@ -129,7 +130,8 @@ final class RootView: NSView {
         bottom.isHidden = foot + toolbar == 0 || home != nil
         side.frame = NSRect(x: bounds.width - sideWidth, y: barHeight, width: sideWidth, height: bounds.height - barHeight - foot)
         side.isHidden = sideWidth == 0
-        let canvasRect = NSRect(x: railWidth, y: barHeight, width: bounds.width - sideWidth - railWidth, height: bounds.height - barHeight - foot - toolbar)
+        // The side pane opens over the canvas, so the boxes keep their size.
+        let canvasRect = NSRect(x: railWidth, y: barHeight, width: bounds.width - railWidth, height: bounds.height - barHeight - foot - toolbar)
         if canvas.frame != canvasRect { canvas.frame = canvasRect }
         let cardsHeight: CGFloat = model.notFound == nil ? 0 : 216
         // The card sits inside the box of the session it belongs to.
@@ -186,6 +188,8 @@ final class RootView: NSView {
 
     private func noteClick(_ event: NSEvent) {
         guard event.window === window, cover == nil, home == nil else { return }
+        // A click on the side pane is not a click on the box under it.
+        if !side.isHidden, side.frame.contains(convert(event.locationInWindow, from: nil)) { return }
         let point = canvas.convert(event.locationInWindow, from: nil)
         if let box = canvas.boxes.values.first(where: { !$0.isHidden && $0.frame.contains(point) }), box.number != model.focused {
             model.setFocus(box.number)

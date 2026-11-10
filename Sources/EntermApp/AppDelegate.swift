@@ -111,6 +111,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            guard let link = EntermURL.parse(url) else { continue }
+            URLActions.perform(link)
+        }
+    }
+
     /// Sessions go on after the window closes. The question is only asked when something is running.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         let model = AppModel.shared
@@ -141,8 +148,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             item.submenu = menu
             main.addItem(item)
         }
-        func add(_ menu: NSMenu, _ title: String, _ id: String) {
-            let combo = book.combo(for: id)
+        func nested(_ parent: NSMenu, _ title: String, _ build: (NSMenu) -> Void) {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            let menu = NSMenu(title: title)
+            build(menu)
+            item.submenu = menu
+            parent.addItem(item)
+        }
+        /// `shortcut: false` for a command whose key is a bare letter: on the menu it would take that letter from the terminal.
+        func add(_ menu: NSMenu, _ title: String, _ id: String, shortcut: Bool = true) {
+            let combo = shortcut ? book.combo(for: id) : nil
             let item = NSMenuItem(title: title, action: #selector(runCommand(_:)), keyEquivalent: combo?.key ?? "")
             var flags: NSEvent.ModifierFlags = []
             if combo?.command == true { flags.insert(.command) }
@@ -161,6 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 check.target = Updates.shared
                 menu.addItem(check)
             }
+            add(menu, "Tüm Kısayollar", "shortcuts", shortcut: false)
             menu.addItem(.separator())
             menu.addItem(withTitle: "Enterm'i Gizle", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
             menu.addItem(withTitle: "Enterm'den Çık", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -169,26 +185,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             add(menu, "Yeni Terminal", "newTerminal")
             add(menu, "Yeni Oturum", "newSession")
             add(menu, "Yeni Proje", "newProject")
-            add(menu, "Kutuyu Kapat", "close")
-            add(menu, "Son Kapatılanı Yeniden Aç", "reopen")
+            add(menu, "Ekibini Kur", "team", shortcut: false)
             menu.addItem(.separator())
-            add(menu, "Tam Ekran", "maximize")
-            add(menu, "Sohbet Görünümü", "chat")
-            add(menu, "Ayrıntılar", "details")
+            add(menu, "Son Kapatılanı Yeniden Aç", "reopen")
+            add(menu, "Geçmiş Konuşmalar", "recents")
+            menu.addItem(.separator())
             add(menu, "Durdur", "stop")
+            add(menu, "Kutuyu Kapat", "close")
+            menu.addItem(.separator())
             add(menu, "Sonraki Oturum", "next")
             add(menu, "Önceki Oturum", "previous")
-            for index in 0..<9 {
-                let item = NSMenuItem(title: "Oturum \(index + 1)", action: #selector(selectSession(_:)), keyEquivalent: "\(index + 1)")
-                item.tag = index
-                item.target = self
-                menu.addItem(item)
+            // In a submenu rather than hidden: a hidden item gives up its shortcut, and these keys live only here.
+            nested(menu, "Oturuma Geç") { list in
+                for index in 0..<9 {
+                    let item = NSMenuItem(title: "Oturum \(index + 1)", action: #selector(selectSession(_:)), keyEquivalent: "\(index + 1)")
+                    item.tag = index
+                    item.target = self
+                    list.addItem(item)
+                }
             }
         }
         submenu("Düzen") { edit in
+            edit.addItem(withTitle: "Kes", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
             edit.addItem(withTitle: "Kopyala", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
             edit.addItem(withTitle: "Yapıştır", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-            edit.addItem(withTitle: "Kes", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
             edit.addItem(withTitle: "Tümünü Seç", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
             edit.addItem(.separator())
             let find = NSMenuItem(title: "Terminalde Bul", action: #selector(NSResponder.performTextFinderAction(_:)), keyEquivalent: "f")
@@ -200,31 +220,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         submenu("Görünüm") { menu in
             add(menu, "Komutlar", "palette")
+            add(menu, "Ayrıntılar", "details")
+            add(menu, "Sohbet Görünümü", "chat")
+            add(menu, "Kutuyu Tam Ekran Aç", "maximize")
             add(menu, "Odak Modu", "focusMode")
             add(menu, "Durak Hattı", "toggleRail")
+            menu.addItem(.separator())
             add(menu, "Dosyalar", "files")
             add(menu, "Değişiklikler", "changes")
             add(menu, "Onay Kutusu", "inbox")
             add(menu, "Pano", "board")
             add(menu, "Yönetici Görünümü", "manager")
             add(menu, "Tarayıcı", "browser")
+        }
+        submenu("Tuval") { menu in
             add(menu, "Yakınlaştır", "zoomIn")
             add(menu, "Uzaklaştır", "zoomOut")
             add(menu, "Sığdır", "fit")
             menu.addItem(.separator())
+            add(menu, "Kutuları Diz", "arrange")
+            add(menu, "Tuvali Kilitle Ya Da Aç", "lockCanvas")
+            add(menu, "Bu Yerleşimi Kaydet", "saveLayout")
             add(menu, "Düzeni Geri Al", "undoLayout")
             add(menu, "Düzeni Yinele", "redoLayout")
-            add(menu, "Sol Yarıya Yerleştir", "zoneLeft")
-            add(menu, "Sağ Yarıya Yerleştir", "zoneRight")
-            add(menu, "Üst Yarıya Yerleştir", "zoneTop")
-            add(menu, "Alt Yarıya Yerleştir", "zoneBottom")
-            add(menu, "Soldaki Kutuya Geç", "focusLeft")
-            add(menu, "Sağdaki Kutuya Geç", "focusRight")
-            add(menu, "Üstteki Kutuya Geç", "focusUp")
-            add(menu, "Alttaki Kutuya Geç", "focusDown")
+            menu.addItem(.separator())
+            nested(menu, "Tuvale Ekle") { list in
+                add(list, "Not", "noteBox")
+                add(list, "Tarayıcı", "browserBox")
+                add(list, "Web Sayfası", "webBox")
+                add(list, "Video", "videoBox")
+                add(list, "Beyaz Tahta", "whiteboardBox")
+                add(list, "Dosyalar", "filesBox")
+            }
+            nested(menu, "Kutuyu Yerleştir") { list in
+                add(list, "Sol Yarı", "zoneLeft")
+                add(list, "Sağ Yarı", "zoneRight")
+                add(list, "Üst Yarı", "zoneTop")
+                add(list, "Alt Yarı", "zoneBottom")
+            }
+            nested(menu, "Kutuya Geç") { list in
+                add(list, "Soldaki", "focusLeft")
+                add(list, "Sağdaki", "focusRight")
+                add(list, "Üstteki", "focusUp")
+                add(list, "Alttaki", "focusDown")
+            }
         }
         submenu("Pencere") { menu in
             menu.addItem(withTitle: "Küçült", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m")
+            menu.addItem(withTitle: "Büyüt", action: #selector(NSWindow.zoom(_:)), keyEquivalent: "")
+            let full = NSMenuItem(title: "Tam Ekran Yap", action: #selector(NSWindow.toggleFullScreen(_:)), keyEquivalent: "f")
+            full.keyEquivalentModifierMask = [.command, .control]
+            menu.addItem(full)
+            menu.addItem(.separator())
             menu.addItem(withTitle: "Kapat", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "")
         }
         NSApp.mainMenu = main

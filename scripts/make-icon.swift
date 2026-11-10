@@ -32,6 +32,34 @@ func draw(_ px: Int, _ name: String) {
     NSGraphicsContext.restoreGraphicsState()
     try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(out)/\(name).png"))
 }
+/// The phone's icon: iOS rounds the corners itself and the store refuses transparency, so the surface fills the square.
+func drawPhone(_ px: Int, _ name: String) {
+    let context = CGContext(data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
+    let s = CGFloat(px)
+    NSColor(srgbRed: 0x10 / 255, green: 0x15 / 255, blue: 0x14 / 255, alpha: 1).setFill()
+    NSRect(x: 0, y: 0, width: s, height: s).fill()
+    NSColor(srgbRed: 0xD8 / 255, green: 0xEE / 255, blue: 0x4E / 255, alpha: 1).setStroke()
+    let chevron = NSBezierPath()
+    chevron.lineWidth = s * 0.085
+    chevron.lineCapStyle = .round
+    chevron.lineJoinStyle = .round
+    chevron.move(to: NSPoint(x: s * 0.27, y: s * 0.7))
+    chevron.line(to: NSPoint(x: s * 0.47, y: s * 0.5))
+    chevron.line(to: NSPoint(x: s * 0.27, y: s * 0.3))
+    chevron.stroke()
+    NSColor(srgbRed: 0xE7 / 255, green: 0xEB / 255, blue: 0xE6 / 255, alpha: 1).setFill()
+    NSBezierPath(roundedRect: NSRect(x: s * 0.53, y: s * 0.26, width: s * 0.22, height: s * 0.085), xRadius: s * 0.025, yRadius: s * 0.025).fill()
+    NSGraphicsContext.restoreGraphicsState()
+    let rep = NSBitmapImageRep(cgImage: context.makeImage()!)
+    try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "\(out)/\(name).png"))
+}
+if CommandLine.arguments.count > 2, CommandLine.arguments[2] == "ios" {
+    drawPhone(1024, "icon_1024")
+    exit(0)
+}
 for (px, name) in [(16, "icon_16x16"), (32, "icon_16x16@2x"), (32, "icon_32x32"), (64, "icon_32x32@2x"), (128, "icon_128x128"), (256, "icon_128x128@2x"),
                    (256, "icon_256x256"), (512, "icon_256x256@2x"), (512, "icon_512x512"), (1024, "icon_512x512@2x")] {
     draw(px, name)

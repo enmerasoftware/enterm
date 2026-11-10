@@ -28,7 +28,7 @@ struct TopBar: View {
                 }
             }
             if model.mode == .tabs && model.visibleSessions.count > 1 {
-                if model.showsProjectTabs { Rectangle().fill(Color(palette.hair2)).frame(width: 1, height: 16).padding(.horizontal, 4) }
+                if model.showsProjectTabs { GroupDivider().padding(.horizontal, 4) }
                 let labels = model.sessionLabels
                 ForEach(model.visibleSessions) { info in
                     Btn(labels[info.number] ?? model.name(for: info), kind: info.number == model.focused ? .selected : .plain) {
@@ -103,6 +103,7 @@ struct TopBar: View {
         .padding(.trailing, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ZStack { Color(palette.surface0); TitleBarArea() })
+        .overlay(alignment: .bottom) { Line() }
     }
 }
 
@@ -114,6 +115,7 @@ struct BottomBars: View {
         VStack(spacing: 0) {
             if model.toolbarVisible {
                 CommandBar()
+                    .padding(.bottom, 8)
                     .frame(maxHeight: .infinity)
                     .padding(.leading, model.railVisible(width: 2000) ? 200 : 0)
                     .padding(.trailing, model.detailsOpen ? 400 : 0)
@@ -149,7 +151,7 @@ struct ProjectTab: View {
     @State private var hovering = false
     var body: some View {
         let palette = Theme.palette
-        let on = model.activeProject == name && !model.showHome
+        let on = model.shownProject == name && !model.showHome
         let members = model.sessions.filter { model.project(of: $0) == name }
         let attention = members.first { $0.status == .needsApproval || $0.status == .limitReached || $0.status == .failed }
         let running = members.contains { $0.status == .running && $0.tool != .terminal }
@@ -195,7 +197,7 @@ struct AllAreasTab: View {
     @ObservedObject var model = AppModel.shared
     var body: some View {
         let palette = Theme.palette
-        let on = model.showsAllProjects && !model.showHome
+        let on = model.showsAllProjects && model.shownProject == nil && !model.showHome
         Button { model.showAllProjects() } label: {
             T("Tüm Alanlar", color: on ? palette.text1 : palette.text3, weight: on ? .semibold : .regular)
                 .lineLimit(1)
@@ -299,8 +301,8 @@ struct SessionStrip: View {
                     }
                 }
                 Spacer(minLength: 0)
-                // 6 + 14: the text ends 20 from the edge, like StatusLine's.
-                LimitSummaryButton(summary: summary, roomy: false).padding(.trailing, 14)
+                // 6 + 10: the text ends 16 from the edge, like StatusLine's.
+                LimitSummaryButton(summary: summary, roomy: false).padding(.trailing, 10)
             }
             // (36 - 24) / 2: a lit item has 6 on all four sides.
             .padding(.horizontal, 6)
@@ -385,8 +387,17 @@ struct DetailPane: View {
     var body: some View {
         if let info = model.focusedInfo {
             DetailTabs(info: info)
-                .background(Color(Theme.palette.panel))
+                // A terminal can lie under the pane: its text cursor stops at the pane's edge.
+                .background(Color(Theme.palette.panel).onContinuousHover { phase in
+                    if case .active = phase { NSCursor.arrow.set() }
+                })
                 .overlay(alignment: .leading) { Rectangle().fill(Color(Theme.palette.line)).frame(width: 1) }
+                .overlay(alignment: .topTrailing) {
+                    IconBtn("xmark", label: "Kapat") { model.detailsOpen = false }
+                        .help("Kapat (⌘I)")
+                        .padding(.top, 16)
+                        .padding(.trailing, 16)
+                }
         } else {
             Color(Theme.palette.panel)
         }

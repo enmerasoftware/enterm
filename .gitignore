@@ -5,3 +5,4 @@ build/
 .swiftpm/
 tasarim/
 vendor/
+/packaging/homebrew/enterm.rb

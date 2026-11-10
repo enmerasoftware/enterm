@@ -16,7 +16,7 @@ enum ItemKind: String, Codable, CaseIterable {
         case .game: return "Enter Koşusu"
         case .whiteboard: return "Beyaz Tahta"
         case .files: return "Dosyalar"
-        case .simulator: return "iOS Simülatörü"
+        case .simulator: return "Simülatör"
         }
     }
     var icon: String {
@@ -60,6 +60,7 @@ struct LayoutSnapshot {
     let positions: [String: CGPoint]
     let sizes: [String: CGSize]
     let freeLayout: Bool
+    let allFree: Bool
 }
 
 /// What the app remembers between launches. Everything else lives in the session service.
@@ -68,6 +69,8 @@ struct WindowState: Codable {
     var positions: [String: CGPoint] = [:]
     var sizes: [String: CGSize] = [:]
     var freeLayout = false
+    /// The surface with every box on it was arranged by hand, so it stops tiling itself.
+    var allFree = false
     var items: [CanvasItem] = []
     var groups: [CanvasGroup] = []
     var layouts: [SavedLayout] = []
@@ -77,6 +80,8 @@ struct WindowState: Codable {
     var showingAll = false
     /// The mode the areas had before the all-areas surface, which always shows boxes.
     var modeBeforeAll: ViewMode?
+    /// Boxes an agent opened, by the agent that opened them. An agent may close only these.
+    var openedBy: [String: String] = [:]
 
     init() {}
 
@@ -87,6 +92,7 @@ struct WindowState: Codable {
         positions = try c.decodeIfPresent([String: CGPoint].self, forKey: .positions) ?? d.positions
         sizes = try c.decodeIfPresent([String: CGSize].self, forKey: .sizes) ?? d.sizes
         freeLayout = try c.decodeIfPresent(Bool.self, forKey: .freeLayout) ?? d.freeLayout
+        allFree = try c.decodeIfPresent(Bool.self, forKey: .allFree) ?? d.allFree
         items = try c.decodeIfPresent([CanvasItem].self, forKey: .items) ?? d.items
         groups = try c.decodeIfPresent([CanvasGroup].self, forKey: .groups) ?? d.groups
         layouts = try c.decodeIfPresent([SavedLayout].self, forKey: .layouts) ?? d.layouts
@@ -94,6 +100,7 @@ struct WindowState: Codable {
         activeProject = try c.decodeIfPresent(String.self, forKey: .activeProject)
         showingAll = try c.decodeIfPresent(Bool.self, forKey: .showingAll) ?? d.showingAll
         modeBeforeAll = try c.decodeIfPresent(ViewMode.self, forKey: .modeBeforeAll)
+        openedBy = try c.decodeIfPresent([String: String].self, forKey: .openedBy) ?? d.openedBy
     }
 }
 
@@ -132,20 +139,15 @@ extension AppModel {
     /// How many boxes share the surface right now.
     var tileCount: Int { visibleSessions.count + visibleItems.count }
 
-    /// No area chosen while there is more than one: every area on one surface, each in its own frame.
+    /// No area chosen while there is more than one: every box on one surface, side by side.
     var showsAllProjects: Bool { activeProject == nil && projectNames.count > 1 }
 
-    /// The areas the all-areas surface shows, in tab order, with what each holds.
-    /// An area's id is its project name; the views that belong to no project share an id no folder can have.
-    static let sharedAreaID = "\u{1}ortak"
-
-    var areaContents: [(id: String, title: String, sessions: [SessionInfo], items: [CanvasItem])] {
-        var areas = projectNames.map { name in
-            (id: name, title: name, sessions: sessions.filter { project(of: $0) == name }, items: state.items.filter { $0.project == name })
-        }
-        let shared = state.items.filter { $0.project == nil }
-        if !shared.isEmpty { areas.append((id: Self.sharedAreaID, title: "Ortak", sessions: [], items: shared)) }
-        return areas
+    /// The area whose tab reads as chosen. A box grown to the whole window on the all-areas surface lights its own
+    /// area's tab; "Tümünü Gör" lights "Tüm Alanlar" again.
+    var shownProject: String? {
+        if let activeProject { return activeProject }
+        guard let maximized, let info = sessions.first(where: { $0.number == maximized }) else { return nil }
+        return project(of: info)
     }
 
     func showAllProjects() {
@@ -225,7 +227,13 @@ extension AppModel {
         let all = showsAllProjects && !startingFromHome
         let context = all ? focusedInfo.map { project(of: $0) } : activeProject
         let folders = sessions.filter { $0.id != info.id && state.projects[$0.id] == context }.map(\.cwd)
-        let name = ProjectPlacement.project(folder: info.cwd, home: NSHomeDirectory(), active: context, activeFolders: folders, startingFromHome: startingFromHome)
+        // A chosen tab keeps whatever opens in it, whichever folder that is. A new tab starts from the home screen.
+        let name: String
+        if let activeProject, !startingFromHome {
+            name = activeProject
+        } else {
+            name = ProjectPlacement.project(folder: info.cwd, home: NSHomeDirectory(), active: context, activeFolders: folders, startingFromHome: startingFromHome)
+        }
         state.projects[info.id] = name
         startingFromHome = false
         showHome = false
@@ -238,13 +246,13 @@ extension AppModel {
 
     // MARK: Views on the canvas
 
-    func addItem(_ kind: ItemKind) {
+    func addItem(_ kind: ItemKind, text: String = "") {
         if kind == .browser, let open = state.items.first(where: { $0.kind == .browser }) {
             if let name = open.project { switchProject(name) }
             return
         }
         pushLayoutUndo()
-        state.items.append(CanvasItem(kind: kind, title: kind.title, project: activeProject ?? focusedInfo.map(project(of:))))
+        state.items.append(CanvasItem(kind: kind, title: kind.title, text: text, project: activeProject ?? focusedInfo.map(project(of:))))
         if tileCount > 1, mode == .single { mode = .canvas }
         maximized = nil
         onLayoutChange?()
@@ -269,7 +277,7 @@ extension AppModel {
 
     // MARK: Layout history
 
-    private var snapshot: LayoutSnapshot { LayoutSnapshot(positions: state.positions, sizes: state.sizes, freeLayout: state.freeLayout) }
+    private var snapshot: LayoutSnapshot { LayoutSnapshot(positions: state.positions, sizes: state.sizes, freeLayout: state.freeLayout, allFree: state.allFree) }
 
     func pushLayoutUndo() {
         layoutUndo.append(snapshot)
@@ -281,6 +289,7 @@ extension AppModel {
         state.positions = snapshot.positions
         state.sizes = snapshot.sizes
         state.freeLayout = snapshot.freeLayout
+        state.allFree = snapshot.allFree
         onLayoutChange?()
         saveState()
     }
@@ -315,6 +324,7 @@ extension AppModel {
         state.positions.merge(layout.positions) { _, new in new }
         state.sizes.merge(layout.sizes) { _, new in new }
         state.freeLayout = true
+        if showsAllProjects { state.allFree = true }
         onLayoutChange?()
         saveState()
     }
@@ -534,6 +544,18 @@ enum CanvasMenus {
             menu.addItem(ActionMenuItem(model.chatSessions.contains(info.number) ? "Terminal Görünümü" : "Sohbet Görünümü") { model.toggleChat(info.number) })
         }
         menu.addItem(.separator())
+        // A server the session started: on the canvas, in the person's browser, or look again.
+        var portItems: [NSMenuItem] = []
+        for port in info.ports ?? [] {
+            let address = "http://localhost:\(port)"
+            portItems.append(ActionMenuItem("localhost:\(port) · Tuvalde Aç") { model.addItem(.web, text: address) })
+            portItems.append(ActionMenuItem("localhost:\(port) · Tarayıcıda Aç") {
+                if let url = URL(string: address) { NSWorkspace.shared.open(url) }
+            })
+        }
+        if !portItems.isEmpty { portItems.append(.separator()) }
+        portItems.append(ActionMenuItem("Yeniden Bak") { model.connection.send(WireMessage(op: "scanPorts")) })
+        menu.addItem(submenu(info.ports == nil ? "Portlar" : "Portlar (\(info.ports!.count))", portItems))
         var groupItems: [NSMenuItem] = [ActionMenuItem("Yeni Grup") {
             model.ask(title: "Grubun Adı", placeholder: "Örnek: Ödeme", confirm: "Oluştur") { model.addToNewGroup(info.id, name: $0) }
         }]
@@ -842,34 +864,41 @@ final class GroupFrameView: NSView {
 
 enum WorktreeActions {
     /// A new branch in its own folder beside the project, with the default program open in it, framed as a group.
-    static func create(branch: String) {
+    /// Returns why it could not, or nil once the session is on its way. An agent passes the program, a name and its task.
+    @discardableResult
+    static func create(branch: String, tool: ToolKind? = nil, name: String? = nil, extraArguments: String = "",
+                       then: ((SessionInfo) -> Void)? = nil) -> String? {
         let model = AppModel.shared
         let runner = model.currentRunner
-        guard runner.remote == nil else {
-            model.hint = "Worktree Yalnız Bu Bilgisayardaki Projede Açılır"
-            return
+        func fail(_ text: String) -> String {
+            model.hint = text
+            return text
         }
+        guard runner.remote == nil else { return fail("Worktree Yalnız Bu Bilgisayardaki Projede Açılır") }
         let root = Git.run(["rev-parse", "--show-toplevel"], runner: runner)
-        guard root.ok else {
-            model.hint = "Bu Klasör Bir Git Deposu Değil"
-            return
-        }
+        guard root.ok else { return fail("Bu Klasör Bir Git Deposu Değil") }
         let top = root.output.trimmingCharacters(in: .whitespacesAndNewlines)
         let folder = (top as NSString).deletingLastPathComponent + "/" + (top as NSString).lastPathComponent + ".worktrees/" + branch.replacingOccurrences(of: "/", with: "-")
         let result = Git.run(["worktree", "add", folder, "-b", branch], runner: runner)
-        guard result.ok else {
-            model.hint = "Worktree Açılmadı: \(result.output.prefix(120))"
-            return
+        guard result.ok else { return fail("Worktree Açılmadı: \(result.output.prefix(120))") }
+        let finish: (SessionInfo) -> Void = { info in
+            model.addToNewGroup(info.id, name: branch)
+            then?(info)
         }
-        let settings = SettingsStore.shared.settings
-        let finish: (SessionInfo) -> Void = { info in model.addToNewGroup(info.id, name: branch) }
-        switch settings.defaultProgram {
-        case "claude": ToolLauncher.start(.claude, cwd: folder, then: finish)
-        case "codex": ToolLauncher.start(.codex, cwd: folder, then: finish)
-        case "agy": ToolLauncher.start(.antigravity, cwd: folder, then: finish)
-        default:
-            model.create(SessionSpec(tool: .terminal, cwd: folder, rows: 30, cols: 100), then: finish)
+        let chosen = tool ?? {
+            switch SettingsStore.shared.settings.defaultProgram {
+            case "claude": return .claude
+            case "codex": return .codex
+            case "agy": return .antigravity
+            default: return .terminal
+            }
+        }()
+        if chosen == .terminal {
+            model.create(SessionSpec(name: name, tool: .terminal, cwd: folder, rows: 30, cols: 100), then: finish)
+        } else {
+            ToolLauncher.start(chosen, cwd: folder, name: name, extraArguments: extraArguments, then: finish)
         }
+        return nil
     }
 }
 
@@ -920,58 +949,5 @@ struct TabOutline: Shape {
 extension View {
     func cornerRadius(_ radius: CGFloat, corners: CornerSet) -> some View {
         clipShape(SomeCorners(radius: radius, corners: corners))
-    }
-}
-
-/// One work area on the all-areas surface: its label, which opens the area, and an outline
-/// that only appears when there are several boxes to hold together.
-final class AreaFrameView: NSView {
-    let id: String
-    let name: String
-    var outlined = false
-
-    init(id: String, name: String) {
-        self.id = id
-        self.name = name
-        super.init(frame: .zero)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("not used") }
-
-    override var isFlipped: Bool { true }
-
-    private var labelRect: NSRect {
-        let width = (name as NSString).size(withAttributes: [.font: Theme.ui(.secondary, weight: .semibold)]).width + 16
-        return NSRect(x: 12, y: 0, width: width, height: 20)
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let palette = Theme.palette
-        if outlined {
-            let frame = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 10), xRadius: Theme.cornerCard, yRadius: Theme.cornerCard)
-            frame.lineWidth = 1
-            palette.hair2.setStroke()
-            frame.stroke()
-        }
-        let label = NSBezierPath(roundedRect: labelRect, xRadius: Theme.cornerControl, yRadius: Theme.cornerControl)
-        palette.surface0.setFill()
-        label.fill()
-        palette.hair2.setStroke()
-        label.stroke()
-        (name as NSString).draw(at: NSPoint(x: labelRect.minX + 8, y: labelRect.minY + 3), withAttributes: [
-            .font: Theme.ui(.secondary, weight: .semibold), .foregroundColor: palette.text2,
-        ])
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        labelRect.contains(convert(point, from: superview)) ? self : nil
-    }
-
-    override func resetCursorRects() { addCursorRect(labelRect, cursor: .pointingHand) }
-
-    override func mouseDown(with event: NSEvent) {
-        guard AppModel.shared.projectNames.contains(id) else { return }
-        AppModel.shared.switchProject(id)
     }
 }

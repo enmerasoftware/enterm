@@ -18,7 +18,10 @@ struct EntermPhoneApp: App {
                 .environmentObject(model)
                 .preferredColorScheme(model.theme == "light" ? .light : .dark)
                 .tint(Palette.fg)
-                .onAppear { model.start() }
+                .onAppear {
+                    model.start()
+                    LiveStatus.shared.start(model: model)
+                }
                 .onOpenURL { url in _ = model.read(code: url.absoluteString) }
                 .onChange(of: phase) { _, value in
                     if value == .active { model.returnedToFront() }

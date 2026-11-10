@@ -446,8 +446,13 @@ final class SimulatorFeed: ObservableObject {
 struct SimulatorPage: View {
     @StateObject private var feed = SimulatorFeed()
     @State private var selected: SimulatorFeed.Device?
+    @State private var platform = "ios"
     var body: some View {
-        PageFrame(title: "iOS Simülatörü", wide: true) {
+        PageFrame(title: "Simülatör", wide: true) {
+            Seg(options: [("ios", "iOS"), ("android", "Android")], value: $platform)
+            if platform == "android" {
+                AndroidPanel()
+            } else {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
                     if !feed.note.isEmpty { Dim(feed.note) }
@@ -480,9 +485,12 @@ struct SimulatorPage: View {
                     Dim("Açık bir cihaz seçin.")
                 }
             }
+            }
         }
         .onAppear { feed.refresh() }
         .onDisappear { feed.stopFeed() }
+        // Only the screen in view is read.
+        .onChange(of: platform) { _ in feed.stopFeed() }
     }
 }
 

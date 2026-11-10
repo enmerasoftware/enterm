@@ -1,0 +1,26 @@
+name: Beceri önerisi / Skill proposal
+description: Hazır beceri paketine eklenecek bir beceri. A skill for the preset packs.
+labels: [skill]
+body:
+  - type: dropdown
+    id: pack
+    attributes:
+      label: Paket / Pack
+      options: [Video, Yazılım / Software, Görsel / Image, Yeni paket / New pack]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: Ne yapar, ne zaman kullanılır? / What does it do, when is it used?
+    validations:
+      required: true
+  - type: input
+    id: tools
+    attributes:
+      label: Gereken araçlar / Tools it needs
+      placeholder: ffmpeg, whisper-cli, ...
+  - type: input
+    id: license
+    attributes:
+      label: Kaynak ve lisans (uyarlamaysa) / Source and license (if adapted)

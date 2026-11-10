@@ -5,9 +5,16 @@
     <key>CFBundleName</key><string>Enterm</string>
     <key>CFBundleDisplayName</key><string>Enterm</string>
     <key>CFBundleIdentifier</key><string>tr.com.enmera.enterm</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key><string>tr.com.enmera.enterm</string>
+            <key>CFBundleURLSchemes</key><array><string>enterm</string></array>
+        </dict>
+    </array>
     <key>CFBundleExecutable</key><string>EntermApp</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.1.2</string>
+    <key>CFBundleShortVersionString</key><string>0.1.3</string>
     <key>CFBundleVersion</key><string>1</string>
     <key>CFBundleIconFile</key><string>Enterm</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>

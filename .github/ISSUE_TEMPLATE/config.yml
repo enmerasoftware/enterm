@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Güvenlik açığı / Security vulnerability
+    url: https://github.com/enmerasoftware/enterm/security/advisories/new
+    about: Lütfen gizli bildirin. Please report privately.

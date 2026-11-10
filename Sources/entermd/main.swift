@@ -324,6 +324,9 @@ final class Service {
             }
         case "reloadPermissions":
             permissions = PermissionBook.load()
+        case "scanPorts":
+            schedulePortScan()
+            scanPorts()
         case "notify":
             var note = WireMessage(op: "notice")
             note.text = message.text
@@ -376,25 +379,25 @@ final class Service {
             }
             unlink(EntermPaths.socket.path)
             exit(0)
-        case "browser":
-            // From an agent's bridge to the window that owns the browser, and back.
+        case "browser", "canvas":
+            // From an agent's bridge to the window that owns the browser and the canvas, and back.
             let id = UUID().uuidString
             browserWaiting[id] = client
-            var forward = WireMessage(op: "browserCmd")
+            var forward = WireMessage(op: message.op + "Cmd")
             forward.id = id
             forward.text = message.text
             forward.event = message.event
             guard clients.values.contains(where: { $0.subscribed }) else {
                 browserWaiting[id] = nil
-                var reply = WireMessage(op: "browserResult")
+                var reply = WireMessage(op: message.op + "Result")
                 reply.error = "Enterm penceresi açık değil."
                 send(reply.frame(), to: client)
                 return
             }
             broadcast(forward)
-        case "browserReply":
+        case "browserReply", "canvasReply":
             guard let id = message.id, let target = browserWaiting.removeValue(forKey: id), clients[target.fd] === target else { return }
-            var reply = WireMessage(op: "browserResult")
+            var reply = WireMessage(op: message.op == "canvasReply" ? "canvasResult" : "browserResult")
             reply.text = message.text
             reply.error = message.error
             send(reply.frame(), to: target)
@@ -633,6 +636,7 @@ final class Service {
     func apply(_ event: AgentEvent) {
         guard let session = sessionByID(event.sessionID) else { return }
         var info = session.info
+        let before = info.status
         info.lastEventAt = Date()
         if let value = event.toolSessionID { info.toolSessionID = value }
         if let value = event.transcriptPath { info.transcriptPath = value }
@@ -644,6 +648,7 @@ final class Service {
         if let value = event.contextTokens { info.contextTokens = value }
         if let value = event.contextPercent { info.contextPercent = value }
         if let value = event.costUSD { info.costUSD = value }
+        if let value = event.title { info.title = value }
         if let value = event.text, event.kind == "activity" { info.lastActivity = value }
         if let toolName = event.tool, let tool = ToolKind(rawValue: toolName), tool != .terminal { info.tool = tool }
         switch event.kind {
@@ -688,6 +693,9 @@ final class Service {
         case "error":
             info.status = .failed
             info.failure = SessionFailure(kind: event.errorKind ?? "unknown", detail: event.text)
+        case "loop":
+            info.loop = event.text
+            info.loopNext = event.nextRun
         case "subStart":
             var list = info.subagents ?? []
             list.append(SubagentInfo(id: event.agentID ?? UUID().uuidString, type: event.agentType, running: true, startedAt: Date()))
@@ -705,6 +713,53 @@ final class Service {
         if info != session.info {
             session.info = info
             publish(session)
+        }
+        // A server is usually started during a turn or by a command typed in a terminal: look once it has had time to listen.
+        if (before == .running && info.status != .running) || event.kind == "launch" { schedulePortScan() }
+    }
+
+    // MARK: Ports
+
+    var portScans: [DispatchWorkItem] = []
+
+    func schedulePortScan() {
+        portScans.forEach { $0.cancel() }
+        portScans = [1.5, 6, 20].map { delay in
+            let work = DispatchWorkItem { [weak self] in self?.scanPorts() }
+            queue.asyncAfter(deadline: .now() + delay, execute: work)
+            return work
+        }
+    }
+
+    func scanPorts() {
+        let roots = sessions.values.compactMap { session in session.info.pid.map { (session.info.number, $0) } }
+        guard !roots.isEmpty else { return }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            func output(_ path: String, _ arguments: [String]) -> String {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: path)
+                process.arguments = arguments
+                let pipe = Pipe()
+                process.standardOutput = pipe
+                process.standardError = FileHandle.nullDevice
+                guard (try? process.run()) != nil else { return "" }
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
+                return String(decoding: data, as: UTF8.self)
+            }
+            let parents = PortScan.parents(output("/bin/ps", ["-axo", "pid=,ppid="]))
+            let listening = PortScan.listening(output("/usr/sbin/lsof", ["-nP", "-iTCP", "-sTCP:LISTEN", "-F", "pn"]))
+            self?.queue.async {
+                guard let self else { return }
+                for (number, pid) in roots {
+                    guard let session = self.sessions[number], session.info.pid == pid else { continue }
+                    let ports = PortScan.ports(root: pid, parents: parents, listening: listening)
+                    if ports != session.info.ports {
+                        session.info.ports = ports
+                        self.publish(session)
+                    }
+                }
+            }
         }
     }
 

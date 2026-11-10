@@ -1,0 +1,9 @@
+{
+  "name": "image",
+  "description": "App icons, store screenshots, image optimisation, screenshot comparison and SVG edits.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Enterm",
+    "url": "https://github.com/enmerasoftware/enterm"
+  }
+}

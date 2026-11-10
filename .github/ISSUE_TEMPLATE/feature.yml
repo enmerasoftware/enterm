@@ -1,0 +1,20 @@
+name: Öneri / Feature request
+description: Yeni bir özellik ya da iyileştirme. A new feature or an improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Hangi işi kolaylaştıracak? / What would it make easier?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Önerdiğiniz çözüm / Proposed solution
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Kurallar / Ground rules
+      options:
+        - label: Boşta yük bindirmez, kullanıcının ayar dosyalarına dokunmaz. / Costs nothing while idle and never edits the user's config files.

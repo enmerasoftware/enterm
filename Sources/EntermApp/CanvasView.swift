@@ -641,6 +641,11 @@ enum SessionText {
         } else if let tokens = info.contextTokens {
             parts.append(shortTokens(tokens) + " Token")
         }
+        if let loop = info.loop {
+            let next = info.loopNext.map { " · " + $0.formatted(date: .omitted, time: .shortened) } ?? ""
+            parts.append("↻ \(loop)\(next)")
+        }
+        if let ports = info.ports { parts.append(ports.prefix(2).map { ":\($0)" }.joined(separator: " ")) }
         if parts.isEmpty { return info.status == .unknown ? "Durum Bilinmiyor" : info.tool.title }
         return parts.joined(separator: " · ")
     }
@@ -741,16 +746,14 @@ final class CanvasView: NSView {
     private var moveSave: DispatchWorkItem?
     private var itemBoxes: [String: ItemBox] = [:]
     private var groupViews: [String: GroupFrameView] = [:]
-    /// On the all-areas surface: each area's outline, as computeFrames laid it out.
-    private var areaFrames: [(id: String, title: String, frame: NSRect, boxes: Int)] = []
-    /// The font scale on the all-areas surface: small boxes keep their columns by drawing smaller, as a zoomed-out canvas does.
+    /// The font scale while every box is tiled together: small boxes keep their columns by drawing smaller, as a zoomed-out canvas does.
     private var areaScale: CGFloat = 1
-    /// How large a box's contents draw: the canvas zoom, or the all-areas scale on that surface.
-    var contentScale: CGFloat { model.showsAllProjects ? areaScale : model.zoom }
-    private var areaViews: [String: AreaFrameView] = [:]
+    /// Every box in view, side by side, until the first one is moved by hand.
+    private var autoTiledAll: Bool { model.showsAllProjects && !model.state.allFree }
+    /// How large a box's contents draw: the canvas zoom, or the tiled scale.
+    var contentScale: CGFloat { autoTiledAll ? areaScale : model.zoom }
     var linkingEnabled: Bool { model.mode == .canvas && model.maximized == nil && model.tileCount > 1 }
-    /// The all-areas surface lays itself out, so nothing on it is dragged, resized or panned.
-    var allowsDrag: Bool { model.mode == .canvas && model.maximized == nil && !model.canvasLocked && !model.showsAllProjects }
+    var allowsDrag: Bool { model.mode == .canvas && model.maximized == nil && !model.canvasLocked }
     var showsDots: Bool { false }
     private var linkSource: SessionBox?
     private var panStart: NSPoint?
@@ -824,10 +827,10 @@ final class CanvasView: NSView {
     }
 
     private func placeMiniMap() {
-        let visible = SettingsStore.shared.settings.miniMap && model.mode == .canvas && model.maximized == nil && model.state.freeLayout && model.tileCount > 1 && !model.showsAllProjects
+        let visible = SettingsStore.shared.settings.miniMap && model.mode == .canvas && model.maximized == nil && model.state.freeLayout && model.tileCount > 1 && !autoTiledAll
         miniMap.isHidden = !visible
         guard visible else { return }
-        miniMap.frame = NSRect(x: bounds.maxX - 190 - 16, y: bounds.maxY - 112 - 16, width: 190, height: 112)
+        miniMap.frame = NSRect(x: bounds.maxX - 190 - 16 - (model.detailsOpen ? 400 : 0), y: bounds.maxY - 112 - 16, width: 190, height: 112)
         addSubview(miniMap, positioned: .above, relativeTo: nil)
         miniMap.needsDisplay = true
     }
@@ -903,7 +906,6 @@ final class CanvasView: NSView {
             }
         }
         applyContent()
-        placeAreas()
         placeGroups(frames: frames)
         drawLinks()
         placeGlows()
@@ -912,31 +914,8 @@ final class CanvasView: NSView {
         needsDisplay = true
     }
 
-    private func placeAreas() {
-        let show = model.mode == .canvas && model.maximized == nil && model.showsAllProjects
-        var live = Set<String>()
-        for area in areaFrames where show {
-            live.insert(area.id)
-            let view = areaViews[area.id] ?? {
-                let view = AreaFrameView(id: area.id, name: area.title)
-                areaViews[area.id] = view
-                addSubview(view, positioned: .below, relativeTo: nil)
-                return view
-            }()
-            // AreaFrameView draws its outline 10 inside its top and bottom and 1 inside its sides.
-            view.frame = area.frame.insetBy(dx: -1, dy: -10)
-            view.outlined = area.boxes > 1
-            view.needsDisplay = true
-        }
-        for (name, view) in areaViews where !live.contains(name) {
-            view.removeFromSuperview()
-            areaViews[name] = nil
-        }
-    }
-
     private func placeGroups(frames: (boxes: [UInt32: NSRect], items: [String: NSRect])) {
-        // A hand-made group is drawn in its own area, not across the all-areas surface.
-        let show = model.mode == .canvas && model.maximized == nil && !model.showsAllProjects
+        let show = model.mode == .canvas && model.maximized == nil
         var live = Set<String>()
         for group in model.state.groups where show {
             var union: NSRect?
@@ -992,7 +971,6 @@ final class CanvasView: NSView {
         let area = bounds
         guard area.width > 80, area.height > 80, !(sessions.isEmpty && items.isEmpty) else { return (frames, itemFrames) }
         let full = NSRect(x: 0, y: 0, width: area.width, height: area.height)
-        areaFrames = []
         if sessions.count + items.count == 1 || model.maximized != nil || model.mode == .tabs {
             if let number = model.maximized ?? (model.mode == .tabs ? model.focused : sessions.first?.number) ?? sessions.first?.number {
                 frames[number] = full
@@ -1001,37 +979,25 @@ final class CanvasView: NSView {
             }
             return (frames, itemFrames)
         }
-        if model.showsAllProjects {
-            let areas = model.areaContents
-            let clusters = AllProjectsLayout.clusters(areas.map { ($0.id, $0.sessions.count + $0.items.count) }, in: area.size)
-            // 760 wide shows a terminal at its own size; anything smaller draws smaller and keeps its columns.
-            areaScale = min(1, (clusters.first?.boxes.first?.width ?? 760) / 760)
-            for cluster in clusters {
-                guard let contents = areas.first(where: { $0.id == cluster.name }) else { continue }
-                let keys: [(id: String, number: UInt32?)] = contents.sessions.map { ($0.id, $0.number) } + contents.items.map { ($0.id, nil) }
-                for (key, rect) in zip(keys, cluster.boxes) {
-                    if let number = key.number { frames[number] = rect } else { itemFrames[key.id] = rect }
-                }
-                areaFrames.append((contents.id, contents.title, cluster.frame, keys.count))
-            }
-            return (frames, itemFrames)
-        }
         let keys: [(id: String, number: UInt32?)] = sessions.map { ($0.id, $0.number) } + items.map { ($0.id, nil) }
         func place(_ key: (id: String, number: UInt32?), _ rect: NSRect) {
             if let number = key.number { frames[number] = rect } else { itemFrames[key.id] = rect }
         }
         let count = keys.count
-        if !model.state.freeLayout && count <= 6 {
+        let tiledAll = autoTiledAll
+        if tiledAll || (!model.state.freeLayout && count <= 6) {
             let columns = count <= 2 ? count : (count <= 4 ? 2 : 3)
             let rows = Int(ceil(Double(count) / Double(columns)))
             let gap: CGFloat = 16
             let width = (area.width - gap * CGFloat(columns + 1)) / CGFloat(columns)
             let height = (area.height - gap * CGFloat(rows + 1)) / CGFloat(rows)
+            // 760 wide shows a terminal at its own size; anything smaller draws smaller and keeps its columns.
+            if tiledAll { areaScale = min(1, width / 760) }
             for (index, key) in keys.enumerated() {
                 let row = index / columns
                 let column = index % columns
                 let rect = NSRect(x: gap + CGFloat(column) * (width + gap), y: gap + CGFloat(row) * (height + gap), width: width, height: height)
-                place(key, scaled(rect, around: area))
+                place(key, tiledAll ? rect : scaled(rect, around: area))
             }
             return (frames, itemFrames)
         }
@@ -1049,7 +1015,7 @@ final class CanvasView: NSView {
     /// On a surface arranged by hand a new box takes the first free place in view and keeps it,
     /// instead of a numbered slot that a box grown by hand may already cover.
     private func claimSpots(_ ids: [String]) {
-        guard model.mode == .canvas, model.maximized == nil, model.state.freeLayout, ids.count > 1, !model.showsAllProjects,
+        guard model.mode == .canvas, model.maximized == nil, model.state.freeLayout, ids.count > 1, !autoTiledAll,
               bounds.width > 80, bounds.height > 80 else { return }
         let zoom = model.zoom
         let fallback = NSSize(width: 520, height: 320)
@@ -1094,8 +1060,8 @@ final class CanvasView: NSView {
 
     /// Everything in view, nothing moved. Automatic tiles always fit, so only a free surface needs a new scale.
     func fit() {
-        // The all-areas surface always fits by itself.
-        if model.showsAllProjects { return }
+        // Tiled boxes always fit by themselves.
+        if autoTiledAll { return }
         let keys = model.visibleSessions.map(\.id) + model.visibleItems.map(\.id)
         guard model.state.freeLayout || keys.count > 6 else {
             pan = .zero
@@ -1122,6 +1088,7 @@ final class CanvasView: NSView {
         model.pushLayoutUndo()
         pan = .zero
         model.state.freeLayout = false
+        model.state.allFree = false
         model.state.positions.removeAll()
         model.state.sizes.removeAll()
         model.setZoom(1)
@@ -1130,10 +1097,13 @@ final class CanvasView: NSView {
 
     /// The first move by hand turns the automatic tiles into free positions, without anything jumping.
     func freezeLayout() {
-        guard !model.state.freeLayout, !model.showsAllProjects else { return }
-        let zoom = model.zoom
+        let tiledAll = autoTiledAll
+        guard tiledAll || (!model.state.freeLayout && !model.showsAllProjects) else { return }
+        // Tiled boxes ignore the pan and draw at their own scale, which becomes the zoom so nothing jumps.
+        let zoom = tiledAll ? min(max(areaScale, 0.3), 1.5) : model.zoom
+        let shift = tiledAll ? NSPoint.zero : pan
         func store(_ id: String, _ frame: NSRect) {
-            model.state.positions[id] = CGPoint(x: (frame.minX - pan.x) / zoom, y: (frame.minY - pan.y) / zoom)
+            model.state.positions[id] = CGPoint(x: (frame.minX - shift.x) / zoom, y: (frame.minY - shift.y) / zoom)
             model.state.sizes[id] = CGSize(width: frame.width / zoom, height: frame.height / zoom)
         }
         for session in model.visibleSessions {
@@ -1143,6 +1113,11 @@ final class CanvasView: NSView {
             if let box = itemBoxes[item.id] { store(item.id, box.frame) }
         }
         model.state.freeLayout = true
+        if tiledAll {
+            model.state.allFree = true
+            pan = .zero
+            model.setZoom(zoom)
+        }
     }
 
     private func snapped(_ origin: NSPoint) -> NSPoint {
@@ -1213,8 +1188,7 @@ final class CanvasView: NSView {
 
     /// One half of the surface, by key or from the menu.
     func snap(_ number: UInt32, to zone: SnapZone) {
-        // The all-areas surface lays itself out; a snap there would only rewrite the areas' own layout unseen.
-        guard model.mode == .canvas, model.maximized == nil, model.tileCount > 1, !model.showsAllProjects,
+        guard model.mode == .canvas, model.maximized == nil, model.tileCount > 1,
               let info = model.sessions.first(where: { $0.number == number }) else { return }
         model.pushLayoutUndo()
         freezeLayout()

@@ -331,14 +331,18 @@ struct SettingsPage: View {
             .frame(width: 240)
             .background(Color(palette.surface1))
             .overlay(alignment: .trailing) { Rectangle().fill(Color(palette.hair)).frame(width: 1) }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if !tab.bringsOwnTitle { PageTitle(text: tab.title) }
-                    detail
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if !tab.bringsOwnTitle { PageTitle(text: tab.title) }
+                        detail
+                    }
+                    .padding(EdgeInsets(top: 40, leading: 32, bottom: 40, trailing: 32))
+                    .frame(maxWidth: 760, alignment: .leading)
+                    // As much as the column on the left where there is room, so the page stands in the middle of the window.
+                    .padding(.trailing, min(240, max(0, geometry.size.width - 760)))
+                    .frame(maxWidth: .infinity, minHeight: geometry.size.height)
                 }
-                .padding(EdgeInsets(top: 44, leading: 32, bottom: 40, trailing: 32))
-                .frame(maxWidth: 760, alignment: .leading)
-                .frame(maxWidth: .infinity)
             }
             .background(ZStack { Color(palette.surface0); CornerGlows(second: .bottomTrailing) })
         }
@@ -352,6 +356,8 @@ struct SettingsPage: View {
         case .programs: ProgramsSettings()
         case .accounts: AccountsPage()
         case .custom: CustomProgramsSettings()
+        case .skills: SkillsSettings()
+        case .commands: ClaudeCommandsSettings()
         case .gateway: GatewaySettings()
         case .usage: UsageSettings()
         case .commits: CommitSettings()

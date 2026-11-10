@@ -1,0 +1,9 @@
+{
+  "name": "code",
+  "description": "Test-first work, debugging, review, commit messages, release and security checks.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Enterm",
+    "url": "https://github.com/enmerasoftware/enterm"
+  }
+}
