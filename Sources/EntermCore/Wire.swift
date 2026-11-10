@@ -128,6 +128,8 @@ public struct WireMessage: Codable {
     public var version: Int?
     public var decision: String?
     public var limit: Int?
+    /// Where a read of a file left off, so the next read sends only what is new.
+    public var offset: Int64?
 
     public init(op: String) { self.op = op }
 

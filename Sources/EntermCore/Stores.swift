@@ -12,7 +12,8 @@ public struct AppSettings: Codable, Equatable {
     public var keepAwakeWhileAgents = true
     public var keepAwakeBatteryFloor = 20
     public var systemNotifications = true
-    public var relayURL = ""
+    /// Enmera's own relay; it only carries encrypted bytes. Anyone may point this at a relay of their own.
+    public var relayURL = "wss://enterm.enmeraapps.com"
     public var defaultTemplate = PermissionTemplate.free
     /// False until this version has set the default once, or the person has chosen.
     public var templateChosen = false
@@ -86,7 +87,8 @@ public struct AppSettings: Codable, Equatable {
         keepAwakeWhileAgents = try c.decodeIfPresent(Bool.self, forKey: .keepAwakeWhileAgents) ?? d.keepAwakeWhileAgents
         keepAwakeBatteryFloor = try c.decodeIfPresent(Int.self, forKey: .keepAwakeBatteryFloor) ?? d.keepAwakeBatteryFloor
         systemNotifications = try c.decodeIfPresent(Bool.self, forKey: .systemNotifications) ?? d.systemNotifications
-        relayURL = try c.decodeIfPresent(String.self, forKey: .relayURL) ?? d.relayURL
+        // An empty address was saved before Enmera's relay existed; it means "the default".
+        relayURL = try c.decodeIfPresent(String.self, forKey: .relayURL).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { $0.isEmpty ? nil : $0 } ?? d.relayURL
         defaultTemplate = try c.decodeIfPresent(PermissionTemplate.self, forKey: .defaultTemplate) ?? d.defaultTemplate
         voiceEnabled = try c.decodeIfPresent(Bool.self, forKey: .voiceEnabled) ?? d.voiceEnabled
         voiceEngine = try c.decodeIfPresent(String.self, forKey: .voiceEngine) ?? d.voiceEngine

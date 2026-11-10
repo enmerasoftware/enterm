@@ -4,44 +4,18 @@ Telefonun evden uzakta da bağlanması için gerekir. Bağımlılığı yok, tek
 
 Hedef adres: `wss://enterm.enmeraapps.com`.
 
-## 1. Alan Adı
+## 1. Alan Adı (Yapıldı)
 
-`enterm.enmeraapps.com` için sunucuya A kaydı açılır.
+Cloudflare'de `enterm.enmeraapps.com` → `171.22.185.218`, proxied. Bölgede SSL "full", WebSocket açık. Servis 30 saniyede bir ping atar; Cloudflare'in 100 saniyelik boşta kesme sınırına takılmaz.
 
-## 2. Servis
+## 2. Plesk
 
-Sunucuda:
-
-```bash
-mkdir -p /opt/enterm-relay
-# server.mjs dosyasını buraya kopyalayın
-cat > /etc/systemd/system/enterm-relay.service <<'UNIT'
-[Unit]
-Description=Enterm Relay
-After=network.target
-
-[Service]
-Environment=PORT=8787
-Environment=HOST=127.0.0.1
-ExecStart=/opt/plesk/node/24/bin/node /opt/enterm-relay/server.mjs
-Restart=always
-DynamicUser=yes
-NoNewPrivileges=yes
-ProtectSystem=strict
-ProtectHome=yes
-
-[Install]
-WantedBy=multi-user.target
-UNIT
-systemctl daemon-reload && systemctl enable --now enterm-relay
-```
-
-## 3. Web Sunucusu
-
-Alt alan adı açılır, sertifika alınır. Ek nginx yönergesi:
+1. Web Siteleri ve Alan Adları → Alan Adı Ekle → `enterm.enmeraapps.com` (boş site, DNS'i Plesk yönetmesin).
+2. SSL/TLS Sertifikaları → Let's Encrypt → `enterm.enmeraapps.com`.
+3. Apache ve nginx Ayarları → Ek nginx yönergeleri:
 
 ```nginx
-location / {
+location ~ ^/ {
     proxy_pass http://127.0.0.1:8787;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
@@ -49,6 +23,19 @@ location / {
     proxy_read_timeout 3600s;
 }
 ```
+
+`location /` Plesk'in kendi yönergesiyle çakışır; düzenli ifade biçimi onun önüne geçer.
+
+## 3. Servis
+
+`server.mjs` ile `install.sh` sunucuya kopyalanır, root olarak çalıştırılır:
+
+```bash
+scp relay/server.mjs relay/install.sh root@171.22.185.218:/root/enterm-relay/
+ssh root@171.22.185.218 'bash /root/enterm-relay/install.sh'
+```
+
+Güncellemede aynı iki komut yeter. Betik yalnız `/opt/enterm-relay` ve `enterm-relay` systemd birimini yazar.
 
 ## 4. Uygulama
 

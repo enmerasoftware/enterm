@@ -315,6 +315,11 @@ struct SessionScreen: View {
     @Environment(\.dynamicTypeSize) private var size
     let info: SessionInfo
     @State private var controlOn = false
+    /// Nil until the person picks: Claude Code and Codex open as a conversation, everything else as the terminal.
+    @State private var chatChoice: Bool?
+
+    private var canChat: Bool { info.tool == .claude || info.tool == .codex }
+    private var showsChat: Bool { canChat && (chatChoice ?? true) }
 
     var body: some View {
         let terminal = model.host(for: info.number)
@@ -338,6 +343,13 @@ struct SessionScreen: View {
                     Txt(info.cwd, color: Palette.text2, style: .footnote).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer(minLength: 0)
+                if canChat {
+                    Button { chatChoice = !showsChat } label: {
+                        Image(systemName: showsChat ? "terminal" : "text.bubble").font(.body).foregroundColor(Palette.text1).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(showsChat ? "Terminali Göster" : "Sohbeti Göster")
+                }
                 Button { model.route.append(.details(info.number)) } label: {
                     Image(systemName: "info.circle").font(.body).foregroundColor(Palette.text1).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                 }
@@ -373,14 +385,18 @@ struct SessionScreen: View {
                 ActionButton("■ Limit Doldu: Seçenekleri Gör") { model.route.append(.limit(info.number)) }.padding(8)
             }
             FoundCardView(info: info).padding(.horizontal, 8)
-            TerminalSurface(terminal: terminal)
-                .onAppear {
-                    model.attach(info.number)
-                    // With a decision waiting or large text there is no room for the keyboard yet. A tap on the terminal opens it.
-                    if info.pendingApproval == nil, !size.isAccessibilitySize { _ = terminal.view.becomeFirstResponder() }
-                }
-                .onDisappear { model.detach(info.number) }
-            keyRow(terminal)
+            if showsChat {
+                ChatPane(info: info)
+            } else {
+                TerminalSurface(terminal: terminal)
+                    .onAppear {
+                        model.attach(info.number)
+                        // With a decision waiting or large text there is no room for the keyboard yet. A tap on the terminal opens it.
+                        if info.pendingApproval == nil, !size.isAccessibilitySize { _ = terminal.view.becomeFirstResponder() }
+                    }
+                    .onDisappear { model.detach(info.number) }
+                keyRow(terminal)
+            }
         }
         .background(Palette.bg)
     }

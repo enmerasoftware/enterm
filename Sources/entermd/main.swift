@@ -158,6 +158,15 @@ final class Service {
         scheduleIdleCheck()
     }
 
+    /// The grid the Mac window gave this session; the phone draws exactly that many columns and rows.
+    func tellSize(_ session: Session, to client: Client) {
+        var message = WireMessage(op: "size")
+        message.number = session.info.number
+        message.rows = session.rows
+        message.cols = session.cols
+        send(message.frame(), to: client)
+    }
+
     func send(_ frame: WireFrame, to client: Client) {
         let data = frame.encoded()
         if client.pending.isEmpty {
@@ -266,9 +275,24 @@ final class Service {
                 reply.error = "\(error)"
                 send(reply.frame(), to: client)
             }
+        case "chat":
+            var reply = WireMessage(op: "chat")
+            reply.id = message.id
+            reply.number = message.number
+            if let number = message.number, let path = sessions[number]?.info.transcriptPath {
+                let read = TranscriptReader.read(path: path, from: message.offset)
+                reply.text = read.text
+                reply.offset = read.offset
+                if read.reset { reply.decision = "reset" }
+            } else {
+                reply.error = "none"
+            }
+            send(reply.frame(), to: client)
         case "attach":
             guard let number = message.number, let session = sessions[number] else { return }
             client.attached.insert(number)
+            // The phone draws the Mac's own grid and scrolls over it, so the size goes before the bytes.
+            if client.isPhone { tellSize(session, to: client) }
             if !session.ring.isEmpty {
                 send(WireFrame.session(.replay, number: number, bytes: session.ring), to: client)
             }
@@ -277,12 +301,13 @@ final class Service {
         case "resize":
             guard let number = message.number, let session = sessions[number],
                   let rows = message.rows, let cols = message.cols else { return }
+            // Only the window sizes a session; a phone never narrows what the Mac shows.
+            guard !client.isPhone else { return }
             _ = cpty_resize(session.master, UInt16(rows), UInt16(cols))
             session.wasResized = true
-            if !client.isPhone {
-                session.rows = rows
-                session.cols = cols
-            }
+            session.rows = rows
+            session.cols = cols
+            for phone in clients.values where phone.isPhone && phone.attached.contains(number) { tellSize(session, to: phone) }
         case "kill":
             guard let number = message.number, let session = sessions[number] else { return }
             if session.info.status == .exited {

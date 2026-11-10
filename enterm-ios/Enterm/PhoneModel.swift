@@ -368,6 +368,10 @@ final class PhoneModel: ObservableObject {
                 sessions.removeAll { $0.number == number }
                 closeLocally(number)
             }
+        case "size":
+            if let number = message.number, let rows = message.rows, let cols = message.cols {
+                host(for: number).setGrid(cols: cols, rows: rows)
+            }
         case "macSleeping":
             connection = .sleeping(since: Date())
         case "unpaired":
@@ -432,14 +436,6 @@ final class PhoneModel: ObservableObject {
         link?.send(WireFrame.session(.input, number: number, bytes: bytes).encoded())
     }
 
-    func resize(_ number: UInt32, rows: Int, cols: Int) {
-        var message = WireMessage(op: "resize")
-        message.number = number
-        message.rows = rows
-        message.cols = cols
-        send(message)
-    }
-
     /// Started by the Mac's own code, so PATH, a copy outside it, the account and the queue work the same.
     func start(tool: ToolKind, name: String = "", folder: String = "", account: String = "", template: String = "", model: String = "", effort: String = "", prompt: String = "") async {
         if PhoneGuard.needsConfirmation(startingTool: tool), !(await PhoneAuth.confirm("\(tool.title) başlatmak için doğrulayın.")) { return }
@@ -496,6 +492,20 @@ final class PhoneModel: ObservableObject {
         var message = WireMessage(op: "kill")
         message.number = number
         send(message)
+    }
+
+    /// The next piece of a session's conversation, from where the last one ended. Nil when the Mac has none.
+    func chat(_ number: UInt32, from offset: Int64?) async -> (text: String, offset: Int64, reset: Bool)? {
+        guard connection == .connected else { return nil }
+        var message = WireMessage(op: "chat")
+        message.number = number
+        message.offset = offset
+        return await withCheckedContinuation { continuation in
+            request(message) { reply in
+                guard reply.error == nil else { return continuation.resume(returning: nil) }
+                continuation.resume(returning: (reply.text ?? "", reply.offset ?? offset ?? 0, reply.decision == "reset"))
+            }
+        }
     }
 
     private func request(_ message: WireMessage, reply: @escaping (WireMessage) -> Void) {

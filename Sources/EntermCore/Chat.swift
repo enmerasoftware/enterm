@@ -179,3 +179,37 @@ public enum ProcessTree {
         return (total, count)
     }
 }
+
+/// Reads a transcript a piece at a time for the phone: the end of a long one first, then only what was added.
+public enum TranscriptReader {
+    /// A first read starts this far from the end; later ones send at most this much.
+    public static let window: Int64 = 400_000
+
+    /// `from` nil starts near the end. A file that got shorter was replaced, so the read starts over and says so.
+    public static func read(path: String, from: Int64?) -> (text: String, offset: Int64, reset: Bool) {
+        guard let handle = FileHandle(forReadingAtPath: path) else { return ("", from ?? 0, false) }
+        defer { try? handle.close() }
+        let size = Int64((try? handle.seekToEnd()) ?? 0)
+        var reset = false
+        var start: Int64
+        if let from, from <= size {
+            start = from
+        } else {
+            reset = from != nil
+            start = max(0, size - window)
+        }
+        let fresh = start > 0 && (from == nil || reset)
+        try? handle.seek(toOffset: UInt64(start))
+        guard var data = try? handle.read(upToCount: Int(min(window, size - start))), !data.isEmpty else {
+            return ("", start, reset)
+        }
+        // Starting inside a line: that part is skipped.
+        if fresh, let first = data.firstIndex(of: UInt8(ascii: "\n")) {
+            start += Int64(data.distance(from: data.startIndex, to: first) + 1)
+            data = data[data.index(after: first)...]
+        }
+        guard let last = data.lastIndex(of: UInt8(ascii: "\n")) else { return ("", start, reset) }
+        let complete = data[data.startIndex...last]
+        return (String(decoding: complete, as: UTF8.self), start + Int64(complete.count), reset)
+    }
+}

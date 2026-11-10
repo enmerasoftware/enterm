@@ -10,7 +10,9 @@ packages:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.1.4"
+    # iPhone only for now: an iPad build must allow every orientation and bring its own screenshots.
+    TARGETED_DEVICE_FAMILY: "1"
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: 79N3CT6T46
     CODE_SIGN_STYLE: Automatic
@@ -22,6 +24,7 @@ targets:
       - path: ../Sources/EntermCore
     settings:
       base:
+        TARGETED_DEVICE_FAMILY: "1"
         PRODUCT_BUNDLE_IDENTIFIER: tr.com.enmera.enterm.core
         GENERATE_INFOPLIST_FILE: YES
         DEFINES_MODULE: YES
@@ -44,10 +47,14 @@ targets:
           - $(AppIdentifierPrefix)tr.com.enmera.enterm.shared
     settings:
       base:
+        TARGETED_DEVICE_FAMILY: "1"
         PRODUCT_BUNDLE_IDENTIFIER: tr.com.enmera.enterm.ios
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Enterm
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        # Only Apple's own encryption (CryptoKit): App Store Connect stops asking at every build.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         INFOPLIST_KEY_NSCameraUsageDescription: Bilgisayardaki kodu okutmak için.
         INFOPLIST_KEY_NSFaceIDUsageDescription: İzin vermeden önce sizi doğrulamak için.
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -72,6 +79,7 @@ targets:
       - sdk: SwiftUI.framework
     settings:
       base:
+        TARGETED_DEVICE_FAMILY: "1"
         PRODUCT_BUNDLE_IDENTIFIER: tr.com.enmera.enterm.ios.widgets
         GENERATE_INFOPLIST_FILE: YES
     info:
@@ -94,6 +102,7 @@ targets:
           - $(AppIdentifierPrefix)tr.com.enmera.enterm.shared
     settings:
       base:
+        TARGETED_DEVICE_FAMILY: "1"
         PRODUCT_BUNDLE_IDENTIFIER: tr.com.enmera.enterm.ios.notify
         GENERATE_INFOPLIST_FILE: YES
     info:

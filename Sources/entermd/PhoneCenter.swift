@@ -7,7 +7,7 @@ import IOKit.pwr_mgt
 /// so it sees what the window sees. Nothing runs here until a phone has been paired.
 final class PhoneCenter {
     /// What a phone may ask. Local-only operations such as shutdown or hook events stay out.
-    static let allowedOperations: Set<String> = ["hello", "create", "attach", "detach", "resize", "kill", "remove", "rename", "decide", "list", "tail", "stop", "setPriority"]
+    static let allowedOperations: Set<String> = ["hello", "create", "attach", "detach", "resize", "kill", "remove", "rename", "decide", "list", "tail", "stop", "setPriority", "chat"]
 
     private unowned let service: Service
     private var devices: [PairedPeer]
@@ -60,7 +60,7 @@ final class PhoneCenter {
     func handle(_ message: WireMessage, from client: Client) -> Bool {
         switch message.op {
         case "pairStart":
-            guard let relay = message.text, !relay.isEmpty else { return true }
+            guard let relay = message.text?.trimmingCharacters(in: .whitespacesAndNewlines), !relay.isEmpty else { return true }
             pairing?.cancel()
             let agent = PairingAgent(relay: relay, name: Host.current().localizedName ?? "Mac", queue: service.queue)
             agent.onStage = { [weak self, weak agent] stage in
@@ -286,7 +286,6 @@ final class DeviceLink {
     private var bridge: Int32 = -1
     private var bridgeSource: DispatchSourceRead?
     private var decoder = WireDecoder()
-    private var resized = Set<UInt32>()
     private(set) var isConnected = false
 
     init(peer: PairedPeer, service: Service, onSeen: @escaping (String) -> Void, onToken: @escaping (String, String) -> Void) {
@@ -340,22 +339,7 @@ final class DeviceLink {
         bridgeSource = source
     }
 
-    /// The phone's narrower size lasts only while it looks. The window gets its own size back.
-    private func restoreSize(_ number: UInt32) {
-        guard resized.remove(number) != nil, let session = service.sessions[number] else { return }
-        var message = WireMessage(op: "resize")
-        message.number = number
-        message.rows = session.rows
-        message.cols = session.cols
-        if let client { service.handleMessage(message, from: client) }
-    }
-
     private func closeBridge() {
-        resized.forEach { number in
-            guard let session = service.sessions[number] else { return }
-            _ = cpty_resize(session.master, UInt16(session.rows), UInt16(session.cols))
-        }
-        resized.removeAll()
         bridgeSource?.cancel()
         bridgeSource = nil
         if bridge >= 0 {
@@ -391,9 +375,7 @@ final class DeviceLink {
                 } else if message.op == "appCall" {
                     service.phones.forward(message, from: client)
                 } else if PhoneCenter.allowedOperations.contains(message.op) {
-                    if message.op == "resize", let number = message.number { resized.insert(number) }
                     service.handleMessage(message, from: client)
-                    if message.op == "detach", let number = message.number { restoreSize(number) }
                 }
             default:
                 break
