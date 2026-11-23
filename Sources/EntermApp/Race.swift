@@ -254,7 +254,7 @@ final class RaceCenter: ObservableObject {
         if !Git.run(["diff", "--cached", "--quiet"], runner: own).ok {
             Git.run(["commit", "-m", "\(race.task) (\(entrant.title))"], runner: own)
         }
-        let merged = Git.run(["merge", "--no-ff", "-m", "Yarış: \(race.task) · Kazanan \(entrant.title)", branch], runner: root)
+        let merged = Git.run(["merge", "--no-ff", "-m", "Race: \(race.task) · winner \(entrant.title)", branch], runner: root)
         guard merged.ok else {
             Git.run(["merge", "--abort"], runner: root)
             return "Birleştirilemedi: \(merged.output.prefix(200))"

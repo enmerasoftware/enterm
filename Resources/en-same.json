@@ -119,6 +119,7 @@
  "PATH=%@:\"$PATH\" %@",
  "Program",
  "Puts something on the canvas: not (note, text), web (URL), gorsel (image) or video (file path).",
+ "Race: %@ · winner %@",
  "Read",
  "Read Workspace.swift",
  "Returns the open page's URL, title and text.",

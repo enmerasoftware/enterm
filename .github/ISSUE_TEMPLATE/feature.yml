@@ -1,20 +1,75 @@
-name: Öneri / Feature request
-description: Yeni bir özellik ya da iyileştirme. A new feature or an improvement.
+name: Feature request
+description: Suggest a new feature or an improvement.
 labels: [enhancement]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Open-ended questions and early ideas also fit well in [Discussions](https://github.com/enmerasoftware/enterm/discussions).
   - type: textarea
     id: problem
     attributes:
-      label: Hangi işi kolaylaştıracak? / What would it make easier?
+      label: What would it make easier?
+      description: The problem or the work you are doing, not the solution yet. "When I run three agents, I cannot tell which one is waiting for me..."
     validations:
       required: true
   - type: textarea
     id: idea
     attributes:
-      label: Önerdiğiniz çözüm / Proposed solution
+      label: Proposed solution
+      description: How you imagine it working. Sketches and screenshots are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+      description: Workarounds you use today, or how other tools solve it.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Canvas and boxes
+        - Terminal
+        - Agents and the MCP bridge
+        - Permissions and approvals
+        - Race and timeline
+        - Skill packs
+        - Browser
+        - iPhone app
+        - Relay
+        - Settings
+        - Other
+  - type: dropdown
+    id: program
+    attributes:
+      label: Programs it concerns
+      multiple: true
+      options:
+        - Claude Code
+        - Codex
+        - Gemini
+        - opencode
+        - GitHub Copilot
+        - Cursor
+        - Grok
+        - Antigravity
+        - Plain terminal
+        - All of them
   - type: checkboxes
     id: rules
     attributes:
-      label: Kurallar / Ground rules
+      label: Ground rules
+      description: Enterm's three rules, from CONTRIBUTING.md. If your idea needs to break one, say why above.
       options:
-        - label: Boşta yük bindirmez, kullanıcının ayar dosyalarına dokunmaz. / Costs nothing while idle and never edits the user's config files.
+        - label: It costs nothing while idle (no polling, timers or background processes).
+        - label: It never edits the user's configuration files (`.zshrc`, `~/.claude`, `~/.codex`, ...).
+        - label: It leaves the official programs unchanged and never handles their tokens.
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contributing
+      options:
+        - label: I would like to work on this myself.

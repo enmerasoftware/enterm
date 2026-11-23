@@ -47,7 +47,7 @@ Kurallar: `.zshrc`, `~/.claude`, `~/.codex` değişmez. Entegrasyon başlatma ar
 ## Telefon
 
 - `enterm-ios/`: iOS uygulaması. Xcode ile `enterm-ios/EntermPhone.xcodeproj` açılır. Proje dosyası `enterm-ios/project.yml` içinden xcodegen ile üretilir; simülatör için `scripts/build-ios.sh <simülatör kimliği>`.
-- `relay/`: aktarım ve bildirim servisi, bağımlılığı yok. Canlıda değil, ayrıntı `relay/README.md`.
+- `relay/`: aktarım ve bildirim servisi, bağımlılığı yok. `wss://enterm.enmeraapps.com` adresinde canlı ve uygulamaların varsayılanı; ayrıntı `relay/README.md`.
 - Eşleşme: QR kodunda geçici açık anahtar var, iki taraf X25519 ile ortak sır üretir, kişi altı haneli sayıyı karşılaştırır. Aktarım yalnız şifreli bayt görür, her bağlantı yeni anahtar kullanır.
 - Eşleşen cihazlar `devices.json` içinde, 0600 izinle. Telefonda anahtar Anahtar Zinciri'nde.
 - Mac penceresindeki işler (hesaplar, Git, bağlantılar, tarayıcı, ekip, yeni oturum) telefondan `appCall` ile çağrılır: `Sources/EntermApp/PhoneBridge.swift`. Pencere kapalıysa servis onu arkada açar, öne getirmez.
@@ -62,5 +62,5 @@ Sparkle'ın gizli imza anahtarı yalnız yayın yapan Mac'in Anahtar Zinciri'nde
 
 ## Telefon Aktarımı Açılmadan Önce
 
-- **Anahtar taşıma:** Eşleşen cihaz anahtarları şu an `devices.json` içinde 0600 izinle duruyor. Bu yalnız imzasız sürüm için kabul edildi (Ufuk, 2026-11-04), çünkü imzasız servis Anahtar Zinciri'ne her erişimde parola penceresi açar. İmzalı sürümde `PhoneCenter` anahtarları Anahtar Zinciri'ne taşır, `devices.json` içinde yalnız ad, tarih ve bildirim jetonu kalır, ilk açılışta eski dosyadaki anahtarlar taşınıp silinir.
+- **Anahtar taşıma:** Eşleşen cihaz anahtarları şu an `devices.json` içinde 0600 izinle duruyor. Bu yalnız imzasız sürüm için kabul edildi (2026-11-04), çünkü imzasız servis Anahtar Zinciri'ne her erişimde parola penceresi açar. İmzalı sürümde `PhoneCenter` anahtarları Anahtar Zinciri'ne taşır, `devices.json` içinde yalnız ad, tarih ve bildirim jetonu kalır, ilk açılışta eski dosyadaki anahtarlar taşınıp silinir.
 

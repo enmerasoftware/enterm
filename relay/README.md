@@ -19,4 +19,4 @@ Ayarlar ortam değişkeniyledir:
 | `APNS_KEY_PATH`, `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_TOPIC` | APNs sağlayıcı anahtarı. Anahtar sunucuda kalır, depoya girmez |
 | `APNS_HOST` | Geliştirme için `https://api.sandbox.push.apple.com` |
 
-Canlıda değildir. Yayına almak ve APNs anahtarını koymak Sinan Bey'in kararıdır.
+Enmera'nın sunucusu `wss://enterm.enmeraapps.com` adresinde çalışır ve uygulamalar varsayılan olarak ona bağlanır. Kendi sunucunuzu kurup adresini Ayarlar'dan değiştirebilirsiniz; Enmera'nın APNs anahtarı olmayan bir sunucu canlı bağlantıyı taşır ama bildirim gönderemez (ayrıntı: [docs/phone.md](../docs/phone.md)).

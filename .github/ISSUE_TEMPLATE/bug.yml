@@ -1,31 +1,123 @@
-name: Hata / Bug
-description: Bir şey beklendiği gibi çalışmıyor. Something does not work as expected.
+name: Bug report
+description: Something in Enterm does not work as expected.
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Issues in English or Turkish are both fine.
+
+        **Security problems do not belong here.** Please report them privately as described in the [security policy](https://github.com/enmerasoftware/enterm/security/policy).
+        A bug in the agent CLI itself (Claude Code, Codex, ...) is best reported to its vendor; report it here when it only happens inside Enterm.
   - type: textarea
     id: what
     attributes:
-      label: Ne oldu, ne bekliyordunuz? / What happened, what did you expect?
+      label: What happened?
+      description: Describe the problem in a few sentences.
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
-      label: Adımlar / Steps to reproduce
-      placeholder: "1. ...\n2. ..."
+      label: Steps to reproduce
+      description: The smallest set of steps that still shows the problem.
+      placeholder: |
+        1. Open a Claude Code session in a project folder
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
   - type: input
     id: version
     attributes:
-      label: Enterm sürümü / version
-      description: Ayarlar → Hakkında / Settings → About
+      label: Enterm version
+      description: Settings → About.
+      placeholder: "0.1.5"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install Enterm?
+      options:
+        - DMG from GitHub releases
+        - Homebrew cask
+        - Built from source
     validations:
       required: true
   - type: input
     id: macos
     attributes:
-      label: macOS sürümü / version
+      label: macOS version
+      description: Apple menu → About This Mac.
+      placeholder: "macOS 15.1"
+    validations:
+      required: true
+  - type: input
+    id: mac
+    attributes:
+      label: Mac model and chip
+      placeholder: "MacBook Pro 14-inch, M3 Pro"
   - type: dropdown
     id: program
     attributes:
-      label: Oturumdaki program / Program in the session
-      options: [Claude Code, Codex, Antigravity, Gemini, opencode, Grok, GitHub Copilot, Cursor, Terminal, Diğer / Other]
+      label: Program in the session
+      description: Which program was running in the box where the problem happened?
+      options:
+        - Claude Code
+        - Codex
+        - Gemini
+        - opencode
+        - GitHub Copilot
+        - Cursor
+        - Grok
+        - Antigravity
+        - Plain terminal
+        - A custom program
+        - Not related to a session
+    validations:
+      required: true
+  - type: input
+    id: program-version
+    attributes:
+      label: Program version
+      description: For example the output of `claude --version` or `codex --version`.
+  - type: dropdown
+    id: phone
+    attributes:
+      label: Is the iPhone app involved?
+      options:
+        - "No"
+        - "Yes"
+    validations:
+      required: true
+  - type: input
+    id: phone-details
+    attributes:
+      label: iPhone model and iOS version
+      description: Only if the phone is involved. Also say whether you use the default relay or your own.
+      placeholder: "iPhone 15, iOS 18.1, default relay"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, screenshots or recordings
+      description: |
+        Drag images or videos here. Paste relevant terminal output or Console.app lines (processes `EntermApp` and `entermd`).
+        Remove tokens, keys, file paths and anything else private before posting.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues and this is not a duplicate.
+          required: true
+        - label: I am on the latest Enterm release, or I said above why not.
+          required: true
+        - label: I removed tokens, keys and other private data from what I pasted.
+          required: true

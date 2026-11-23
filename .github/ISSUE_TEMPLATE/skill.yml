@@ -1,26 +1,59 @@
-name: Beceri önerisi / Skill proposal
-description: Hazır beceri paketine eklenecek bir beceri. A skill for the preset packs.
-labels: [skill]
+name: Skill proposal
+description: Propose a skill for one of the preset skill packs.
+labels: [enhancement, skill]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Skills live in `skills/<pack>/skills/<name>/SKILL.md`. See "Adding a skill" in [CONTRIBUTING.md](https://github.com/enmerasoftware/enterm/blob/main/CONTRIBUTING.md#adding-a-skill) for the format and rules.
   - type: dropdown
     id: pack
     attributes:
-      label: Paket / Pack
-      options: [Video, Yazılım / Software, Görsel / Image, Yeni paket / New pack]
+      label: Pack
+      options:
+        - Video (video)
+        - Software (code)
+        - Image (image)
+        - A new pack
+    validations:
+      required: true
+  - type: input
+    id: name
+    attributes:
+      label: Skill name
+      description: Short, lowercase, with hyphens. It is called as `/<pack>:<name>`.
+      placeholder: "video-thumbnails"
     validations:
       required: true
   - type: textarea
     id: what
     attributes:
-      label: Ne yapar, ne zaman kullanılır? / What does it do, when is it used?
+      label: What does it do, and when should the agent use it?
+      description: This becomes the skill's `description`, which decides when the agent picks it.
     validations:
       required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps the agent follows
+      description: Commands, checks, and what "done" looks like. A rough outline is fine.
   - type: input
     id: tools
     attributes:
-      label: Gereken araçlar / Tools it needs
-      placeholder: ffmpeg, whisper-cli, ...
+      label: Tools it needs
+      description: Only tools anyone can install freely.
+      placeholder: "ffmpeg, whisper-cli, ..."
   - type: input
     id: license
     attributes:
-      label: Kaynak ve lisans (uyarlamaysa) / Source and license (if adapted)
+      label: Source and license (if adapted)
+      description: Leave empty if it is your own work.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: The skill is my own work, or its license allows redistribution.
+          required: true
+        - label: It checks that each tool exists before using it.
+        - label: I would like to open the pull request myself.
