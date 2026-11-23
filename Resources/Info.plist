@@ -2,30 +2,55 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>Enterm</string>
-    <key>CFBundleDisplayName</key><string>Enterm</string>
-    <key>CFBundleIdentifier</key><string>tr.com.enmera.enterm</string>
-    <key>CFBundleURLTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleURLName</key><string>tr.com.enmera.enterm</string>
-            <key>CFBundleURLSchemes</key><array><string>enterm</string></array>
-        </dict>
-    </array>
-    <key>CFBundleExecutable</key><string>EntermApp</string>
-    <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.1.5</string>
-    <key>CFBundleVersion</key><string>1</string>
-    <key>CFBundleIconFile</key><string>Enterm</string>
-    <key>LSMinimumSystemVersion</key><string>14.0</string>
-    <key>SUPublicEDKey</key><string>j30kFVihKrIL4QvIoizagSOKVEl71C3DsWAtIUxhZdo=</string>
-    <key>SUEnableAutomaticChecks</key><true/>
-    <key>NSHighResolutionCapable</key><true/>
-    <key>NSPrincipalClass</key><string>NSApplication</string>
-    <key>CFBundleDevelopmentRegion</key><string>en</string>
-    <key>CFBundleLocalizations</key><array><string>en</string><string>tr</string></array>
-    <key>NSMicrophoneUsageDescription</key><string>Voice typing needs the microphone. Your voice is processed by the local model you choose.</string>
-    <key>NSAppleEventsUsageDescription</key><string>Needed when you let agents work in your Safari.</string>
-    <key>NSSpeechRecognitionUsageDescription</key><string>When System Dictation is chosen, your speech is turned into text.</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Enterm</string>
+	<key>CFBundleExecutable</key>
+	<string>EntermApp</string>
+	<key>CFBundleIconFile</key>
+	<string>Enterm</string>
+	<key>CFBundleIdentifier</key>
+	<string>tr.com.enmera.enterm</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>tr</string>
+	</array>
+	<key>CFBundleName</key>
+	<string>Enterm</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.5</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>tr.com.enmera.enterm</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>enterm</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Needed when you let agents work in your Safari.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Voice typing needs the microphone. Your voice is processed by the local model you choose.</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>When System Dictation is chosen, your speech is turned into text.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUPublicEDKey</key>
+	<string>i+O4kHD4d+vMyk0kKQyY20pnyzOvH/O+q8Eo3ahAtDY=</string>
 </dict>
 </plist>
