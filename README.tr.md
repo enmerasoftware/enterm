@@ -70,10 +70,10 @@ macOS 14 (Sonoma) ya da üstü gerekir.
 
 **Homebrew.**
 
-<!-- TODO: yayından önce cask'in enmerasoftware/homebrew-tap deposunda (Casks/enterm.rb) yayımlandığını doğrulayın -->
-
 ```bash
-brew install --cask enmerasoftware/tap/enterm
+brew tap enmerasoftware/tap
+brew trust enmerasoftware/tap   # Homebrew yeni bir depodan kurmadan önce onay ister
+brew install --cask enterm
 ```
 
 Ardından kullanmak istediğiniz ajanları (örneğin Claude Code ya da Codex) üreticilerinin anlattığı şekilde kurun. Enterm onları `PATH` üzerinde bulur.

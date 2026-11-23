@@ -9,12 +9,12 @@ cask "enterm" do
 
   livecheck do
     url "https://github.com/enmerasoftware/enterm/releases/latest/download/appcast.xml"
-    strategy :sparkle
+    strategy :sparkle, &:short_version
   end
 
   # Sparkle updates the app itself.
   auto_updates true
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "Enterm.app"
 

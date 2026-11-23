@@ -70,10 +70,10 @@ Requires macOS 14 (Sonoma) or later.
 
 **Homebrew.**
 
-<!-- TODO: confirm the cask is published in enmerasoftware/homebrew-tap (Casks/enterm.rb) before launch -->
-
 ```bash
-brew install --cask enmerasoftware/tap/enterm
+brew tap enmerasoftware/tap
+brew trust enmerasoftware/tap   # Homebrew asks before loading casks from a new tap
+brew install --cask enterm
 ```
 
 Then install the agents you want to use (for example Claude Code or Codex) the way their vendors describe. Enterm finds them on your `PATH`.
