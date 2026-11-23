@@ -43,9 +43,6 @@ struct TopBar: View {
                 }
             }
             Spacer(minLength: 0)
-            if let hint = model.hint {
-                Btn(hint, kind: .plain) { model.hint = nil }.lineLimit(1)
-            }
             if model.serviceLost {
                 T("■ Koptu", color: palette.err, bold: true)
             }
@@ -172,11 +169,7 @@ struct ProjectTab: View {
             // The cross lives in the tab's own margin, so showing it moves nothing.
             .overlay(alignment: .trailing) {
                 if hovering {
-                    Button {
-                        model.confirm(title: "\(name) Kapatılsın mı?", detail: "Bu projedeki \(members.count) oturum ve içinde çalışan programlar kapanır.", action: "Projeyi Kapat", danger: true) {
-                            model.closeProject(name)
-                        }
-                    } label: {
+                    Button { askToClose(members.count) } label: {
                         Symbol("xmark", color: palette.text3, size: 10).frame(width: 14, height: 14).contentShape(Rectangle())
                     }
                     .buttonStyle(.press)
@@ -188,6 +181,21 @@ struct ProjectTab: View {
         }
         .buttonStyle(.press)
         .onHover { hovering = $0 }
+        // The cross shows only under the pointer; the same things are a right click away.
+        .contextMenu {
+            Button("Bu Projeye Geç") { model.switchProject(name) }
+            if model.projectNames.count > 1 {
+                Button("Tüm Alanlar") { model.showAllProjects() }
+            }
+            Divider()
+            Button("Projeyi Kapat…") { askToClose(members.count) }
+        }
+    }
+
+    private func askToClose(_ count: Int) {
+        model.confirm(title: "\(name) Kapatılsın mı?", detail: "Bu projedeki \(count) oturum ve içinde çalışan programlar kapanır.", action: "Projeyi Kapat", danger: true) {
+            model.closeProject(name)
+        }
     }
 }
 
@@ -503,5 +511,34 @@ private final class TitleBarAreaView: NSView {
         case .minimize: window.miniaturize(nil)
         case .none: break
         }
+    }
+}
+
+/// A short note over the canvas: what just happened, or the key for it. A click puts it away; it goes by itself too.
+struct HintToast: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    @ObservedObject var model = AppModel.shared
+    var body: some View {
+        let palette = Theme.palette
+        HStack {
+            Spacer(minLength: 0)
+            if let hint = model.hint {
+                Button { model.hint = nil } label: {
+                    T(hint, color: palette.text1, style: .secondary, weight: .medium)
+                        .lineLimit(1)
+                        .padding(.horizontal, 14)
+                        .frame(height: 26)
+                        .background(Capsule().fill(Color(palette.surface3)))
+                        .overlay(Capsule().stroke(Color(palette.hair2)))
+                        .shadow(color: Color(palette.shadowFloat), radius: 10, y: 4)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.press)
+                .transition(Motion.allowed ? .move(edge: .bottom).combined(with: .opacity) : .identity)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxHeight: .infinity)
+        .animation(Motion.allowed ? .spring(response: 0.35, dampingFraction: 0.85) : nil, value: model.hint)
     }
 }

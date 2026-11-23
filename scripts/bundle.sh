@@ -30,6 +30,11 @@ cp "$root/Resources/Info.plist" "$app/Contents/Info.plist"
 rm -rf "$app/Contents/Resources/skills"
 ditto "$root/skills" "$app/Contents/Resources/skills"
 [[ -f "$root/Resources/Enterm.icns" ]] && cp "$root/Resources/Enterm.icns" "$app/Contents/Resources/Enterm.icns"
+# Languages. The code is the Turkish text; English is a table keyed by it (Resources/en.json), Turkish needs none.
+mkdir -p "$app/Contents/Resources/en.lproj" "$app/Contents/Resources/tr.lproj"
+plutil -convert binary1 -o "$app/Contents/Resources/en.lproj/Localizable.strings" "$root/Resources/en.json"
+cp "$root/Resources/tr.lproj/InfoPlist.strings" "$app/Contents/Resources/tr.lproj/InfoPlist.strings"
+cp "$root/Resources/tr.lproj/Localizable.strings" "$app/Contents/Resources/tr.lproj/Localizable.strings"
 # macOS refuses notifications to an ad-hoc signature, so a delivery carries the Developer ID when this Mac has it.
 # Test builds stay ad-hoc: they never ask anyone for permission.
 identity="-"

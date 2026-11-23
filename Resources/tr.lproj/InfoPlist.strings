@@ -1,0 +1,4 @@
+/* Enterm is written in Turkish; this folder also tells macOS the app speaks Turkish. */
+"NSMicrophoneUsageDescription" = "Konuşarak yazmak için mikrofon gerekir. Ses, seçtiğiniz yerel modelle işlenir.";
+"NSAppleEventsUsageDescription" = "Ajanların Safari'nizde çalışmasını siz açtığınızda gerekir.";
+"NSSpeechRecognitionUsageDescription" = "Sistem Diktesi seçildiğinde konuşmanız yazıya çevrilir.";

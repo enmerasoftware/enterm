@@ -196,8 +196,8 @@ struct InboxPage: View {
                         T("◆ \(info.map { model.title(for: $0) } ?? "Oturum"): \(request.category.title)", color: Theme.palette.need, bold: true)
                         ApprovalCommand(text: request.summary, lines: 4)
                         HStack {
-                            Btn("İzin Ver", kind: .primary) { Approvals.decide(id: request.id, decision: "allow", remember: request.category == .internet) }
                             Btn("Reddet") { Approvals.decide(id: request.id, decision: "deny") }
+                            Btn("İzin Ver", kind: .primary) { Approvals.decide(id: request.id, decision: "allow", remember: request.category == .internet) }
                             Btn("Ayrıntı", kind: .plain) { model.overlay = .approval(request.id) }
                         }
                     }
@@ -231,7 +231,7 @@ struct InboxPage: View {
                             Dim("\(queued.reason). Yer Açılınca Kendiliğinden Başlar, Token Harcamıyor.")
                         }
                         Spacer()
-                        Btn("Yine De Başlat") { power.startAndShow(queued) }
+                        Btn("Yine de Başlat") { power.startAndShow(queued) }
                     }
                     .padding(12)
                 }
@@ -262,7 +262,7 @@ struct CostPage: View {
     @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var model = AppModel.shared
     var body: some View {
-        PageFrame(title: "Model Ve Maliyet") {
+        PageFrame(title: "Model ve Maliyet") {
             Panel {
                 ForEach(model.sessions.filter { $0.tool != .terminal }) { info in
                     HStack {
@@ -318,7 +318,10 @@ struct SettingsPage: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 T(group.title, color: palette.text3, style: .hint, weight: .semibold).padding(.horizontal, 8).padding(.bottom, 4)
                                 ForEach(group.tabs) { item in
-                                    sideItem(item.title, icon: item.icon, selected: tab == item) { tab = item }
+                                    sideItem(item.title, icon: item.icon, selected: tab == item) {
+                                        tab = item
+                                        UserDefaults.standard.set(item.rawValue, forKey: "settingsTab")
+                                    }
                                 }
                             }
                         }
@@ -440,7 +443,7 @@ struct SettingsPage: View {
             T("Şu Anki Kullanım", bold: true, style: .section)
             Panel {
             HStack { T("Enterm"); Spacer(); Dim(String(format: "%%%.1f · %.0f MB", power.enterm.cpu, power.enterm.memoryMB)) }.settingsRow()
-            HStack { T("Claude Code, Codex Ve Antigravity"); Spacer(); Dim(String(format: "%%%.1f · %.0f MB", power.agents.cpu, power.agents.memoryMB)) }.settingsRow()
+            HStack { T("Claude Code, Codex ve Antigravity"); Spacer(); Dim(String(format: "%%%.1f · %.0f MB", power.agents.cpu, power.agents.memoryMB)) }.settingsRow()
             HStack { T("Bellek Baskısı"); Spacer(); Dim(power.pressure.title) }.settingsRow()
             }
             HStack(spacing: 24) {

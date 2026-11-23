@@ -24,6 +24,8 @@ final class RootView: NSView {
     private var home: NSHostingView<HomeView>?
     private var cover: NSHostingView<CoverContent>?
     private var cards: BoundedHostingView<InlineCards>
+    /// Short notes ("Yarış Başladı", "Kutuyu Büyüt ⌘⏎") rise above the command bar instead of crowding the tabs.
+    private let toast = BoundedHostingView(rootView: HintToast())
     private var bags = Set<AnyCancellable>()
     private var keyMonitor: Any?
     private var flagsMonitor: Any?
@@ -50,6 +52,8 @@ final class RootView: NSView {
         addSubview(bottom)
         addSubview(side)
         addSubview(cards)
+        toast.safeAreaRegions = []
+        addSubview(toast)
         model.onLayoutChange = { [weak self] in
             self?.needsLayout = true
             self?.canvas.relayout(animated: true)
@@ -64,6 +68,10 @@ final class RootView: NSView {
         model.$overlay.combineLatest(model.$page)
             .receive(on: RunLoop.main)
             .sink { [weak self] overlay, page in self?.updateCover(overlay: overlay, page: page) }
+            .store(in: &bags)
+        model.$hint
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.needsLayout = true }
             .store(in: &bags)
         model.$detailsOpen.combineLatest(model.$notFound)
             .receive(on: RunLoop.main)
@@ -141,6 +149,15 @@ final class RootView: NSView {
         }
         cards.frame = NSRect(x: anchor.minX + 12, y: anchor.maxY - cardsHeight - 12, width: min(anchor.width - 24, 720), height: cardsHeight)
         cards.isHidden = cardsHeight == 0
+        // In the middle of the status line at the bottom, which is empty there: it covers no box.
+        // Without that line (focus mode) it sits at the foot of the canvas.
+        let toastWidth = max(200, min(bounds.width - 480, 560))
+        let footHeight: CGFloat = model.footVisible && !model.focusMode ? 36 : 0
+        toast.frame = footHeight > 0
+            ? NSRect(x: bounds.midX - toastWidth / 2, y: bounds.height - footHeight, width: toastWidth, height: footHeight)
+            : NSRect(x: canvasRect.midX - toastWidth / 2, y: canvasRect.maxY - 44 - 12, width: toastWidth, height: 44)
+        toast.isHidden = model.hint == nil || home != nil
+        addSubview(toast, positioned: .above, relativeTo: nil)
     }
 
     /// With nothing open the window is the home screen. It costs nothing while a session is open.
@@ -226,15 +243,8 @@ final class RootView: NSView {
             }
             return event
         }
-        if model.overlay == nil, model.page == nil, flags.isEmpty, !(window?.firstResponder is TerminalHost), !(window?.firstResponder is NSTextView) {
-            switch event.charactersIgnoringModifiers {
-            case "n": Commands.perform("newSession"); return nil
-            case "e": Commands.perform("team"); return nil
-            case "0": Commands.perform("fit"); return nil
-            case "?": Commands.perform("shortcuts"); return nil
-            default: break
-            }
-        }
+        // No bare letters on the canvas: they worked only when no terminal had the keys, which was most of the time
+        // not. Every one of those commands has its ⌘ key.
         if case .approval(let id)? = model.overlay, flags.isEmpty {
             switch event.charactersIgnoringModifiers {
             case "y": Approvals.decide(id: id, decision: "allow"); return nil

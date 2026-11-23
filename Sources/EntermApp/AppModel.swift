@@ -35,7 +35,9 @@ enum Page: Equatable {
     case uninstall
     case welcome
     case recents
-    case notYet(String)
+    case raceSetup
+    case race(String)
+    case timeline(String)
 }
 
 enum SettingsTab: String, CaseIterable, Identifiable {
@@ -47,11 +49,13 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     static let groups: [(title: String, tabs: [SettingsTab])] = [
-        ("Programlar", [.programs, .accounts, .custom, .skills, .commands, .gateway, .usage, .commits]),
+        ("Programlar", [.programs, .accounts, .custom, .skills, .gateway, .usage, .commits]),
         ("Çalışma Alanı", [.terminal, .shell, .session, .behavior, .browser]),
-        ("Arayüz", [.appearance, .notch, .notifications, .voice, .shortcuts]),
+        ("Arayüz", [.appearance, .notch, .notifications, .voice]),
         ("Uzak", [.phone, .ssh]),
-        ("Uygulama", [.power, .security, .about]),
+        ("Uygulama", [.power, .security]),
+        // What to look up rather than set.
+        ("Yardım", [.shortcuts, .commands, .about]),
     ]
 
     var title: String {
@@ -69,7 +73,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .session: return "Oturum Koruma"
         case .behavior: return "Davranış"
         case .browser: return "Tarayıcı"
-        case .appearance: return "Görünüm"
+        case .appearance: return L("Görünüm", context: "ayar")
         case .notch: return "Çentik"
         case .notifications: return "Bildirimler"
         case .voice: return "Ses"
@@ -128,7 +132,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .power: words = "işlemci bellek düşük güç"
         default: words = ""
         }
-        return (title + " " + words).lowercased(with: Locale(identifier: "tr_TR"))
+        // Both languages: someone may search in either, whichever the screen is in.
+        return [title, words, L(title), L(words)].joined(separator: " ").lowercased(with: Locale(identifier: "tr_TR"))
     }
 }
 
@@ -528,7 +533,7 @@ final class AppModel: ObservableObject {
                 if isNewProject, SettingsStore.shared.settings.defaultBoardView { self.page = .board }
                 if self.tileCount > 1, self.mode == .single {
                     self.mode = SettingsStore.shared.settings.newTerminalAsTab ? .tabs : .canvas
-                    self.hint = "İki Terminal Yan Yana · ⌘⏎ Tam Ekran · ⌘W Kapat"
+                    self.hint = "İki Terminal Yan Yana · ⌘⏎ Büyüt · ⌘W Kapat"
                 }
                 if self.tileCount == 7 { self.hint = "Kutular Küçülmez, Sürükleyerek Gezin · ⌥⌘0 Sığdır" }
                 self.maximized = nil

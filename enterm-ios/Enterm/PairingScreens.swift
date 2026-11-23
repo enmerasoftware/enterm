@@ -4,18 +4,35 @@ import SwiftUI
 /// 12.0T: nothing is asked before the phone is actually wanted.
 struct WelcomeScreen: View {
     @EnvironmentObject var model: PhoneModel
+    @Environment(\.accessibilityReduceMotion) private var reduce
+    @State private var breathing = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(spacing: 16) {
             Spacer()
-            Txt("Bilgisayarınıza Bağlanın", style: .title3, weight: .semibold)
+            // The same light as the home screen: this is where it will start.
+            ZStack {
+                Circle().fill(Palette.need.opacity(0.18)).frame(width: 72, height: 72).blur(radius: 12)
+                    .scaleEffect(breathing ? 1.14 : 0.92)
+                Text(verbatim: "❯_").font(.system(size: 34, weight: .semibold, design: .monospaced)).foregroundColor(Palette.need)
+                    .shadow(color: Palette.need.opacity(0.7), radius: 10)
+            }
+            .onAppear {
+                guard !reduce else { return }
+                withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { breathing = true }
+            }
+            Txt("Bilgisayarınıza Bağlanın", style: .title2, weight: .semibold)
+                .multilineTextAlignment(.center)
             DimTxt("Terminal bilgisayarınızda çalışır. Telefon aynı ekrana bağlanır, bir kez eşleştirmek yeter.")
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 320)
             Spacer()
-            DimTxt("Bilgisayarda: ⋯ › Telefonu Bağla")
+            DimTxt("Mac'te Enterm'in üst çubuğundaki telefon simgesine dokunun")
+                .multilineTextAlignment(.center)
             ActionButton("Kodu Okut", style: .primary) { model.pairing = .scanning }
             ActionButton("Bilgisayar Olmadan Görün", style: .plain) { model.startDemo() }
         }
         .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Palette.bg)
     }
 }
@@ -75,7 +92,7 @@ struct CompareScreen: View {
                 Spacer()
                 DimTxt("Adım 2 / 2")
             }
-            Txt("Sayılar Aynı Mı?", style: .title3, weight: .semibold)
+            Txt("Sayılar Aynı mı?", style: .title3, weight: .semibold)
             Text(number)
                 .font(.monoLarge)
                 .foregroundColor(Palette.fg)

@@ -13,7 +13,7 @@ public struct ClaudeCommand: Equatable, Identifiable {
 }
 
 public enum ClaudeCommands {
-    public static let groups = ["Model Ve Efor", "Bağlam Ve Bellek", "Oturum", "Kod Ve Git", "Araçlar Ve Eklentiler", "Ayarlar", "Hesap"]
+    public static let groups = ["Model ve Efor", "Bağlam ve Bellek", "Oturum", "Kod ve Git", "Araçlar ve Eklentiler", "Ayarlar", "Hesap"]
 
     /// The effort levels, lowest to highest, as `/effort` and `--effort` take them.
     public static let effortLevels: [(level: String, summary: String)] = [
@@ -27,17 +27,17 @@ public enum ClaudeCommands {
     ]
 
     public static let all: [ClaudeCommand] = [
-        ClaudeCommand(name: "effort", arguments: "[low|medium|high|xhigh|max|auto|status]", summary: "Düşünme seviyesini değiştirir. Kaydırıcıda Enter modele kaydeder, s yalnız bu oturuma uygular.", group: "Model Ve Efor"),
-        ClaudeCommand(name: "model", arguments: "[model]", summary: "Modeli değiştirir ve varsayılan yapar.", group: "Model Ve Efor"),
-        ClaudeCommand(name: "fast", arguments: "[on|off]", summary: "Hızlı modu açar ya da kapatır: aynı model, daha hızlı çıktı.", group: "Model Ve Efor"),
-        ClaudeCommand(name: "output-style", arguments: "[stil]", summary: "Yanıt biçimini listeler ya da değiştirir.", group: "Model Ve Efor"),
+        ClaudeCommand(name: "effort", arguments: "[low|medium|high|xhigh|max|auto|status]", summary: "Düşünme seviyesini değiştirir. Kaydırıcıda Enter modele kaydeder, s yalnız bu oturuma uygular.", group: "Model ve Efor"),
+        ClaudeCommand(name: "model", arguments: "[model]", summary: "Modeli değiştirir ve varsayılan yapar.", group: "Model ve Efor"),
+        ClaudeCommand(name: "fast", arguments: "[on|off]", summary: "Hızlı modu açar ya da kapatır: aynı model, daha hızlı çıktı.", group: "Model ve Efor"),
+        ClaudeCommand(name: "output-style", arguments: "[stil]", summary: "Yanıt biçimini listeler ya da değiştirir.", group: "Model ve Efor"),
 
-        ClaudeCommand(name: "context", arguments: "[all]", summary: "Bağlamın nelerle dolduğunu renkli bir tabloyla gösterir, öneri verir.", group: "Bağlam Ve Bellek"),
-        ClaudeCommand(name: "compact", arguments: "[talimat]", summary: "Konuşmayı özetleyip bağlamda yer açar. Neyin korunacağını yazabilirsiniz.", group: "Bağlam Ve Bellek"),
-        ClaudeCommand(name: "clear", arguments: "", summary: "Konuşmayı sıfırlar, temiz bağlamla yeni başlar.", group: "Bağlam Ve Bellek"),
-        ClaudeCommand(name: "memory", arguments: "", summary: "CLAUDE.md dosyalarını ve otomatik belleği düzenler.", group: "Bağlam Ve Bellek"),
-        ClaudeCommand(name: "init", arguments: "", summary: "Proje için CLAUDE.md oluşturur.", group: "Bağlam Ve Bellek"),
-        ClaudeCommand(name: "add-dir", arguments: "<yol>", summary: "Bu oturuma bir çalışma klasörü daha ekler.", group: "Bağlam Ve Bellek"),
+        ClaudeCommand(name: "context", arguments: "[all]", summary: "Bağlamın nelerle dolduğunu renkli bir tabloyla gösterir, öneri verir.", group: "Bağlam ve Bellek"),
+        ClaudeCommand(name: "compact", arguments: "[talimat]", summary: "Konuşmayı özetleyip bağlamda yer açar. Neyin korunacağını yazabilirsiniz.", group: "Bağlam ve Bellek"),
+        ClaudeCommand(name: "clear", arguments: "", summary: "Konuşmayı sıfırlar, temiz bağlamla yeni başlar.", group: "Bağlam ve Bellek"),
+        ClaudeCommand(name: "memory", arguments: "", summary: "CLAUDE.md dosyalarını ve otomatik belleği düzenler.", group: "Bağlam ve Bellek"),
+        ClaudeCommand(name: "init", arguments: "", summary: "Proje için CLAUDE.md oluşturur.", group: "Bağlam ve Bellek"),
+        ClaudeCommand(name: "add-dir", arguments: "<yol>", summary: "Bu oturuma bir çalışma klasörü daha ekler.", group: "Bağlam ve Bellek"),
 
         ClaudeCommand(name: "resume", arguments: "[oturum]", summary: "Eski bir konuşmaya kimlikle ya da adla döner, boş bırakılırsa seçici açar. Diğer adı /continue.", group: "Oturum"),
         ClaudeCommand(name: "rewind", arguments: "", summary: "Kodu ve konuşmayı önceki bir noktaya geri alır. Diğer adları /checkpoint, /undo.", group: "Oturum"),
@@ -47,18 +47,18 @@ public enum ClaudeCommands {
         ClaudeCommand(name: "usage", arguments: "", summary: "Oturum maliyeti, plan limitleri ve etkinlik. Diğer adları /cost, /stats.", group: "Oturum"),
         ClaudeCommand(name: "help", arguments: "", summary: "Bu sürümdeki tüm komutları listeler.", group: "Oturum"),
 
-        ClaudeCommand(name: "code-review", arguments: "[low…max|ultra] [--fix] [--comment] [pr|dal|yol]", summary: "Değişiklikleri hata için inceler. Diğer adı /review.", group: "Kod Ve Git"),
-        ClaudeCommand(name: "security-review", arguments: "", summary: "Daldaki değişikliği ana dala göre güvenlik açısından inceler.", group: "Kod Ve Git"),
-        ClaudeCommand(name: "install-github-app", arguments: "", summary: "Depoya Claude GitHub uygulamasını kurar.", group: "Kod Ve Git"),
+        ClaudeCommand(name: "code-review", arguments: "[low…max|ultra] [--fix] [--comment] [pr|dal|yol]", summary: "Değişiklikleri hata için inceler. Diğer adı /review.", group: "Kod ve Git"),
+        ClaudeCommand(name: "security-review", arguments: "", summary: "Daldaki değişikliği ana dala göre güvenlik açısından inceler.", group: "Kod ve Git"),
+        ClaudeCommand(name: "install-github-app", arguments: "", summary: "Depoya Claude GitHub uygulamasını kurar.", group: "Kod ve Git"),
 
-        ClaudeCommand(name: "skills", arguments: "", summary: "Yüklü becerileri listeler. Enterm'in hazır becerileri de burada görünür.", group: "Araçlar Ve Eklentiler"),
-        ClaudeCommand(name: "reload-skills", arguments: "", summary: "Beceri klasörlerini yeniden tarar.", group: "Araçlar Ve Eklentiler"),
-        ClaudeCommand(name: "plugin", arguments: "[alt komut]", summary: "Eklentileri yönetir.", group: "Araçlar Ve Eklentiler"),
-        ClaudeCommand(name: "reload-plugins", arguments: "[--force]", summary: "Eklentileri yeniden başlatmadan yükler.", group: "Araçlar Ve Eklentiler"),
-        ClaudeCommand(name: "mcp", arguments: "[reconnect|enable|disable <sunucu|all>]", summary: "MCP sunucularını gösterir ve yönetir.", group: "Araçlar Ve Eklentiler"),
-        ClaudeCommand(name: "agents", arguments: "", summary: "Alt ajanları oluşturma ve düzenleme.", group: "Araçlar Ve Eklentiler"),
-        ClaudeCommand(name: "hooks", arguments: "", summary: "Kanca ayarlarını gösterir.", group: "Araçlar Ve Eklentiler"),
-        ClaudeCommand(name: "ide", arguments: "", summary: "Editör bağlantısını yönetir.", group: "Araçlar Ve Eklentiler"),
+        ClaudeCommand(name: "skills", arguments: "", summary: "Yüklü becerileri listeler. Enterm'in hazır becerileri de burada görünür.", group: "Araçlar ve Eklentiler"),
+        ClaudeCommand(name: "reload-skills", arguments: "", summary: "Beceri klasörlerini yeniden tarar.", group: "Araçlar ve Eklentiler"),
+        ClaudeCommand(name: "plugin", arguments: "[alt komut]", summary: "Eklentileri yönetir.", group: "Araçlar ve Eklentiler"),
+        ClaudeCommand(name: "reload-plugins", arguments: "[--force]", summary: "Eklentileri yeniden başlatmadan yükler.", group: "Araçlar ve Eklentiler"),
+        ClaudeCommand(name: "mcp", arguments: "[reconnect|enable|disable <sunucu|all>]", summary: "MCP sunucularını gösterir ve yönetir.", group: "Araçlar ve Eklentiler"),
+        ClaudeCommand(name: "agents", arguments: "", summary: "Alt ajanları oluşturma ve düzenleme.", group: "Araçlar ve Eklentiler"),
+        ClaudeCommand(name: "hooks", arguments: "", summary: "Kanca ayarlarını gösterir.", group: "Araçlar ve Eklentiler"),
+        ClaudeCommand(name: "ide", arguments: "", summary: "Editör bağlantısını yönetir.", group: "Araçlar ve Eklentiler"),
 
         ClaudeCommand(name: "config", arguments: "[anahtar=değer]", summary: "Ayarlar ekranı. Diğer adı /settings.", group: "Ayarlar"),
         ClaudeCommand(name: "permissions", arguments: "", summary: "İzin ver, sor ve yasakla kuralları.", group: "Ayarlar"),

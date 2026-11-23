@@ -45,7 +45,7 @@ public struct ShortcutBook: Codable, Equatable {
         ("newTerminal", "Yeni Terminal", KeyCombo("t")),
         ("newSession", "Yeni Oturum", KeyCombo("n")),
         ("close", "Kutuyu Kapat", KeyCombo("w")),
-        ("maximize", "Tam Ekran, Tümünü Gör", KeyCombo("\r")),
+        ("maximize", "Kutuyu Büyüt, Tümünü Gör", KeyCombo("\r")),
         ("details", "Ayrıntılar", KeyCombo("i")),
         ("stop", "Durdur", KeyCombo(".")),
         ("next", "Sonraki Oturum", KeyCombo("]")),

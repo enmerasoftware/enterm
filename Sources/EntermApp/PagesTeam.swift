@@ -23,7 +23,7 @@ struct TeamSetupPage: View {
         VStack(alignment: .leading, spacing: 16) {
             T("Projeyi Bir Cümleyle Anlatın", bold: true)
             EntermField(placeholder: "> Kupon ve iade akışını düzeltip test edelim", text: $brief)
-            T("Ya Da Şablon Seçin", bold: true)
+            T("Ya da Şablon Seçin", bold: true)
             Panel {
                 MenuList {
                     templateRow("software", "Yazılım", "Yönetici, Geliştirici, Test, İnceleme")
@@ -81,7 +81,7 @@ struct TeamSetupPage: View {
             Dim("Ekip El Kitabı: ekip/EL-KITABI.md yazılacak. Dosya sizindir, elle de düzenlersiniz. Boşta duran ajan token harcamaz.")
             HStack {
                 Btn("Geri", kind: .plain) { step = 1 }
-                Btn("Onayla Ve Ekibi Kur", kind: .primary, key: "⏎") { TeamBuilder.build(brief: brief, folder: folder, members: members) }
+                Btn("Onayla ve Ekibi Kur", kind: .primary, key: "⏎") { TeamBuilder.build(brief: brief, folder: folder, members: members) }
             }
         }
     }
@@ -182,8 +182,8 @@ struct ManagerPage: View {
                     HStack {
                         T("◆ \(request.summary)", color: Theme.palette.need).lineLimit(1)
                         Spacer()
-                        Btn("İzin Ver", kind: .primary) { Approvals.decide(id: request.id, decision: "allow") }
                         Btn("Reddet") { Approvals.decide(id: request.id, decision: "deny") }
+                        Btn("İzin Ver", kind: .primary) { Approvals.decide(id: request.id, decision: "allow") }
                     }
                 }
                 T("Raporlar", bold: true)
@@ -349,7 +349,7 @@ enum IssueSync {
             }()
             DispatchQueue.main.async {
                 guard let items else {
-                    model.hint = "Issue Alınamadı: gh Kurulu Mu, Klasör Depo Mu?"
+                    model.hint = "Issue Alınamadı: gh Kurulu mu, Klasör Depo mu?"
                     return
                 }
                 let store = BoardStore.shared
@@ -482,7 +482,7 @@ struct CardDrawer: View {
                         }
                     }
                     HStack {
-                        Btn("Yeni Claude Code Aç Ve Ata", kind: .primary) { startNew() }
+                        Btn("Yeni Claude Code Aç ve Ata", kind: .primary) { startNew() }
                     }
                     Dim("Kart metni işe dönüşür. Güç sınırına gelinmişse iş Sırada bekler. Kartın yetkisi yoktur, ajanın kendi yetkisiyle çalışır.")
                     if let report = card.report { ReportCard(report: report) }

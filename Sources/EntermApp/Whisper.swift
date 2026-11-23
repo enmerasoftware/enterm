@@ -202,7 +202,7 @@ struct VoiceSettings: View {
                             Spacer()
                             if whisper.downloading == model.id {
                                 Meter(percent: whisper.progress * 100).frame(width: 120)
-                                Dim("%\(Int(whisper.progress * 100))")
+                                Dim(Loc.percent(Int(whisper.progress * 100)))
                             } else if whisper.isReady(model) {
                                 if store.settings.whisperModel == model.id {
                                     T("Seçili", color: Theme.palette.need, style: .secondary, weight: .semibold)

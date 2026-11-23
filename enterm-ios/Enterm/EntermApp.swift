@@ -15,8 +15,10 @@ struct EntermPhoneApp: App {
                     // The app switcher keeps a picture of the last screen. A terminal must not be in it.
                     if phase != .active { Palette.bg.ignoresSafeArea() }
                 }
+                // A new language draws everything again; the session and the screen stay where they were.
+                .id(model.language)
                 .environmentObject(model)
-                .preferredColorScheme(model.theme == "light" ? .light : .dark)
+                .preferredColorScheme(model.theme == "light" ? .light : (model.theme == "dark" ? .dark : nil))
                 .tint(Palette.fg)
                 .onAppear {
                     model.start()

@@ -10,7 +10,7 @@ packages:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1.4"
+    MARKETING_VERSION: "0.1.5"
     # iPhone only for now: an iPad build must allow every orientation and bring its own screenshots.
     TARGETED_DEVICE_FAMILY: "1"
     CURRENT_PROJECT_VERSION: "1"
@@ -39,6 +39,23 @@ targets:
       - target: EntermNotify
       - target: EntermWidgets
       - package: SwiftTerm
+    postCompileScripts:
+      - name: Languages
+        # English comes from the same table as the Mac's (Resources/en.json); a tr.lproj folder says Turkish is spoken too.
+        script: |
+          dest="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          mkdir -p "$dest/en.lproj" "$dest/tr.lproj"
+          plutil -convert binary1 -o "$dest/en.lproj/Localizable.strings" "$SRCROOT/../Resources/en.json"
+          cp "$SRCROOT/../Resources/ios/tr.lproj/InfoPlist.strings" "$dest/tr.lproj/InfoPlist.strings"
+          cp "$SRCROOT/../Resources/tr.lproj/Localizable.strings" "$dest/tr.lproj/Localizable.strings"
+        inputFiles:
+          - $(SRCROOT)/../Resources/en.json
+          - $(SRCROOT)/../Resources/ios/tr.lproj/InfoPlist.strings
+          - $(SRCROOT)/../Resources/tr.lproj/Localizable.strings
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/en.lproj/Localizable.strings
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/tr.lproj/InfoPlist.strings
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/tr.lproj/Localizable.strings
     entitlements:
       path: Enterm/Enterm.entitlements
       properties:
@@ -55,10 +72,12 @@ targets:
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
         # Only Apple's own encryption (CryptoKit): App Store Connect stops asking at every build.
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
-        INFOPLIST_KEY_NSCameraUsageDescription: Bilgisayardaki kodu okutmak için.
-        INFOPLIST_KEY_NSFaceIDUsageDescription: İzin vermeden önce sizi doğrulamak için.
+        INFOPLIST_KEY_NSCameraUsageDescription: To scan the code shown on your computer.
+        INFOPLIST_KEY_NSFaceIDUsageDescription: To confirm it's you before allowing an action.
+        # The languages live in en.lproj and tr.lproj, written by the Languages step.
+        DEVELOPMENT_LANGUAGE: en
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UIUserInterfaceStyle: Dark
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
     info:
       path: Enterm/Info.plist
@@ -77,11 +96,30 @@ targets:
     dependencies:
       - sdk: WidgetKit.framework
       - sdk: SwiftUI.framework
+    postCompileScripts:
+      - name: Languages
+        # English comes from the same table as the Mac's (Resources/en.json); a tr.lproj folder says Turkish is spoken too.
+        script: |
+          dest="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          mkdir -p "$dest/en.lproj" "$dest/tr.lproj"
+          plutil -convert binary1 -o "$dest/en.lproj/Localizable.strings" "$SRCROOT/../Resources/en.json"
+          cp "$SRCROOT/../Resources/ios/tr.lproj/InfoPlist.strings" "$dest/tr.lproj/InfoPlist.strings"
+          cp "$SRCROOT/../Resources/tr.lproj/Localizable.strings" "$dest/tr.lproj/Localizable.strings"
+        inputFiles:
+          - $(SRCROOT)/../Resources/en.json
+          - $(SRCROOT)/../Resources/ios/tr.lproj/InfoPlist.strings
+          - $(SRCROOT)/../Resources/tr.lproj/Localizable.strings
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/en.lproj/Localizable.strings
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/tr.lproj/InfoPlist.strings
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/tr.lproj/Localizable.strings
     settings:
       base:
         TARGETED_DEVICE_FAMILY: "1"
         PRODUCT_BUNDLE_IDENTIFIER: tr.com.enmera.enterm.ios.widgets
         GENERATE_INFOPLIST_FILE: YES
+        DEVELOPMENT_LANGUAGE: en
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
     info:
       path: EntermWidgets/Info.plist
       properties:
@@ -95,6 +133,23 @@ targets:
       - path: EntermNotify
     dependencies:
       - target: EntermCore
+    postCompileScripts:
+      - name: Languages
+        # English comes from the same table as the Mac's (Resources/en.json); a tr.lproj folder says Turkish is spoken too.
+        script: |
+          dest="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          mkdir -p "$dest/en.lproj" "$dest/tr.lproj"
+          plutil -convert binary1 -o "$dest/en.lproj/Localizable.strings" "$SRCROOT/../Resources/en.json"
+          cp "$SRCROOT/../Resources/ios/tr.lproj/InfoPlist.strings" "$dest/tr.lproj/InfoPlist.strings"
+          cp "$SRCROOT/../Resources/tr.lproj/Localizable.strings" "$dest/tr.lproj/Localizable.strings"
+        inputFiles:
+          - $(SRCROOT)/../Resources/en.json
+          - $(SRCROOT)/../Resources/ios/tr.lproj/InfoPlist.strings
+          - $(SRCROOT)/../Resources/tr.lproj/Localizable.strings
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/en.lproj/Localizable.strings
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/tr.lproj/InfoPlist.strings
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/tr.lproj/Localizable.strings
     entitlements:
       path: EntermNotify/EntermNotify.entitlements
       properties:
@@ -105,6 +160,8 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         PRODUCT_BUNDLE_IDENTIFIER: tr.com.enmera.enterm.ios.notify
         GENERATE_INFOPLIST_FILE: YES
+        DEVELOPMENT_LANGUAGE: en
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
     info:
       path: EntermNotify/Info.plist
       properties:

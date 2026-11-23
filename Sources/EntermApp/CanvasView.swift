@@ -45,7 +45,7 @@ final class BadgeView: PassThroughView {
         let look = StatusLook(status)
         icon.image = symbolImage(look.symbol, size: 8)
         icon.contentTintColor = look.symbolColor
-        label.stringValue = status.title
+        label.stringValue = L(status.title)
         label.font = Theme.ui(.secondary, weight: look.strong ? .semibold : .medium)
         label.textColor = look.textColor
         layer?.backgroundColor = look.strong ? look.background.cgColor : nil
@@ -80,6 +80,7 @@ final class SessionBox: NSView {
     var showsHeader = true
     var showsFooter = false
     var summaryOnly = false
+    var raceLane: RaceLaneView?
     let summaryLabel = NSTextField(labelWithString: "")
     weak var canvas: CanvasView?
     private var dragStart: NSPoint?
@@ -154,15 +155,15 @@ final class SessionBox: NSView {
         gripIcon.frame = NSRect(x: 5, y: 5, width: 14, height: 14)
         grip.addSubview(gripIcon)
         addSubview(grip)
-        grip.toolTip = "Sürükleyerek Bağla"
-        for (button, symbol, tip) in [(closeButton, "xmark", "Kapat (⌘W)"), (maximizeButton, "arrow.up.left.and.arrow.down.right", "Tam Ekran (⌘⏎)")] {
+        grip.toolTip = L("Sürükleyerek Bağla")
+        for (button, symbol, tip) in [(closeButton, "xmark", "Kapat (⌘W)"), (maximizeButton, "arrow.up.left.and.arrow.down.right", "Büyüt (⌘⏎)")] {
             // Same 24 square, 14 symbol and hover fill as the grip beside it.
             button.image = symbolImage(symbol, size: 14)
             button.isBordered = false
             button.wantsLayer = true
             button.layer?.cornerRadius = Theme.cornerControl
             button.imagePosition = .imageOnly
-            button.toolTip = tip
+            button.toolTip = L(tip)
             button.target = self
             button.isHidden = true
             addSubview(button)
@@ -224,22 +225,22 @@ final class SessionBox: NSView {
         showsFooter = isAgent && !showsHeader
         footerBar.isHidden = !showsFooter
         footer.textColor = palette.text2
-        footer.stringValue = SessionText.footer(info, context: false)
+        footer.stringValue = L(SessionText.footer(info, context: false))
         contextPercent = info.contextPercent
-        contextLabel.stringValue = info.contextPercent.map { "%\($0) Bağlam" } ?? ""
+        contextLabel.stringValue = info.contextPercent.map { L("\(Loc.percent($0)) Bağlam") } ?? ""
         contextLabel.textColor = palette.text2
         contextTrack.layer?.backgroundColor = palette.fill.cgColor
         contextFill.layer?.backgroundColor = UsageTone.color(used: Double(info.contextPercent ?? 0)).cgColor
         contextLabel.isHidden = info.contextPercent == nil
         contextTrack.isHidden = info.contextPercent == nil
         let line = SessionText.footer(info)
-        stripLabel.stringValue = isAgent && line != info.tool.title ? line : ""
+        stripLabel.stringValue = isAgent && line != info.tool.title ? L(line) : ""
         stripLabel.textColor = palette.text3
         stripLabel.isHidden = !isAgent || !showsHeader
         let note = SessionText.failureNote(info)
-        stripLabel.toolTip = note
-        badge.toolTip = note
-        footer.toolTip = note
+        stripLabel.toolTip = note.map(L)
+        badge.toolTip = note.map(L)
+        footer.toolTip = note.map(L)
         gripIcon.contentTintColor = palette.text2
         updateGrip()
         summaryLabel.stringValue = "\(info.status.symbol) \(model.name(for: info))"
@@ -485,7 +486,23 @@ final class SessionBox: NSView {
         // Rows and columns do not depend on how many sessions are open.
         // The terminal sits 8 inside the panel on all four sides.
         let panelTop = max(0, tabHeight - 1)
-        let content = NSRect(x: 8, y: panelTop + 8, width: width - 16, height: bounds.height - panelTop - footerHeight - 16)
+        // A racing box keeps a lane above its footer: the time, the changes, the runner.
+        let race = AppModel.shared.sessions.first { $0.number == number }.flatMap { RaceCenter.shared.lane(for: $0.id) }
+        let laneHeight: CGFloat = race == nil ? 0 : RaceLaneView.height
+        if let race {
+            let lane = raceLane ?? {
+                let view = RaceLaneView(frame: .zero)
+                addSubview(view)
+                raceLane = view
+                return view
+            }()
+            lane.frame = NSRect(x: 1, y: bounds.height - footerHeight - laneHeight, width: width - 2, height: laneHeight)
+            lane.show(race.race, race.entrant)
+        } else if let lane = raceLane {
+            lane.removeFromSuperview()
+            raceLane = nil
+        }
+        let content = NSRect(x: 8, y: panelTop + 8, width: width - 16, height: bounds.height - panelTop - footerHeight - laneHeight - 16)
         host?.frame = content
         if AppModel.shared.chatSessions.contains(number) {
             if chatHost == nil {
@@ -494,7 +511,7 @@ final class SessionBox: NSView {
                 addSubview(view)
                 chatHost = view
             }
-            chatHost?.frame = NSRect(x: 1, y: tabHeight, width: width - 2, height: bounds.height - tabHeight - footerHeight - 1)
+            chatHost?.frame = NSRect(x: 1, y: tabHeight, width: width - 2, height: bounds.height - tabHeight - footerHeight - laneHeight - 1)
             host?.isHidden = true
         } else if let view = chatHost {
             view.removeFromSuperview()
@@ -577,6 +594,14 @@ final class SessionBox: NSView {
             return
         }
         AppModel.shared.setFocus(number)
+        // A double click on the name renames, as a file's name does in Finder.
+        if event.clickCount == 2, showsHeader, !summaryOnly, !titleLabel.isHidden,
+           titleLabel.convert(titleLabel.bounds, to: self).insetBy(dx: -4, dy: -4).contains(point),
+           let info = AppModel.shared.sessions.first(where: { $0.number == number }) {
+            let model = AppModel.shared
+            model.ask(title: "Oturumun Adı", placeholder: info.tool.title, initial: info.name, confirm: "Adlandır") { model.rename(info.number, $0) }
+            return
+        }
         dragged = false
         dragStart = event.locationInWindow
         dragOrigin = frame.origin
@@ -637,7 +662,7 @@ enum SessionText {
         if let model = info.model { parts.append(ModelName.pretty(model)) }
         if let effort = info.effort { parts.append(effortTitle(effort)) }
         if let percent = info.contextPercent {
-            if context { parts.append("%\(percent) Bağlam") }
+            if context { parts.append("\(Loc.percent(percent)) Bağlam") }
         } else if let tokens = info.contextTokens {
             parts.append(shortTokens(tokens) + " Token")
         }
@@ -757,6 +782,8 @@ final class CanvasView: NSView {
     var showsDots: Bool { false }
     private var linkSource: SessionBox?
     private var panStart: NSPoint?
+    /// The area whose pan and zoom are on screen. Moving to another area keeps these and brings back its own.
+    private var cameraKey: String?
 
     init(model: AppModel) {
         self.model = model
@@ -776,6 +803,7 @@ final class CanvasView: NSView {
         addSubview(miniMap)
         model.onSnap = { [weak self] number, zone in self?.snap(number, to: zone) }
         model.onMoveFocus = { [weak self] direction in self?.moveFocus(direction) }
+        RaceCenter.shared.onChange = { [weak self] in self?.applyContent() }
         linkPreview.fillColor = nil
         linkPreview.lineDashPattern = [6, 4]
         linkPreview.lineWidth = 2
@@ -862,7 +890,20 @@ final class CanvasView: NSView {
 
     // MARK: Layout
 
+    /// Each area comes back where it was left: its pan and zoom, not the last area's.
+    private func syncCamera() {
+        let key = model.activeProject ?? "*"
+        guard key != cameraKey else { return }
+        if let old = cameraKey { model.state.cameras[old] = CanvasCamera(pan: pan, zoom: model.zoom) }
+        cameraKey = key
+        let camera = model.state.cameras[key]
+        pan = camera?.pan ?? .zero
+        // Set directly: setZoom would lay out again from inside this layout.
+        model.zoom = min(max(camera?.zoom ?? 1, 0.3), 1.5)
+    }
+
     func relayout(animated: Bool) {
+        syncCamera()
         let sessions = model.sessions
         let wanted = Set(sessions.map(\.number))
         for (number, box) in boxes where !wanted.contains(number) {
@@ -911,6 +952,7 @@ final class CanvasView: NSView {
         placeGlows()
         placeMiniMap()
         updatePulse()
+        if let cameraKey { model.state.cameras[cameraKey] = CanvasCamera(pan: pan, zoom: model.zoom) }
         needsDisplay = true
     }
 
@@ -1266,8 +1308,32 @@ final class CanvasView: NSView {
 
     override func scrollWheel(with event: NSEvent) {
         guard allowsDrag else { return }
+        if event.modifierFlags.contains(.command) {
+            let step = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY / 200 : event.scrollingDeltaY / 20
+            zoom(by: 1 + step, at: convert(event.locationInWindow, from: nil))
+            return
+        }
         pan.x += event.scrollingDeltaX
         pan.y += event.scrollingDeltaY
+        relayout(animated: false)
+    }
+
+    /// Two fingers on the trackpad zoom the surface around the pointer.
+    override func magnify(with event: NSEvent) {
+        guard allowsDrag else { return }
+        zoom(by: 1 + event.magnification, at: convert(event.locationInWindow, from: nil))
+    }
+
+    /// The point under the pointer stays where it is. Tiled boxes size themselves, so they have no zoom to change.
+    private func zoom(by factor: CGFloat, at point: NSPoint) {
+        guard !autoTiledAll, factor.isFinite, factor > 0 else { return }
+        let old = model.zoom
+        let new = min(max(old * factor, 0.3), 1.5)
+        guard abs(new - old) > 0.0001 else { return }
+        let world = CGPoint(x: (point.x - pan.x) / old, y: (point.y - pan.y) / old)
+        pan = CGPoint(x: point.x - world.x * new, y: point.y - world.y * new)
+        // Set directly and laid out without animation: a pinch sends many small steps.
+        model.zoom = new
         relayout(animated: false)
     }
 

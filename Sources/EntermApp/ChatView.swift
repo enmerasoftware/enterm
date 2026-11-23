@@ -98,8 +98,8 @@ struct ChatView: View {
                     T("Şu izni istiyor:", color: palette.need, style: .secondary, weight: .semibold)
                     Mono(request.summary).lineLimit(4).textSelection(.enabled)
                     HStack(spacing: 8) {
-                        Btn("İzin Ver", kind: .primary) { Approvals.decide(id: request.id, decision: "allow") }
                         Btn("Reddet", kind: .outline) { Approvals.decide(id: request.id, decision: "deny") }
+                        Btn("İzin Ver", kind: .primary) { Approvals.decide(id: request.id, decision: "allow") }
                         Spacer()
                     }
                 }
@@ -116,8 +116,8 @@ struct ChatView: View {
                     if trusted, let last = info.lastActivity { Mono(last).lineLimit(4).textSelection(.enabled) }
                     HStack(spacing: 8) {
                         if trusted {
-                            Btn("İzin Ver", kind: .primary) { model.hosts[number]?.type("\r") }
                             Btn("Reddet", kind: .outline) { model.hosts[number]?.type("\u{1b}") }
+                            Btn("İzin Ver", kind: .primary) { model.hosts[number]?.type("\r") }
                         }
                         Spacer()
                         Btn("Terminali Aç", kind: trusted ? .plain : .primary) { model.toggleChat(number) }
@@ -199,7 +199,7 @@ private struct ChatRow: View {
         case .user:
             HStack {
                 Spacer(minLength: 48)
-                Text(item.text)
+                Text(verbatim: item.text)
                     .font(.system(size: 14))
                     .foregroundColor(Color(palette.text1))
                     .textSelection(.enabled)
@@ -212,7 +212,7 @@ private struct ChatRow: View {
         case .tool:
             HStack(alignment: .top, spacing: 8) {
                 Circle().fill(Color(palette.g1)).frame(width: 6, height: 6).padding(.top, 5)
-                Text(item.text)
+                Text(verbatim: item.text)
                     .font(Theme.swiftFont(size: 12))
                     .foregroundColor(Color(palette.text3))
                     .lineLimit(2)
@@ -239,7 +239,7 @@ private struct ChatMarkdown: View {
         let palette = Theme.palette
         switch block {
         case .code(let code):
-            Text(code)
+            Text(verbatim: code)
                 .font(Theme.swiftFont(size: 12))
                 .foregroundColor(Color(palette.terminalText))
                 .textSelection(.enabled)
@@ -263,7 +263,7 @@ private struct ChatMarkdown: View {
         if let attributed = try? AttributedString(markdown: line, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
             return Text(attributed)
         }
-        return Text(line)
+        return Text(verbatim: line)
     }
 }
 

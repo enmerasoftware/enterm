@@ -470,7 +470,7 @@ final class Service {
         env["ENTERM_SOCKET"] = EntermPaths.socket.path
         env["ENTERM_HOME"] = EntermPaths.support.path
         env["ENTERM_CLI"] = CompanionPath.choose(own: cliPath, reported: reportedCLI)
-        env["LANG"] = env["LANG"] ?? "tr_TR.UTF-8"
+        env["LANG"] = env["LANG"] ?? systemLang()
         env["LC_CTYPE"] = env["LC_CTYPE"] ?? "UTF-8"
         env["PWD"] = cwd
         // A session must not look like a child of another program's session.
@@ -965,3 +965,16 @@ final class Service {
 let service = Service()
 service.queue.async { service.start() }
 dispatchMain()
+
+/// The language the shell gets when the app was opened from Finder and has none: the Mac's own, as Terminal does.
+/// A pairing the system has no locale for (English with a Turkish region, say) falls back to the language alone.
+func systemLang() -> String {
+    let locale = Locale.current
+    let language = locale.language.languageCode?.identifier ?? "en"
+    let region = locale.region?.identifier ?? ""
+    let known = { (name: String) in FileManager.default.fileExists(atPath: "/usr/share/locale/\(name)") }
+    if known("\(language)_\(region).UTF-8") { return "\(language)_\(region).UTF-8" }
+    if let any = (try? FileManager.default.contentsOfDirectory(atPath: "/usr/share/locale"))?
+        .sorted().first(where: { $0.hasPrefix(language + "_") && $0.hasSuffix(".UTF-8") }) { return any }
+    return "en_US.UTF-8"
+}

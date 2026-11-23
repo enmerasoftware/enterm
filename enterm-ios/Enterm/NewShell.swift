@@ -29,15 +29,11 @@ struct ShellTitle: View {
     @EnvironmentObject var model: PhoneModel
     let text: String
     var body: some View {
-        HStack {
+        TopBar(title: text) {
             CircleControl(symbol: "line.3.horizontal", label: "Oturumlar") { model.setDrawer(true) }
-            Spacer()
-            Txt(text, bold: true)
-            Spacer()
-            Color.clear.frame(width: 44, height: 44)
+        } trailing: {
+            Color.clear
         }
-        .padding(.horizontal, 16)
-        .frame(minHeight: 52)
     }
 }
 
@@ -108,12 +104,17 @@ struct HomeScreen: View {
     var body: some View {
         VStack(spacing: 8) {
             ConnectionBanner()
-            HStack {
-                CircleControl(symbol: "line.3.horizontal", label: "Oturumlar") { model.setDrawer(true) }
-                Spacer()
-                macPill
+            // The Mac in the middle, a round control on each side: the drawer and every box at a glance.
+            ZStack {
+                macPill.padding(.horizontal, 64)
+                HStack {
+                    CircleControl(symbol: "line.3.horizontal", label: "Oturumlar") { model.setDrawer(true) }
+                    Spacer()
+                    CircleControl(symbol: "square.grid.2x2", label: "Tuval") { model.tab = 1 }
+                }
             }
             .padding(.horizontal, 16)
+            .frame(minHeight: 56)
             Spacer(minLength: 0)
             OfflineCard()
             if !typing { hero }
@@ -125,7 +126,7 @@ struct HomeScreen: View {
             composer
         }
         .padding(.bottom, 8)
-        .background(Palette.terminal.ignoresSafeArea())
+        .background(Palette.bg.ignoresSafeArea())
         .sheet(isPresented: $adding) {
             AddSheet().environmentObject(model).presentationDetents([.large]).presentationDragIndicator(.visible)
         }
@@ -170,9 +171,9 @@ struct HomeScreen: View {
         let waiting = model.waitingApprovals.count
         if running == 0 && waiting == 0 { return "Şu an çalışan iş yok" }
         var parts: [String] = []
-        if running > 0 { parts.append("\(running) oturum çalışıyor") }
-        if waiting > 0 { parts.append("\(waiting) oturum sizi bekliyor") }
-        return parts.joined(separator: ", ")
+        if running > 0 { parts.append(L("Çalışıyor: \(running)")) }
+        if waiting > 0 { parts.append(L("Sizi Bekliyor: \(waiting)")) }
+        return parts.joined(separator: " · ")
     }
 
     @ViewBuilder private var problems: some View {
@@ -283,38 +284,50 @@ struct SessionDrawer: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        VStack(spacing: 0) {
+            // Close on the left, the name in the middle, settings on the right: the same top as every screen.
+            ZStack {
+                Text(verbatim: "enterm").font(.system(.title3, design: .monospaced).weight(.semibold)).foregroundColor(Palette.text1)
+                HStack {
+                    CircleControl(symbol: "xmark", label: "Kapat") { model.setDrawer(false) }
+                    Spacer()
+                    CircleControl(symbol: "gearshape", label: "Ayarlar") { go { model.tab = 3 } }
+                }
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 56)
             ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Text("enterm").font(.system(.title2, design: .monospaced).weight(.semibold)).foregroundColor(Palette.text1)
-                        Spacer()
-                        CircleControl(symbol: "gearshape", label: "Ayarlar") { go { model.tab = 3 } }
+                VStack(alignment: .leading, spacing: 8) {
+                    NavGroup {
+                        NavRow("Tuval", icon: "square.grid.2x2") { go { model.tab = 1 } }
+                        NavRow("Onay Kutusu", icon: "checkmark.shield") { go { model.tab = 2 } }
+                        NavRow("Kullanım", icon: "chart.bar") { go { model.route.append(.usage) } }
                     }
-                    .padding(.bottom, 8)
-                    link("Tuval", icon: "square.grid.2x2") { go { model.tab = 1 } }
-                    link("Onay Kutusu", icon: "checkmark.shield") { go { model.tab = 2 } }
-                    link("Kullanım", icon: "chart.bar") { go { model.route.append(.usage) } }
                     section("Sizi Bekliyor", needing)
                     section("Çalışıyor", working)
                     section("Son Oturumlar", others)
-                    Color.clear.frame(height: 96)
+                    if model.sessions.isEmpty { EmptyNote("Açık Oturum Yok.", symbol: "terminal").padding(.top, 12) }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.top, 8)
+                // Room for the new-session button floating over the end of the list.
+                .padding(.bottom, 96)
             }
+        }
+        .overlay(alignment: .bottom) {
             Button { go { model.tab = 0; model.openSession = nil } } label: {
                 Label("Yeni Oturum", systemImage: "plus")
                     .font(.headline)
                     .foregroundColor(Palette.btnfg)
                     .padding(.horizontal, 20)
-                    .frame(minHeight: 52)
+                    .frame(maxWidth: .infinity, minHeight: 52)
                     .background(Palette.btn)
                     .clipShape(Capsule())
                     .pulse(Palette.need, radius: 12)
             }
             .buttonStyle(.plain)
-            .padding(20)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Palette.bg)
@@ -326,23 +339,12 @@ struct SessionDrawer: View {
         model.setDrawer(false)
     }
 
-    private func link(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: icon).frame(width: 24).foregroundColor(Palette.text2)
-                Txt(title)
-                Spacer()
-            }
-            .frame(minHeight: 46)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
     @ViewBuilder private func section(_ title: String, _ items: [SessionInfo]) -> some View {
         if !items.isEmpty {
-            Txt(title, color: Palette.text3, style: .footnote).padding(.top, 14).padding(.bottom, 2)
-            ForEach(items) { row($0) }
+            GroupLabel("\(L(title)) · \(items.count)")
+            NavGroup {
+                ForEach(items) { row($0) }
+            }
         }
     }
 
@@ -355,19 +357,37 @@ struct SessionDrawer: View {
             }
         } label: {
             HStack(spacing: 12) {
-                Txt(model.title(info), weight: info.pendingApproval != nil ? .semibold : .regular).lineLimit(1)
+                dot(info)
+                VStack(alignment: .leading, spacing: 2) {
+                    Txt(model.title(info), weight: info.pendingApproval != nil ? .semibold : .regular).lineLimit(1)
+                    Txt(model.folder(info), color: Palette.text3, style: .caption).lineLimit(1).truncationMode(.middle)
+                }
                 Spacer(minLength: 8)
                 mark(info)
             }
-            .frame(minHeight: 46)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .overlay(alignment: .top) { Rectangle().fill(Palette.hair).frame(height: 1) }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
 
+    /// One dot per row in the colour of its state; only what is alive or asking glows.
+    private func dot(_ info: SessionInfo) -> some View {
+        let color: Color = info.pendingApproval != nil ? Palette.need
+            : info.status == .limitReached ? Palette.limit
+            : info.status == .failed ? Palette.err
+            : info.status == .running ? Palette.add
+            : Palette.text3
+        let glows = info.pendingApproval != nil || info.status == .running
+        return Circle().fill(color).frame(width: 8, height: 8).pulse(glows ? color : .clear, radius: 6)
+    }
+
     @ViewBuilder private func mark(_ info: SessionInfo) -> some View {
         if info.pendingApproval != nil {
-            Txt("◆ Onay", color: Palette.need, style: .subheadline, weight: .medium).pulse(Palette.need, radius: 6)
+            Txt("◆ Onay", color: Palette.need, style: .subheadline, weight: .medium)
         } else if info.status == .limitReached {
             Txt("■ Limit", color: Palette.limit, style: .subheadline, weight: .medium)
         } else if info.status == .failed {
@@ -385,6 +405,8 @@ struct ApprovalSheet: View {
     @EnvironmentObject var model: PhoneModel
     let info: SessionInfo
     let approval: ApprovalRequest
+    /// How tall the content is, so the sheet rises exactly that far.
+    @Binding var height: CGFloat
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Txt("◆ İzin İstiyor", color: Palette.need, style: .subheadline, weight: .semibold)
@@ -408,10 +430,12 @@ struct ApprovalSheet: View {
             }
             HStack(spacing: 8) {
                 ActionButton("Reddet") {
+                    Haptic.warning()
                     model.decide(id: approval.id, decision: "deny")
                     model.sheetApproval = nil
                 }
                 ActionButton("İzin Ver", style: .primary) {
+                    Haptic.success()
                     Approval.allow(id: approval.id)
                     model.sheetApproval = nil
                 }
@@ -419,8 +443,16 @@ struct ApprovalSheet: View {
             }
         }
         .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Palette.surface1)
+        .padding(.top, 8)
+        .frame(maxWidth: .infinity, alignment: .top)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(GeometryReader { proxy in
+            Color.clear
+                .onAppear { height = proxy.size.height }
+                .onChange(of: proxy.size.height) { _, value in height = value }
+        })
+        .frame(maxHeight: .infinity, alignment: .top)
+        .presentationBackground(Palette.surface1)
     }
 }
 
@@ -434,42 +466,45 @@ struct AddSheet: View {
     @State private var picking = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                HStack {
-                    CircleControl(symbol: "xmark", label: "Kapat") { dismiss() }
-                    Spacer()
-                    Txt("Oturuma Ekle", bold: true)
-                    Spacer()
-                    Color.clear.frame(width: 44, height: 44)
-                }
-                group {
-                    Button { picking = true } label: {
-                        row("Klasör", value: draft.folder.isEmpty ? "Ana Klasör" : URL(fileURLWithPath: draft.folder).lastPathComponent)
-                    }.buttonStyle(.plain)
-                }
-                group {
-                    menu("Program", value: draft.tool.title, ToolKind.allCases.map { kind in (kind.title, { draft.tool = kind; draft.account = "" }) })
-                    if draft.tool != .terminal {
-                        divider
-                        menu("Yetki", value: draft.template.title, PermissionTemplate.allCases.map { item in (item.title, { draft.template = item }) })
-                    }
-                }
-                if draft.tool != .terminal {
+        VStack(spacing: 0) {
+            TopBar(title: "Oturuma Ekle") {
+                CircleControl(symbol: "xmark", label: "Kapat") { dismiss() }
+            } trailing: {
+                Color.clear
+            }
+            .padding(.top, 8)
+            ScrollView {
+                VStack(spacing: 12) {
                     group {
-                        menu("Model", value: title(of: draft.modelName, in: Self.models), Self.models.map { item in (item.1, { draft.modelName = item.0 }) })
-                        divider
-                        menu("Efor", value: title(of: draft.effort, in: Self.efforts), Self.efforts.map { item in (item.1, { draft.effort = item.0 }) })
-                        let mine = accounts.filter { $0.tool == draft.tool }
-                        if mine.count > 1 {
+                        Button { picking = true } label: {
+                            row("Klasör", value: draft.folder.isEmpty ? "Ana Klasör" : URL(fileURLWithPath: draft.folder).lastPathComponent, opensPage: true)
+                        }.buttonStyle(.plain)
+                    }
+                    group {
+                        menu("Program", value: draft.tool.title, ToolKind.allCases.map { kind in (kind.title, { draft.tool = kind; draft.account = "" }) })
+                        if draft.tool != .terminal {
                             divider
-                            menu("Hesap", value: mine.first { $0.id == draft.account }?.name ?? mine[0].name, mine.map { item in (item.name, { draft.account = item.id }) })
+                            menu("Yetki", value: draft.template.title, PermissionTemplate.allCases.map { item in (item.title, { draft.template = item }) })
                         }
                     }
+                    if draft.tool != .terminal {
+                        group {
+                            menu("Model", value: title(of: draft.modelName, in: Self.models), Self.models.map { item in (item.1, { draft.modelName = item.0 }) })
+                            divider
+                            menu("Efor", value: title(of: draft.effort, in: Self.efforts), Self.efforts.map { item in (item.1, { draft.effort = item.0 }) })
+                            let mine = accounts.filter { $0.tool == draft.tool }
+                            if mine.count > 1 {
+                                divider
+                                menu("Hesap", value: mine.first { $0.id == draft.account }?.name ?? mine[0].name, mine.map { item in (item.name, { draft.account = item.id }) })
+                            }
+                        }
+                    }
+                    Txt("Oturum bilgisayarda başlar, telefon bağlanır.", color: Palette.text2, style: .footnote)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
                 }
-                DimTxt("Oturum bilgisayarda başlar, telefon bağlanır.").frame(maxWidth: .infinity, alignment: .leading)
+                .page()
             }
-            .padding(16)
         }
         .background(Palette.surface1.ignoresSafeArea())
         .sheet(isPresented: $picking) {
@@ -483,21 +518,25 @@ struct AddSheet: View {
     private static let models = [("", "Otomatik"), ("haiku", "Haiku"), ("sonnet", "Sonnet"), ("opus", "Opus")]
     private static let efforts = [("", "Otomatik"), ("medium", "Orta"), ("high", "Yüksek")]
     private func title(of value: String, in list: [(String, String)]) -> String { list.first { $0.0 == value }?.1 ?? "Otomatik" }
-    private var divider: some View { Rectangle().fill(Palette.hair).frame(height: 1).padding(.leading, 16) }
+    private var divider: some View { Rectangle().fill(Palette.hair).frame(height: 1).padding(.leading, 12) }
 
     private func group<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        VStack(spacing: 0, content: content).background(Palette.raise).cornerRadius(18)
+        VStack(spacing: 0, content: content)
+            .background(Palette.raise)
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.hair))
+            .cornerRadius(12)
     }
 
-    private func row(_ title: String, value: String) -> some View {
-        HStack {
-            Txt(title)
-            Spacer()
-            Txt(value, color: Palette.text2).lineLimit(1)
-            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundColor(Palette.text3)
+    /// A menu shows the up-down mark iOS uses for a pop-up; the folder opens a page, so it gets a chevron.
+    private func row(_ title: String, value: String, opensPage: Bool = false) -> some View {
+        HStack(spacing: 8) {
+            Txt(title).lineLimit(1)
+            Spacer(minLength: 8)
+            Txt(value, color: Palette.text2).lineLimit(1).truncationMode(.middle)
+            Image(systemName: opensPage ? "chevron.right" : "chevron.up.chevron.down").font(.caption.weight(.semibold)).foregroundColor(Palette.text3)
         }
-        .padding(.horizontal, 16)
-        .frame(minHeight: 52)
+        .padding(.horizontal, 12)
+        .frame(minHeight: 48)
         .contentShape(Rectangle())
     }
 
@@ -518,44 +557,41 @@ struct UsageScreen: View {
                 let known = options.accounts.filter { $0.limit?.fiveHour != nil || $0.limit?.sevenDay != nil }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
-                        Txt(Self.sentence(known)).fixedSize(horizontal: false, vertical: true).padding(.bottom, 8)
+                        Txt(Self.sentence(known)).fixedSize(horizontal: false, vertical: true).padding(.horizontal, 4)
                         ForEach(known) { account in
-                            Txt(account.isAPIKey ? "\(account.tool.title) · \(account.name)" : account.tool.title, color: Palette.text3, style: .subheadline).padding(.top, 8)
+                            GroupLabel(account.isAPIKey ? "\(account.tool.title) · \(account.name)" : account.tool.title)
                             if let window = account.limit?.fiveHour { card("5 Saatlik", window) }
                             if let window = account.limit?.sevenDay { card("Haftalık", window) }
                         }
-                        if known.isEmpty { DimTxt("Henüz Bilinmiyor. İlk Yanıttan Sonra Görünür.") }
+                        if known.isEmpty { EmptyNote("Henüz Bilinmiyor. İlk Yanıttan Sonra Görünür.", symbol: "chart.bar") }
                     }
-                    .padding(16)
+                    .page()
                 }
             }
         }
     }
 
     private func card(_ title: String, _ window: LimitWindow) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
+        Card {
+            HStack(spacing: 8) {
                 Txt(title)
-                Spacer()
-                DimTxt("%\(Int(window.usedPercent)) Dolu")
+                Spacer(minLength: 8)
+                DimTxt("\(Loc.percent(Int(window.usedPercent))) Dolu")
             }
             Bar(percent: window.usedPercent)
-            if let date = window.resetsAt { DimTxt("Yenilenme: \(date.turkish(date: .abbreviated))") }
+            if let date = window.resetsAt { Txt("Yenilenme: \(date.turkish(date: .abbreviated))", color: Palette.text2, style: .footnote) }
         }
-        .padding(16)
-        .background(Palette.surface1)
-        .cornerRadius(18)
     }
 
     /// Whether the week lasts at the pace so far, in one sentence.
     static func sentence(_ accounts: [PhoneAccount], now: Date = Date()) -> String {
         let weeks = accounts.compactMap { $0.limit?.sevenDay }
         guard let busiest = weeks.max(by: { $0.usedPercent < $1.usedPercent }) else { return "Limit bilgisi ilk yanıttan sonra görünür." }
-        guard let reset = busiest.resetsAt, reset > now else { return "Haftalık kullanım %\(Int(busiest.usedPercent))." }
+        guard let reset = busiest.resetsAt, reset > now else { return "Haftalık kullanım \(Loc.percent(Int(busiest.usedPercent)))." }
         let week: TimeInterval = 7 * 86400
         let elapsed = max(week - reset.timeIntervalSince(now), 3600)
         let projected = busiest.usedPercent * week / elapsed
-        let day = reset.formatted(Date.FormatStyle(locale: Locale(identifier: "tr_TR")).weekday(.wide))
+        let day = reset.formatted(Date.FormatStyle(locale: Loc.locale).weekday(.wide))
         return projected < 100 ? "Yolunda. Bu hızla \(day) yenilenmesine kadar limitiniz yetecek." : "Bu hızla limit \(day) yenilenmesinden önce dolabilir."
     }
 }

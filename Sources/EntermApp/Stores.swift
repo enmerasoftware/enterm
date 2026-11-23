@@ -243,7 +243,7 @@ final class PowerCenter: ObservableObject {
             model.confirm(
                 title: "\(item.spec.tool.title) Sırada",
                 detail: "\(item.reason). Yer açılınca kendiliğinden başlar, beklerken token harcamaz. Çalışan işler durmaz.",
-                action: "Yine De Başlat", cancel: "Bekle"
+                action: "Yine de Başlat", cancel: "Bekle"
             ) { self.startAndShow(item) }
         }
     }
@@ -496,8 +496,8 @@ final class Notifier {
         let center = UNUserNotificationCenter.current()
         let send = {
             let content = UNMutableNotificationContent()
-            content.title = title
-            content.body = String(body.prefix(160))
+            content.title = L(title)
+            content.body = String(L(body).prefix(160))
             center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
         }
         if asked {

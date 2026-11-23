@@ -118,6 +118,7 @@ enum TestDriver {
                 if let approval = model.waitingApprovals.first?.pendingApproval { model.decide(id: approval.id, decision: "deny") }
             case "token": model.receivedToken(rest)
             case "theme": model.theme = rest
+            case "lang": model.language = rest
             case "unlock": Task { await model.unlock() }
             case "guard":
                 // Runs a guarded step the way its button does, and writes down how it went.

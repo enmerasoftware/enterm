@@ -526,11 +526,24 @@ struct BehaviorSettings: View {
 struct AppearanceSettings: View {
     @ObservedObject private var appearance = AppearanceTick.shared
     @ObservedObject var store = SettingsStore.shared
+    /// The language chosen here; the one on screen changes with the next launch.
+    @State private var language = Loc.override ?? "system"
+    private let started = Loc.override ?? "system"
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Panel {
+                SettingsLine(title: "Dil", note: language == started ? "Sistem: Mac Türkçeyse Türkçe, değilse İngilizce" : "Enterm yeniden açılınca geçer. Oturumlar kapanmaz.") {
+                    HStack(spacing: 8) {
+                        if language != started {
+                            Btn("Yeniden Aç", kind: .primary) { AppRelaunch.now() }
+                        }
+                        Seg(options: [("system", "Sistem"), ("tr", "Türkçe"), ("en", "English")], value: Binding(
+                            get: { language },
+                            set: { language = $0; Loc.override = $0 == "system" ? nil : $0 }))
+                    }
+                }
                 SettingsLine(title: "Tema") {
-                    Seg(options: [("dark", "Koyu"), ("light", "Açık"), ("system", "Sistem")], value: refreshed(\.theme))
+                    Seg(options: [("dark", "Koyu"), ("light", L("Açık", context: "tema")), ("system", "Sistem")], value: refreshed(\.theme))
                 }
                 SettingsLine(title: "Vurgu Rengi", note: "Ana düğme, komut satırı ve sizi bekleyen her şey") {
                     HStack(spacing: 8) {
@@ -726,5 +739,18 @@ struct AboutSettings: View {
                 }
             }
         }
+    }
+}
+
+/// Opens Enterm again. Sessions live in the session service, so nothing running stops.
+enum AppRelaunch {
+    static func now() {
+        let path = Bundle.main.bundlePath
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/sh")
+        // Waits for this copy to quit, then opens the same one.
+        task.arguments = ["-c", "while kill -0 \(ProcessInfo.processInfo.processIdentifier) 2>/dev/null; do sleep 0.2; done; open \"$0\"", path]
+        try? task.run()
+        NSApp.terminate(nil)
     }
 }

@@ -177,6 +177,22 @@ enum PhoneBridge {
             if let value = args["automatic"] { center.settings.sessionsAutomatic = value == "1" }
             if let value = args["maxSessions"].flatMap(Int.init) { center.settings.maxSessions = max(1, value) }
             send(power())
+        case "races":
+            // Open races first, then the last few that ended, newest on top.
+            let book = RaceCenter.shared.book.races
+            send(Array((book.filter { !$0.closed }.reversed() + book.filter(\.closed).reversed()).prefix(8)))
+        case "raceMerge":
+            guard let id = args["id"], let branch = args["branch"] else { return answer(nil, "Yarış Bulunamadı") }
+            if let problem = RaceCenter.shared.merge(id, winner: branch) { return answer(nil, problem) }
+            send(PhoneNothing())
+        case "raceDrop":
+            guard let id = args["id"] else { return answer(nil, "Yarış Bulunamadı") }
+            RaceCenter.shared.drop(id)
+            send(PhoneNothing())
+        case "raceTest":
+            guard let id = args["id"] else { return answer(nil, "Yarış Bulunamadı") }
+            RaceCenter.shared.test(id, branch: args["branch"])
+            send(PhoneNothing())
         default:
             answer(nil, "Bilinmeyen İstek")
         }

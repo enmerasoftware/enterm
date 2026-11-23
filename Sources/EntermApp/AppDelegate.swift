@@ -188,7 +188,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             add(menu, "Ekibini Kur", "team", shortcut: false)
             menu.addItem(.separator())
             add(menu, "Son Kapatılanı Yeniden Aç", "reopen")
-            add(menu, "Geçmiş Konuşmalar", "recents")
+            add(menu, "Tüm Geçmiş Konuşmalar", "recents")
             menu.addItem(.separator())
             add(menu, "Durdur", "stop")
             add(menu, "Kutuyu Kapat", "close")
@@ -222,7 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             add(menu, "Komutlar", "palette")
             add(menu, "Ayrıntılar", "details")
             add(menu, "Sohbet Görünümü", "chat")
-            add(menu, "Kutuyu Tam Ekran Aç", "maximize")
+            add(menu, "Kutuyu Büyüt", "maximize")
             add(menu, "Odak Modu", "focusMode")
             add(menu, "Durak Hattı", "toggleRail")
             menu.addItem(.separator())
@@ -239,7 +239,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             add(menu, "Sığdır", "fit")
             menu.addItem(.separator())
             add(menu, "Kutuları Diz", "arrange")
-            add(menu, "Tuvali Kilitle Ya Da Aç", "lockCanvas")
+            add(menu, "Tuvali Kilitle ya da Aç", "lockCanvas")
             add(menu, "Bu Yerleşimi Kaydet", "saveLayout")
             add(menu, "Düzeni Geri Al", "undoLayout")
             add(menu, "Düzeni Yinele", "redoLayout")
@@ -274,6 +274,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             menu.addItem(.separator())
             menu.addItem(withTitle: "Kapat", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "")
         }
+        main.localize()
         NSApp.mainMenu = main
     }
 }

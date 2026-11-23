@@ -1,3 +1,4 @@
+import EntermCore
 import SwiftUI
 import UIKit
 
@@ -79,7 +80,7 @@ struct DimTxt: View {
     var body: some View { Txt(text, color: Palette.text2, style: .subheadline) }
 }
 
-enum ActionStyle { case primary, outline, plain }
+enum ActionStyle { case primary, outline, plain, destructive }
 
 /// Every touch target is at least 44 points tall and grows with the text.
 struct ActionButton: View {
@@ -96,11 +97,11 @@ struct ActionButton: View {
             Text(title)
                 .font(.headline)
                 .multilineTextAlignment(.center)
-                .foregroundColor(style == .primary ? Palette.btnfg : Palette.text1)
+                .foregroundColor(style == .primary ? Palette.btnfg : (style == .destructive ? Palette.err : Palette.text1))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .background(style == .primary ? Palette.btn : (style == .outline ? Palette.fill : Color.clear))
+                .background(style == .primary ? Palette.btn : (style == .plain ? Color.clear : Palette.fill))
                 .cornerRadius(8)
                 .contentShape(Rectangle())
         }
@@ -164,8 +165,120 @@ struct BackLabel: View {
 }
 
 extension Date {
-    /// Dates follow the app's language, not the phone's.
+    /// Dates follow the app's language, not the phone's region.
     func turkish(date: Date.FormatStyle.DateStyle = .abbreviated, time: Date.FormatStyle.TimeStyle = .shortened) -> String {
-        formatted(Date.FormatStyle(date: date, time: time, locale: Locale(identifier: "tr_TR")))
+        formatted(Date.FormatStyle(date: date, time: time, locale: Loc.locale))
     }
+}
+
+extension Text {
+    /// Every string the app puts on screen goes through the language table, written out or built.
+    /// Names, paths and commands are not in it and show as they are.
+    init(_ content: String) { self.init(verbatim: L(content)) }
+}
+
+/// The top of every screen: a round control on each side, the title in the middle.
+/// A side with nothing to offer keeps the same room, so the title is always centred.
+struct TopBar<Leading: View, Trailing: View>: View {
+    let title: String
+    var subtitle: String?
+    @ViewBuilder var leading: () -> Leading
+    @ViewBuilder var trailing: () -> Trailing
+    var body: some View {
+        ZStack {
+            VStack(spacing: 1) {
+                Txt(title, bold: true).lineLimit(1)
+                if let subtitle { Txt(subtitle, color: Palette.text2, style: .caption).lineLimit(1).truncationMode(.middle) }
+            }
+            .padding(.horizontal, 64)
+            HStack {
+                // Fixed room on both sides, whatever is in it, so the middle is the middle.
+                leading().frame(width: 44, height: 44)
+                Spacer()
+                trailing().frame(width: 44, height: 44)
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 56)
+    }
+}
+
+/// A switch in a settings group: the title and its note on the left, the switch on the right.
+struct SwitchRow: View {
+    @Environment(\.navGrouped) private var grouped
+    let title: String
+    var note: String?
+    @Binding var isOn: Bool
+    var body: some View {
+        Toggle(isOn: $isOn) {
+            VStack(alignment: .leading, spacing: 2) {
+                Txt(title)
+                if let note { Txt(note, color: Palette.text2, style: .footnote) }
+            }
+        }
+        .tint(Palette.add)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .overlay(alignment: .top) { if grouped { Rectangle().fill(Palette.hair).frame(height: 1) } }
+    }
+}
+
+/// A choice in a settings group: the title above, the options under it.
+struct ChoiceRow<Value: Hashable>: View {
+    @Environment(\.navGrouped) private var grouped
+    let title: String
+    let options: [(Value, String)]
+    @Binding var value: Value
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Txt(title)
+            Choice(options: options, value: $value)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) { if grouped { Rectangle().fill(Palette.hair).frame(height: 1) } }
+    }
+}
+
+/// The small heading over a settings group.
+struct GroupLabel: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Txt(text, color: Palette.text3, style: .footnote, weight: .semibold)
+            .textCase(nil)
+            .padding(.horizontal, 4)
+            .padding(.top, 12)
+    }
+}
+
+/// What a list says when it has nothing: a quiet symbol and one line, where the list would be.
+struct EmptyNote: View {
+    let text: String
+    var symbol = "tray"
+    init(_ text: String, symbol: String = "tray") {
+        self.text = text
+        self.symbol = symbol
+    }
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: symbol).font(.title3).foregroundColor(Palette.text3)
+            DimTxt(text).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 112)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.hair, style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
+    }
+}
+
+extension View {
+    /// The one margin of every scrolling page: 16 at the sides, room under the last row.
+    func page() -> some View { padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24) }
+}
+
+/// A decision is felt as well as seen: success when allowed, a warning when denied.
+enum Haptic {
+    static func success() { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+    static func warning() { UINotificationFeedbackGenerator().notificationOccurred(.warning) }
 }

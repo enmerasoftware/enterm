@@ -59,6 +59,7 @@ struct ConnectingScreen: View {
 struct MainTabs: View {
     @EnvironmentObject var model: PhoneModel
     @GestureState private var dragged: CGFloat = 0
+    @State private var sheetHeight: CGFloat = 320
     private let drawerWidth: CGFloat = 320
 
     var body: some View {
@@ -96,9 +97,9 @@ struct MainTabs: View {
         }
         .sheet(isPresented: Binding(get: { approvalInSheet != nil }, set: { if !$0 { model.sheetApproval = nil } })) {
             if let approvalInSheet, let approval = approvalInSheet.pendingApproval {
-                ApprovalSheet(info: approvalInSheet, approval: approval)
+                ApprovalSheet(info: approvalInSheet, approval: approval, height: $sheetHeight)
                     .environmentObject(model)
-                    .presentationDetents([.medium])
+                    .presentationDetents([.height(sheetHeight)])
                     .presentationDragIndicator(.visible)
             }
         }
@@ -324,41 +325,23 @@ struct SessionScreen: View {
     var body: some View {
         let terminal = model.host(for: info.number)
         VStack(spacing: 0) {
-            HStack(spacing: 4) {
-                Button { model.setDrawer(true) } label: {
-                    Image(systemName: "line.3.horizontal").font(.body.weight(.semibold)).foregroundColor(Palette.text1).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Oturumlar")
-                VStack(alignment: .leading, spacing: 0) {
-                    if size.isAccessibilitySize {
-                        Txt(model.title(info), bold: true).lineLimit(1)
-                        StatusText(info: info)
-                    } else {
-                        HStack(spacing: 8) {
-                            Txt(model.title(info), bold: true).lineLimit(1)
-                            StatusText(info: info).fixedSize()
-                        }
-                    }
-                    Txt(info.cwd, color: Palette.text2, style: .footnote).lineLimit(1).truncationMode(.middle)
-                }
-                Spacer(minLength: 0)
-                if canChat {
-                    Button { chatChoice = !showsChat } label: {
-                        Image(systemName: showsChat ? "terminal" : "text.bubble").font(.body).foregroundColor(Palette.text1).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(showsChat ? "Terminali Göster" : "Sohbeti Göster")
-                }
-                Button { model.route.append(.details(info.number)) } label: {
-                    Image(systemName: "info.circle").font(.body).foregroundColor(Palette.text1).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Ayrıntılar")
+            // Back on the left, the session in the middle, its details on the right.
+            TopBar(title: model.title(info), subtitle: model.folder(info)) {
+                CircleControl(symbol: "chevron.left", label: "Geri") { model.openSession = nil }
+            } trailing: {
+                CircleControl(symbol: "info", label: "Ayrıntılar") { model.route.append(.details(info.number)) }
             }
-            .padding(.horizontal, 4)
-            .frame(minHeight: 52)
-            .background(Palette.surface1)
+            // How it is doing, and how to look at it: a conversation or the terminal itself.
+            HStack(spacing: 12) {
+                StatusText(info: info).fixedSize()
+                if canChat {
+                    Choice(options: [(true, "Sohbet"), (false, "Terminal")], value: Binding(get: { showsChat }, set: { chatChoice = $0 }))
+                        .frame(maxWidth: 220)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
             .overlay(alignment: .bottom) {
                 if info.status == .running { ScanLine() } else { Rectangle().fill(Palette.hair).frame(height: 1) }
             }
@@ -477,15 +460,21 @@ struct ApprovalCard: View {
                     Txt(model.title(info), bold: true).lineLimit(1)
                     Spacer(minLength: 8)
                 }
-                Txt("◆ Onay", color: Palette.need, bold: true)
+                Txt("◆ Onay", color: Palette.need, bold: true).fixedSize()
                 if !showsName { Spacer(minLength: 0) }
             }
-            Text(approval.summary).font(.mono).foregroundColor(Palette.text1).lineLimit(4)
+            Text(verbatim: approval.summary).font(.mono).foregroundColor(Palette.text1).lineLimit(4)
             DimTxt("Yetki: \(approval.category.title)")
             ButtonPair {
-                ActionButton("Reddet") { model.decide(id: approval.id, decision: "deny") }
+                ActionButton("Reddet") {
+                    Haptic.warning()
+                    model.decide(id: approval.id, decision: "deny")
+                }
             } main: {
-                ActionButton("İzin Ver", style: .primary) { Approval.allow(id: approval.id) }
+                ActionButton("İzin Ver", style: .primary) {
+                    Haptic.success()
+                    Approval.allow(id: approval.id)
+                }
             }
             ActionButton("Ayrıntı", style: .plain) { model.route.append(.approval(approval.id)) }
             if model.connection != .connected {
@@ -508,7 +497,7 @@ struct ApprovalsScreen: View {
                         if let approval = info.pendingApproval { ApprovalCard(info: info, approval: approval) }
                     }
                     if model.attention.limitReturnAccount != nil {
-                        NavRow("✓ Limit Açıldı, Dönülsün Mü?") { model.route.append(.limitOpened) }
+                        NavRow("✓ Limit Açıldı, Dönülsün mü?") { model.route.append(.limitOpened) }
                     }
                     ForEach(model.attention.resumeFailed, id: \.self) { number in
                         NavRow("■ \(model.session(number).map { model.title($0) } ?? "Oturum"): Konuşma Sürdürülemedi") { model.route.append(.resumeFailed(number)) }
@@ -541,47 +530,74 @@ struct ApprovalsScreen: View {
 struct CanvasScreen: View {
     @EnvironmentObject var model: PhoneModel
     @Environment(\.dynamicTypeSize) private var size
-    private var columns: [GridItem] {
-        size.isAccessibilitySize ? [GridItem(.flexible())] : [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)]
+    private var perRow: Int { size.isAccessibilitySize ? 1 : 2 }
+    /// The sessions two by two. A grid, not a lazy grid: the two boxes of a row grow to the taller one.
+    private var rows: [[SessionInfo]] {
+        stride(from: 0, to: model.sessions.count, by: perRow).map { Array(model.sessions[$0..<min($0 + perRow, model.sessions.count)]) }
     }
     var body: some View {
         VStack(spacing: 0) {
             ConnectionBanner()
             ShellTitle(text: "Tuval")
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 8) {
-                    ForEach(model.sessions) { info in
-                        Button { if model.connection == .connected { model.tab = 0; model.openSession = info.number } } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Txt(model.title(info), bold: true).lineLimit(1)
-                                DimTxt(model.folder(info)).lineLimit(1)
-                                StatusText(info: info).lineLimit(1)
-                                if let activity = info.lastActivity {
-                                    Text(activity).font(.caption2.monospaced()).foregroundColor(Palette.text2).lineLimit(5)
-                                        .padding(8)
-                                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                                        .background(Palette.field)
-                                        .cornerRadius(8)
-                                }
-                                Spacer(minLength: 0)
-                                if let approval = info.pendingApproval {
-                                    ActionButton("İzin Ver", style: .primary) { Approval.allow(id: approval.id) }
-                                    ActionButton("Reddet") { model.decide(id: approval.id, decision: "deny") }
-                                }
+                if model.sessions.isEmpty {
+                    EmptyNote(model.connection == .connected ? "Açık Oturum Yok." : "Henüz Bilgi Yok.", symbol: "square.grid.2x2").page()
+                } else {
+                    Grid(horizontalSpacing: 8, verticalSpacing: 8) {
+                        ForEach(rows, id: \.first?.number) { row in
+                            GridRow {
+                                ForEach(row) { info in box(info) }
+                                // An odd last box keeps half the width, so every box is the same size.
+                                if row.count < perRow { Color.clear.gridCellUnsizedAxes([.horizontal, .vertical]) }
                             }
-                            .padding(8)
-                            .frame(maxWidth: .infinity, minHeight: 220, alignment: .topLeading)
-                            .background(Palette.surface1)
-                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(info.pendingApproval != nil ? Palette.need : (info.status == .running ? Palette.add : Palette.hair2)))
-                            .cornerRadius(16)
-                            .pulse(info.pendingApproval != nil ? Palette.need : (info.status == .running ? Palette.add : .clear), radius: 12)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .page()
                 }
-                .padding(.horizontal, 16)
             }
         }
+    }
+
+    private func box(_ info: SessionInfo) -> some View {
+        Button { if model.connection == .connected { model.tab = 0; model.openSession = info.number } } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Txt(model.title(info), bold: true).lineLimit(1)
+                    DimTxt(model.folder(info)).lineLimit(1).truncationMode(.middle)
+                }
+                StatusText(info: info).lineLimit(1)
+                if let activity = info.lastActivity {
+                    Text(verbatim: activity).font(.caption2.monospaced()).foregroundColor(Palette.text2).lineLimit(5)
+                        .padding(8)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .background(Palette.field)
+                        .cornerRadius(8)
+                }
+                Spacer(minLength: 0)
+                if let approval = info.pendingApproval {
+                    // Side by side, as on every other decision.
+                    HStack(spacing: 6) {
+                        ActionButton("Reddet") {
+                            Haptic.warning()
+                            model.decide(id: approval.id, decision: "deny")
+                        }
+                        ActionButton("İzin Ver", style: .primary) {
+                            Haptic.success()
+                            Approval.allow(id: approval.id)
+                        }
+                    }
+                }
+            }
+            .padding(12)
+            // As tall as what it shows, never shorter than a tidy row; the row's taller box sets the height.
+            .frame(maxWidth: .infinity, minHeight: 140, maxHeight: .infinity, alignment: .topLeading)
+            .background(Palette.surface1)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(info.pendingApproval != nil ? Palette.need : (info.status == .running ? Palette.add : Palette.hair2)))
+            .cornerRadius(16)
+            .pulse(info.pendingApproval != nil ? Palette.need : (info.status == .running ? Palette.add : .clear), radius: 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -596,54 +612,73 @@ struct MoreScreen: View {
             ShellTitle(text: "Ayarlar")
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
-                    Card {
-                        Txt(model.peer?.name ?? "Bilgisayar", bold: true)
-                        DimTxt(model.connection == .connected ? "✓ Bilgisayar Bağlı" : "○ Bilgisayar Bağlı Değil")
-                        if let peer = model.peer {
-                            DimTxt("Eşleşme: \(peer.pairedAt.turkish(date: .long, time: .omitted))")
+                    // The Mac this phone belongs to, first.
+                    HStack(spacing: 12) {
+                        Image(systemName: "desktopcomputer")
+                            .font(.title3)
+                            .foregroundColor(Palette.text1)
+                            .frame(width: 44, height: 44)
+                            .background(Palette.fill)
+                            .clipShape(Circle())
+                        VStack(alignment: .leading, spacing: 2) {
+                            Txt(model.peer?.name ?? "Bilgisayar", bold: true).lineLimit(1)
+                            HStack(spacing: 6) {
+                                Circle().fill(model.connection == .connected ? Palette.add : Palette.text3).frame(width: 7, height: 7)
+                                Txt(model.connection == .connected ? "Bağlı" : "Bağlı Değil", color: Palette.text2, style: .subheadline)
+                                if let peer = model.peer { Txt("· \(peer.pairedAt.turkish(date: .abbreviated, time: .omitted))", color: Palette.text3, style: .subheadline) }
+                            }
                         }
-                        DimTxt("Telefon bu bilgisayara uçtan uca şifreli bağlanır. Oturumlar telefonda çalışmaz, yalnız görünür.")
+                        Spacer(minLength: 0)
                     }
+                    .padding(12)
+                    .background(Palette.surface1)
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.hair))
+                    .cornerRadius(12)
+                    DimTxt("Telefon bu bilgisayara uçtan uca şifreli bağlanır. Oturumlar telefonda çalışmaz, yalnız görünür.")
+                        .padding(.horizontal, 4)
+
+                    GroupLabel("Çalışma")
                     NavGroup {
                         NavRow("Ekibini Kur", icon: "person.3") { model.route.append(.teamStart) }
                         NavRow("Yönetici: Kararlar", icon: "checklist") { model.route.append(.teamDecisions) }
                         NavRow("Hesaplar", icon: "person") { model.route.append(.accounts) }
-                        NavRow("Model Ve Maliyet", icon: "chart.bar") { model.route.append(.cost) }
+                        NavRow("Model ve Maliyet", icon: "chart.bar") { model.route.append(.cost) }
                         NavRow("Güç Sınırı", icon: "gauge.with.needle") { model.route.append(.power) }
+                        NavRow("Yarışlar", icon: "flag.checkered") { model.route.append(.races) }
                     }
-                    Card {
-                        DimTxt("Tema")
-                        Choice(options: [("dark", "Koyu"), ("light", "Açık")], value: $model.theme)
+
+                    GroupLabel(L("Görünüm", context: "ayar"))
+                    NavGroup {
+                        ChoiceRow(title: "Tema", options: [("dark", "Koyu"), ("light", L("Açık", context: "tema")), ("system", "Sistem")], value: $model.theme)
+                        ChoiceRow(title: "Dil", options: [("system", "Sistem"), ("tr", "Türkçe"), ("en", "English")], value: $model.language)
                     }
-                    Card {
-                        DimTxt("Onayda Face ID")
-                        Choice(options: [(true, "Açık"), (false, "Kapalı")], value: Binding(
+
+                    GroupLabel("Güvenlik")
+                    NavGroup {
+                        SwitchRow(title: "Onayda Face ID", note: "İzin vermeden önce sizi doğrular.", isOn: Binding(
                             get: { model.faceIDForApprovals },
                             set: { value in Task { await model.setFaceIDForApprovals(value) } }))
-                    }
-                    Card {
-                        DimTxt("Uygulama Kilidi")
-                        Choice(options: [(true, "Açık"), (false, "Kapalı")], value: Binding(
+                        SwitchRow(title: "Uygulama Kilidi", note: "Açılışta ve bir dakikadan uzun aradan sonra doğrulama ister. Terminal bilgisayarda komut çalıştırır.", isOn: Binding(
                             get: { model.appLockOn },
                             set: { value in Task { await model.setAppLock(value) } }))
-                        DimTxt("Açılışta ve bir dakikadan uzun aradan sonra doğrulama ister. Terminal bilgisayarda komut çalıştırır.")
                     }
-                    ActionButton("Bildirimlere İzin Ver") { model.askForNotifications() }
-                    if confirming {
-                        Card {
-                            Txt("Bu Bilgisayar Kaldırılsın Mı?", bold: true)
-                            DimTxt("Tekrar kullanmak için yeniden eşleştirirsiniz. Oturumlar bilgisayarda çalışmaya devam eder.")
-                            ButtonPair {
-                                ActionButton("Vazgeç") { confirming = false }
-                            } main: {
-                                ActionButton("Kaldır", style: .primary) { model.unpair() }
-                            }
+
+                    GroupLabel("Bildirimler")
+                    NavGroup {
+                        NavRow("Bildirimlere İzin Ver", icon: "bell") { model.askForNotifications() }
+                    }
+
+                    ActionButton("Bilgisayarı Kaldır", style: .destructive) { confirming = true }
+                        .padding(.top, 16)
+                        .confirmationDialog(L("Bu Bilgisayar Kaldırılsın mı?"), isPresented: $confirming, titleVisibility: .visible) {
+                            Button(L("Kaldır"), role: .destructive) { model.unpair() }
+                            Button(L("Vazgeç"), role: .cancel) {}
+                        } message: {
+                            Text("Tekrar kullanmak için yeniden eşleştirirsiniz. Oturumlar bilgisayarda çalışmaya devam eder.")
                         }
-                    } else {
-                        ActionButton("Bilgisayarı Kaldır") { confirming = true }
-                    }
                 }
                 .padding(.horizontal, 16)
+                .padding(.bottom, 24)
             }
         }
     }

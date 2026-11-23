@@ -303,6 +303,10 @@ private extension View {
 enum TourStep: Int, CaseIterable {
     case program, voice, views, chat, notify, awake, notch, keys, phone
 
+    /// What the first run asks. Three questions, the rest has good defaults and lives in Settings.
+    static let shown: [TourStep] = [.program, .notify, .phone]
+    var index: Int { Self.shown.firstIndex(of: self) ?? 0 }
+
     var short: String {
         switch self {
         case .program: return "Program"
@@ -360,7 +364,7 @@ private struct TourView: View {
             HStack(alignment: .top, spacing: 0) {
                 rail.frame(width: 150).padding(.leading, 56)
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("\(step.rawValue + 1) / \(TourStep.allCases.count)")
+                    Text("\(step.index + 1) / \(TourStep.shown.count)")
                         .font(Theme.swiftFont(size: 12))
                         .foregroundColor(Color(palette.need))
                     Text(step.title)
@@ -379,7 +383,7 @@ private struct TourView: View {
                     HStack(spacing: 10) {
                         EnterButton(title: step == .phone ? "Başla" : "Devam") { next() }
                         if step != .program {
-                            QuietButton(title: "Geri") { go(TourStep(rawValue: step.rawValue - 1) ?? .program) }
+                            QuietButton(title: "Geri") { go(TourStep.shown[max(step.index - 1, 0)]) }
                         }
                     }
                 }
@@ -405,11 +409,11 @@ private struct TourView: View {
     }
 
     private func next() {
-        if let following = TourStep(rawValue: step.rawValue + 1) { go(following) } else { finish() }
+        if step.index + 1 < TourStep.shown.count { go(TourStep.shown[step.index + 1]) } else { finish() }
     }
 
     private func go(_ target: TourStep) {
-        movedForward = target.rawValue > step.rawValue
+        movedForward = target.index > step.index
         if Motion.allowed {
             withAnimation(.timingCurve(0.2, 0.7, 0.2, 1, duration: 0.32)) { step = target }
         } else {
@@ -420,13 +424,13 @@ private struct TourView: View {
     private var rail: some View {
         let palette = Theme.palette
         let spacing: CGFloat = 36
-        let all = TourStep.allCases
+        let all = TourStep.shown
         return ZStack(alignment: .topLeading) {
             Rectangle().fill(Color(palette.hair2)).frame(width: 2, height: spacing * CGFloat(all.count - 1)).padding(.leading, 5).padding(.top, 18)
-            Rectangle().fill(Color(palette.need)).frame(width: 2, height: spacing * CGFloat(step.rawValue)).neon(palette.need, radius: 3).padding(.leading, 5).padding(.top, 18)
+            Rectangle().fill(Color(palette.need)).frame(width: 2, height: spacing * CGFloat(step.index)).neon(palette.need, radius: 3).padding(.leading, 5).padding(.top, 18)
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(all, id: \.rawValue) { item in
-                    TourRailItem(title: item.short, done: item.rawValue <= step.rawValue, here: item == step, height: spacing) { go(item) }
+                    TourRailItem(title: item.short, done: item.index <= step.index, here: item == step, height: spacing) { go(item) }
                 }
             }
         }
@@ -482,7 +486,7 @@ private struct TourView: View {
             VStack(spacing: 0) {
                 keyRow("Her Şeyi Bul", "⌘K")
                 keyRow("Yeni Terminal", "⌘T")
-                keyRow("Tam Ekran", "⌘⏎")
+                keyRow("Kutuyu Büyüt", "⌘⏎")
                 keyRow("Onay Kutusu", "⌘⇧O")
             }
         case .phone:
@@ -1064,7 +1068,7 @@ struct RecentsPage: View {
         RecentConversation.grouped(RecentHiding.visible(found, store.settings), limit: 80)
     }
     var body: some View {
-        PageFrame(title: "Geçmiş Konuşmalar") {
+        PageFrame(title: "Tüm Geçmiş Konuşmalar") {
             if loaded, groups.isEmpty { Dim("Henüz Claude Code konuşması yok.") }
             if RecentHiding.count(store.settings) > 0 {
                 HStack(spacing: 12) {
@@ -1102,7 +1106,7 @@ private struct RecentRow: View {
     @State private var hovering = false
     private static let relative: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "tr_TR")
+        formatter.locale = Loc.locale
         formatter.unitsStyle = .short
         return formatter
     }()
@@ -1277,7 +1281,7 @@ struct LimitSummaryButton: View {
         return HStack(spacing: 6) {
             if let title { T(title, color: Theme.palette.text3, style: .secondary) }
             Meter(percent: value, tone: UsageTone.color(used: used)).frame(width: 44)
-            T("%\(Int(value))", color: Theme.palette.text1, style: .secondary).monospacedDigit()
+            T(Loc.percent(Int(value)), color: Theme.palette.text1, style: .secondary).monospacedDigit()
         }
         .help("\(help): %\(Int(value)) \(remaining ? "Kaldı" : "Dolu")")
     }
@@ -1439,7 +1443,7 @@ struct StatusLine: View {
                         .help(model.canvasLocked ? "Tuval Kilitli" : "Tuvali Kilitle")
                     IconBtn("minus", label: "Uzaklaştır") { Commands.perform("zoomOut") }
                     ZoomFitButton(zoom: model.zoom)
-                        .help("Sığdır (0)")
+                        .help("Sığdır (⌥⌘0)")
                     IconBtn("plus", label: "Yakınlaştır") { Commands.perform("zoomIn") }
                 }
             }
@@ -1463,7 +1467,7 @@ private struct ZoomFitButton: View {
     var body: some View {
         let palette = Theme.palette
         Button { Commands.perform("fit") } label: {
-            T("%\(Int(zoom * 100))", color: hovering ? palette.text1 : palette.text2, style: .secondary)
+            T(Loc.percent(Int(zoom * 100)), color: hovering ? palette.text1 : palette.text2, style: .secondary)
                 .frame(width: 40, height: 30)
                 .background(hovering ? Color(palette.fill) : .clear)
                 .cornerRadius(Theme.cornerControl)

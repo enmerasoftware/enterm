@@ -101,12 +101,22 @@ struct CommandPalette: View {
     @State private var query = ""
     @State private var index = 0
     @FocusState private var focus: Bool
+    /// The keys as the person set them, read once per opening.
+    @State private var book = ShortcutBook.load()
 
     var results: [Command] {
         let needle = query.lowercased(with: Locale(identifier: "tr_TR"))
+        // Unfiltered, the commands come first; the open sessions follow, a search finds them.
+        if needle.isEmpty { return Commands.all + Commands.dynamic }
         let all = Commands.dynamic + Commands.all
-        if needle.isEmpty { return all }
-        return all.filter { $0.title.lowercased(with: Locale(identifier: "tr_TR")).contains(needle) }
+        // The title as written and as shown, so a search works in either language.
+        return all.filter { ($0.title + " " + L($0.title)).lowercased(with: Locale(identifier: "tr_TR")).contains(needle) }
+    }
+
+    /// The key the menus use. A bare letter works only away from a terminal, so it is not offered as the way in.
+    private func hint(_ command: Command) -> String {
+        if let combo = book.combo(for: command.id) { return combo.display }
+        return command.key
     }
 
     var body: some View {
@@ -128,7 +138,7 @@ struct CommandPalette: View {
             ScrollView {
                 MenuList {
                     ForEach(Array(results.enumerated()), id: \.element.id) { offset, command in
-                        MenuRow(title: command.title, key: command.key, selected: offset == index) {
+                        MenuRow(title: command.title, key: hint(command), selected: offset == index) {
                             perform(command)
                         }
                     }
@@ -319,20 +329,14 @@ struct MainMenuPanel: View {
     }
     private var items: some View {
         MenuList {
-            item("Yeni Terminal", key: "⌘T", id: "newTerminal")
-            MenuDivider()
-            item("Yeni Görünüm", note: "Dosyalar, Düzenleyici, Not", id: "newView")
+            // Only what has no other door on the bar. The phone and Settings have their own icons, the rest is in ⌘K.
+            item("Yeni Görünüm", note: "Dosyalar, Not, Beyaz Tahta", id: "newView")
+            item("Yarış Başlat", note: "Aynı Görev, Birkaç Ajan, En İyisi Kazanır", id: "race")
+            item("Ekibini Kur", note: "Birkaç Ajan Birlikte Çalışır", id: "team")
+            item("Değişiklikler ve Git", note: "Hazırla, Commit, Push", id: "changes")
             item("Pano", note: "Kartlar, Üyeler, Son Tarihler", id: "board")
-            item("Konuşarak Yaz", note: "Konuşun, Yazıya Dönsün", key: "⌃⌘ Basılı", id: "voice")
-            item("Geçmiş Konuşmalar", note: "Açın, Sürdürün", id: "history")
-            item("Uzak Sunucu", note: "SSH İle Proje Açın", id: "remote")
-            item("Değişiklikler Ve Git", note: "Hazırla, Commit, Push", id: "changes")
-            item("Ekibini Kur", note: "Birkaç Claude Code Birlikte Çalışır", id: "team")
-            item("Hesaplar", note: "Claude Code, Codex, Antigravity Girişleri", id: "accounts")
-            item("Telefonu Bağla", note: "Bu Terminali Telefonda Açın", id: "phone")
             MenuDivider()
-            item("Ayarlar", key: "⌘,", id: "settings")
-            item("Tüm Komutlar", key: "⌘K", id: "palette")
+            item("Tüm Komutlar", note: "Geçmiş, Uzak Sunucu, Hesaplar ve Fazlası", key: "⌘K", id: "palette")
         }
     }
     private func item(_ title: String, note: String = "", key: String = "", id: String) -> some View {

@@ -715,18 +715,22 @@ struct EntermField: View {
     }
 }
 
-/// Features not built yet say so instead of pretending.
-struct NotYet: View {
-    let name: String
-    var body: some View {
-        PageFrame(title: name) {
-            Panel {
-                VStack(alignment: .leading, spacing: 8) {
-                    T("Henüz Yok", bold: true)
-                    Dim("Bu özellik bu sürümde çalışmıyor. Çalışıyormuş gibi göstermemek için burada duruyor.")
-                }
-                .padding(12)
-            }
+// MARK: Language
+
+extension Text {
+    /// Every string the app puts on screen goes through the language table, written out or built.
+    /// Names, paths and commands are not in it and show as they are.
+    init(_ content: String) { self.init(verbatim: L(content)) }
+}
+
+extension NSMenu {
+    /// Menus built in Turkish, shown in the person's language. Submenus too.
+    func localize() {
+        title = L(title)
+        for item in items {
+            item.title = L(item.title)
+            item.toolTip = item.toolTip.map(L)
+            item.submenu?.localize()
         }
     }
 }

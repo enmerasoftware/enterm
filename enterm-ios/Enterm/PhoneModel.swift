@@ -33,6 +33,7 @@ enum PhoneRoute: Hashable {
     case resumeFailed(UInt32)
     case codexLimit(UInt32)
     case usage
+    case races
 }
 
 /// The phone's view of the Mac. Sessions run there, this only shows them.
@@ -116,6 +117,10 @@ final class PhoneModel: ObservableObject {
             hosts.values.forEach { $0.applyTheme(dark: theme == "dark") }
         }
     }
+    /// "system", "tr" or "en". Changing it redraws every screen in the new language at once.
+    @Published var language = Loc.override ?? "system" {
+        didSet { Loc.override = language == "system" ? nil : language }
+    }
     private var leftAt: Date?
 
     private var link: TunnelLink?
@@ -153,11 +158,12 @@ final class PhoneModel: ObservableObject {
         if let screen = ProcessInfo.processInfo.environment["ENTERM_DEMO_SCREEN"] {
             startDemo()
             switch screen {
-            case "drawer": setDrawer(true)
+            case "drawer": DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.setDrawer(true) }
             case "canvas": tab = 1
             case "approvals": tab = 2
             case "settings": tab = 3
             case "usage": route = [.usage]
+            case "races": route = [.races]
             case "sheet": sheetApproval = 1
             case "terminal": openSession = 2
             default: break

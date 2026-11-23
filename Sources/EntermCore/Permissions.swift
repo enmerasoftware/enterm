@@ -17,7 +17,7 @@ public enum PermissionCategory: String, Codable, CaseIterable, Identifiable {
         case .ssh: return "SSH"
         case .internet: return "İnternet"
         case .delegate: return "Başka Ajana İş Verme"
-        case .pushDeploy: return "Push Ve Deploy"
+        case .pushDeploy: return "Push ve Deploy"
         case .command: return "Komut Çalıştırma"
         }
     }

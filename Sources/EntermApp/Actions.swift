@@ -11,9 +11,11 @@ struct Command: Identifiable {
 
 enum Commands {
     static let all: [Command] = [
-        Command(id: "team", title: "Ekibini Kur", key: "e"),
+        Command(id: "race", title: "Yarış Başlat", key: ""),
+        Command(id: "timeline", title: "Zaman Çizelgesi", key: ""),
+        Command(id: "team", title: "Ekibini Kur", key: ""),
         Command(id: "manager", title: "Yönetici Görünümü", key: "⌘⇧Y"),
-        Command(id: "newSession", title: "Yeni Oturum", key: "n"),
+        Command(id: "newSession", title: "Yeni Oturum", key: ""),
         Command(id: "newTerminal", title: "Yeni Terminal", key: "⌘T"),
         Command(id: "newClaude", title: "Yeni Claude Code", key: ""),
         Command(id: "newCodex", title: "Yeni Codex", key: ""),
@@ -26,7 +28,7 @@ enum Commands {
         Command(id: "newProject", title: "Yeni Proje", key: "⌘⇧N"),
         Command(id: "reopen", title: "Son Kapatılanı Yeniden Aç", key: "⌘⇧T"),
         Command(id: "chat", title: "Sohbet Görünümü", key: "⌘⇧M"),
-        Command(id: "maximize", title: "Seçili Kutuyu Tam Ekran Aç", key: "⌘⏎"),
+        Command(id: "maximize", title: "Kutuyu Büyüt", key: "⌘⏎"),
         Command(id: "noteBox", title: "Tuvale Not Ekle", key: ""),
         Command(id: "browserBox", title: "Tuvale Tarayıcı Ekle", key: ""),
         Command(id: "whiteboardBox", title: "Tuvale Beyaz Tahta Ekle", key: ""),
@@ -46,9 +48,9 @@ enum Commands {
         Command(id: "focusDown", title: "Alttaki Kutuya Geç", key: "⌥⌘↓"),
         Command(id: "memory", title: "Bellek Kullanımı", key: ""),
         Command(id: "focusMode", title: "Odak Modu", key: "⌘⇧F"),
-        Command(id: "lockCanvas", title: "Tuvali Kilitle Ya Da Aç", key: ""),
+        Command(id: "lockCanvas", title: "Tuvali Kilitle ya da Aç", key: ""),
         Command(id: "recents", title: "Tüm Geçmiş Konuşmalar", key: ""),
-        Command(id: "toggleRail", title: "Durak Hattını Göster Ya Da Gizle", key: "⌘⇧L"),
+        Command(id: "toggleRail", title: "Durak Hattını Göster ya da Gizle", key: "⌘⇧L"),
         Command(id: "webBox", title: "Tuvale Web Sayfası Ekle", key: ""),
         Command(id: "videoBox", title: "Tuvale Video Ekle", key: ""),
         Command(id: "gameBox", title: "Enter Koşusu", key: ""),
@@ -56,34 +58,34 @@ enum Commands {
         Command(id: "close", title: "Kutuyu Kapat", key: "⌘W"),
         Command(id: "inbox", title: "Onay Kutusu", key: "⌘⇧O"),
         Command(id: "board", title: "Pano", key: "⌘⇧B"),
-        Command(id: "toggleCanvas", title: "Tuval Ve Sekmeler Arasında Geç", key: ""),
+        Command(id: "toggleCanvas", title: "Tuval ve Sekmeler Arasında Geç", key: ""),
         Command(id: "sessionList", title: "Tüm Oturumlar", key: ""),
-        Command(id: "link", title: "Kutuları Bağla", key: ""),
+        Command(id: "link", title: "Kutu Bağlantıları", key: ""),
         Command(id: "messages", title: "Ajanlar Arası Mesaj Geçmişi", key: ""),
-        Command(id: "fit", title: "Sığdır", key: "0"),
+        Command(id: "fit", title: "Sığdır", key: ""),
         Command(id: "arrange", title: "Kutuları Diz", key: ""),
         Command(id: "home", title: "Ana Ekran", key: ""),
         Command(id: "zoomIn", title: "Yakınlaştır", key: "⌘="),
         Command(id: "zoomOut", title: "Uzaklaştır", key: "⌘-"),
         Command(id: "accounts", title: "Hesaplar", key: ""),
         Command(id: "settings", title: "Ayarlar", key: "⌘,"),
-        Command(id: "shortcuts", title: "Tüm Kısayollar", key: "?"),
+        Command(id: "shortcuts", title: "Tüm Kısayollar", key: ""),
         Command(id: "power", title: "Güç Sınırı", key: ""),
-        Command(id: "lowPower", title: "Düşük Güçlü Bilgisayar Aç Ya Da Kapat", key: ""),
-        Command(id: "history", title: "Geçmiş Konuşmalar", key: ""),
+        Command(id: "lowPower", title: "Düşük Güçlü Bilgisayar Aç ya da Kapat", key: ""),
+        Command(id: "history", title: "Bu Klasördeki Konuşmalar", key: ""),
         Command(id: "scheduler", title: "Zamanlayıcı", key: ""),
-        Command(id: "files", title: "Dosya Gezgini", key: ""),
+        Command(id: "files", title: "Dosyalar", key: ""),
         Command(id: "run", title: "Çalıştır", key: ""),
         Command(id: "whiteboard", title: "Beyaz Tahta", key: ""),
         Command(id: "simulator", title: "iOS Simülatörü", key: ""),
         Command(id: "welcome", title: "Kurulum Turu", key: ""),
         Command(id: "uninstall", title: "Enterm'i Kaldır", key: ""),
         Command(id: "newView", title: "Yeni Görünüm", key: ""),
-        Command(id: "voice", title: "Konuşarak Yaz", key: "⌃⌘ Basılı"),
+        Command(id: "voice", title: "Konuşarak Yazma Ayarları", key: "⌃⌘ Basılı"),
         Command(id: "remote", title: "Uzak Sunucu", key: ""),
         Command(id: "phone", title: "Telefonu Bağla", key: ""),
         Command(id: "stop", title: "Durdur", key: "⌘."),
-        Command(id: "changes", title: "Değişiklikler Ve Git", key: ""),
+        Command(id: "changes", title: "Değişiklikler ve Git", key: ""),
         Command(id: "browser", title: "Tarayıcı", key: "⌘⇧D"),
     ]
 
@@ -92,7 +94,7 @@ enum Commands {
         let model = AppModel.shared
         var list: [Command] = []
         for info in model.sessions where info.number != model.focused {
-            list.append(Command(id: "goto:\(info.number)", title: "Git: \(model.name(for: info))", key: ""))
+            list.append(Command(id: "goto:\(info.number)", title: "Oturuma Geç: \(model.name(for: info))", key: ""))
         }
         for name in model.projectNames where name != model.activeProject {
             list.append(Command(id: "project:\(name)", title: "Proje: \(name)", key: ""))
@@ -126,13 +128,16 @@ enum Commands {
             return
         }
         switch id {
+        case "race": model.page = .raceSetup
+        case "timeline":
+            if let info = model.focusedInfo { model.page = .timeline("session:\(info.id)") }
         case "newProject": model.showHomeScreen()
         case "reopen": model.reopenLast()
         case "chat":
             if let info = model.focusedInfo, info.tool == .claude || info.tool == .codex {
                 model.toggleChat(info.number)
             } else {
-                model.hint = "Sohbet Görünümü Claude Code Ve Codex'te Var"
+                model.hint = "Sohbet Görünümü Claude Code ve Codex'te Var"
             }
         case "noteBox": model.addItem(.note)
         case "browserBox": model.addItem(.browser)
@@ -196,7 +201,10 @@ enum Commands {
         case "home": model.showHomeScreen()
         case "zoomIn": model.setZoom(model.zoom + 0.1)
         case "zoomOut": model.setZoom(model.zoom - 0.1)
-        case "settings": model.page = .settings(.appearance)
+        case "settings":
+            // Back where the person last was; the first time, the programs.
+            let last = UserDefaults.standard.string(forKey: "settingsTab").flatMap(SettingsTab.init(rawValue:)) ?? .programs
+            model.page = .settings(last)
         case "shortcuts": model.page = .settings(.shortcuts)
         case "power": model.page = .settings(.power)
         case "lowPower": PowerCenter.shared.settings.lowPower.toggle()
@@ -233,10 +241,6 @@ enum Commands {
         case "whiteboard": model.page = .whiteboard
         case "simulator": model.page = .simulator
         case "uninstall": model.page = .uninstall
-        case "approveFirst":
-            if let request = model.sessions.compactMap(\.pendingApproval).first { Approvals.decide(id: request.id, decision: "allow") }
-        case "denyFirst":
-            if let request = model.sessions.compactMap(\.pendingApproval).first { Approvals.decide(id: request.id, decision: "deny") }
         case "changes": model.page = .changes
         case "browser":
             if model.page == .browser, BrowserCenter.shared.agentName != nil {

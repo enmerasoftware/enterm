@@ -1,91 +1,133 @@
 # Enterm
 
-Terminal görünümlü çalışma ortamı. Resmi programları (Claude Code, Codex, Antigravity, Gemini, opencode, Grok, GitHub Copilot, Cursor ya da kendi eklediğiniz bir program) değiştirmeden çalıştırır. Şu an macOS sürümü.
+**A native macOS canvas for AI coding agents that still feels like a terminal.**
 
-Üç temel kural: hafif çalışır, ayar dosyalarınıza dokunmaz, kullanmadığınız özellik yük bindirmez.
+Enterm runs the official coding CLIs (Claude Code, Codex, Gemini, Antigravity, opencode, Grok, GitHub Copilot, Cursor, or one you add yourself) exactly as they ship, side by side on one pannable canvas. Your sessions keep running when you quit the app, your config files stay untouched, and you can follow and approve the work from your iPhone. It is free, open source and built to sit at 0% CPU when nothing is happening.
 
-Açık kaynak ve ücretsiz, MIT lisanslı (`LICENSE`). English: [README.en.md](README.en.md).
+Türkçe: [README.tr.md](README.tr.md)
 
-## Katkı
+![Enterm: agents side by side on the canvas](docs/media/hero.gif)
 
-Issue ve PR'lar açık; ilk katkı için en kolayı yeni bir hazır beceri (`skills/`). Önce [CONTRIBUTING.md](CONTRIBUTING.md). Güvenlik açığı gizli bildirilir: [SECURITY.md](SECURITY.md).
+## Why Enterm
 
-## İndirme
+- **Vendor-neutral.** Use whichever agent fits the task, or several at once. No account, no subscription, no lock-in.
+- **Official CLIs, unmodified.** Enterm wraps the programs you already use; it does not patch, proxy or reimplement them.
+- **Sessions survive quit.** A background service (`entermd`) owns the terminals, so closing the window does not stop the work.
+- **A canvas, not a tab strip.** Every agent and terminal is a box you can tile, move, resize and group, organized into project tabs.
+- **Your phone in the loop.** Pair an iPhone with end-to-end encryption and answer permission requests from the lock screen.
+- **Light by design.** Nothing animates or polls while idle. A feature you do not use costs nothing.
 
-Son sürüm: [github.com/enmerasoftware/enterm/releases/latest](https://github.com/enmerasoftware/enterm/releases/latest). DMG'yi açıp Enterm'i Uygulamalar klasörüne sürükleyin. Sürümler Apple onaylıdır (Developer ID ve notarization), yeni sürüm çıkınca Enterm kendisi sorar (Sparkle). macOS 14 ve üstü.
+## Features
 
-## Derleme
+### Race
+
+![Two agents racing on the same task, each in its own worktree](docs/media/race.png)
+
+Give one task to several agents and keep the best result. Pick two or three of Claude Code, Codex and Gemini; each gets its own git worktree branched from the same commit and the same instructions, so the race is fair. The racers open side by side in their own tab, each with a live lane showing elapsed time, files changed and lines added and removed, and a runner that moves toward the flag. Medals mark the finishing order.
+
+When everyone is done, the results page shows each entrant's diff and can run the project's test command per entrant (detected from `Package.swift`, `package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml` and others, or one you type). **Pick Winner** merges that branch into your main folder, closes the other boxes and removes every worktree and branch the race created. Your main folder is not touched until you pick. Start one from the command palette or the action menu with **Start a Race**.
+
+![Race results with tests and Pick Winner](docs/media/race-results.png)
+
+### Timeline
+
+![Timeline replay of a race](docs/media/timeline.png)
+
+An animated replay of what an agent did, read from the CLI's own transcript (Claude Code and Codex). Each agent gets a lane with colored marks for prompts, replies, edits, commands and reads; playback lights up the files as they are touched, and long pauses are shortened so the replay shows work, not waiting. A race replays all of its lanes together. **Save as HTML** exports the replay as a single self-contained file you can share; it includes the prompts and commands, so check it before you send it.
+
+### Canvas and projects
+
+- Sessions and views are boxes on a pannable canvas: tile them, move them freely, resize, group, save layouts, undo.
+- Project tabs filter the canvas to one project; **All** shows every box. A session in another project keeps running.
+- Permission questions light up the box and collect in one place.
+- Five-hour and weekly usage limits for Claude Code and Codex on the status line.
+- A board of cards assigned to agents: moving a card to **In Progress** sends it to its agent, and the agent reports back.
+- Untitled boxes show the program's own session title; the ports a session listens on appear on the box.
+- Chat view (`⌘⇧M`) shows a session as a conversation, read from the CLI's own transcript.
+- Local dictation with whisper.cpp, which runs only while you dictate.
+- Preset skill packs (video, software, image) you switch on in Settings, loaded per session without writing to `~/.claude`. See [`skills/`](skills/).
+- `enterm://` links open a folder with a program and a task, a session, a settings page or the board. A link that would start a program asks first.
+
+### Agents drive the canvas (MCP)
+
+A local MCP bridge lets agents work the canvas themselves: read its state, open boxes (now or queued for later), set up a team, open a git worktree, close the boxes they opened, add and move board cards, and show or edit content. Draw a line between two boxes to share context. Tools that open boxes require the "assign work to another agent" permission on the session's permission card, and only you can move a card to Done.
+
+### Phone
+
+An iPhone companion app pairs with your Mac through a QR code: both sides derive a shared secret with X25519 and you compare a six-digit number. The relay in between only ever sees encrypted bytes, and every connection uses a fresh key. From the phone you can follow sessions (including Claude Code and Codex sessions as a conversation), start a new shell, approve or deny permission requests from the lock screen, and watch progress in a Live Activity.
+
+<!-- TODO: link the iPhone app (App Store or TestFlight) once it is public -->
+
+### Built-in views
+
+Alongside terminals, the canvas holds a web browser, web pages, notes, a whiteboard, a file browser, video, and iOS Simulator and Android emulator boxes (tap, swipe and type on Android through `adb`). Agents can use an optional Safari window with per-site permission.
+
+## Install
+
+Requires macOS 14 (Sonoma) or later.
+
+**DMG.** Download the latest release from [GitHub Releases](https://github.com/enmerasoftware/enterm/releases/latest), open the DMG and drag Enterm into Applications. Releases are signed with a Developer ID, notarized by Apple, and update themselves through Sparkle.
+
+**Homebrew.**
+
+<!-- TODO: confirm the cask is published in enmerasoftware/homebrew-tap (Casks/enterm.rb) before launch -->
+
+```bash
+brew install --cask enmerasoftware/tap/enterm
+```
+
+Then install the agents you want to use (for example Claude Code or Codex) the way their vendors describe. Enterm finds them on your `PATH`.
+
+## Build from source
+
+Requires Xcode at `/Applications/Xcode.app`.
 
 ```bash
 scripts/bundle.sh release
 open build/release-$(git rev-parse --short HEAD)/Enterm.app
 ```
 
-Xcode kurulu olmalı (`/Applications/Xcode.app`). Testler:
+Run the tests with:
 
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift test
 ```
 
-## Yapı
+`DEVELOPER_DIR` points Swift at the full Xcode toolchain, which the tests need, even if `xcode-select` is set to the Command Line Tools. A debug build for local testing: `scripts/bundle.sh debug build/test`.
 
-- `Sources/EntermCore`: Arayüzden bağımsız çekirdek. AppKit, UIKit, SwiftUI almaz; iOS istemcisi buradan başlar.
-- `Sources/entermd`: Oturum servisi. Pseudo terminallerin sahibidir, uygulama kapanınca oturumlar sürer, iş kalmayınca kapanır.
-- `Sources/enterm`: Kabuk entegrasyonu ve kancaların çağırdığı küçük komut, ayrıca ajanlar arası yerel MCP köprüsü.
-- `Sources/EntermApp`: macOS arayüzü. Tuval ve terminaller AppKit, sayfa ve diyaloglar SwiftUI.
-- `Sources/CPTY`: `forkpty` sarmalayıcısı.
+Repository layout:
 
-Kurallar: `.zshrc`, `~/.claude`, `~/.codex` değişmez. Entegrasyon başlatma argümanı ve ortam değişkeniyle gelir. Abonelik token'ı Enterm'e gelmez, ayrı hesap `CLAUDE_CONFIG_DIR` ve `CODEX_HOME` ile resmi programda durur.
+- `Sources/EntermCore`: the core, with no AppKit, UIKit or SwiftUI; the iOS app builds on it.
+- `Sources/entermd`: the session service that owns the pseudo terminals.
+- `Sources/enterm`: a small command for shell integration and hooks, plus the local MCP bridge.
+- `Sources/EntermApp`: the macOS app. Canvas and terminals in AppKit, pages and dialogs in SwiftUI.
+- `enterm-ios/`, `relay/`: the iPhone app and its encrypted relay.
+- `skills/`: the preset skill packs.
 
-## Yapı Taşları
+Maintainer notes (internals, test driver, release process) are in [docs/MAINTAINERS.md](docs/MAINTAINERS.md) (Turkish).
 
-- **Karşılama ve tur:** `Sources/EntermApp/FirstImpression.swift`. İlk açılışta bir kez, komut paletinden yeniden.
-- **Ana ekran:** Hiçbir şey açık değilken pencere tek komut satırıdır. Yazıp Enter'a basılır: boşsa varsayılan program, klasörse orada, başka bir şeyse komut olarak çalışır.
-- **Projeler:** Üst sekmeler. Her oturum açıldığı projeye bağlıdır, başka projedeki oturum çalışmaya devam eder.
-- **Tuval:** Oturumlar ve görünümler (Not, Web Sayfası, Tarayıcı, Beyaz Tahta, Dosyalar, Video, iOS Simülatörü). Taşıma, boyutlandırma, gruplar, kayıtlı yerleşimler, geri alma, yarım ekran yerleşimi: `CanvasView.swift`, `Workspace.swift`.
-- **Hazır beceriler:** `skills/` altında Video, Yazılım ve Görsel paketleri (Claude Code eklentisi biçiminde). Ayarlar → Hazır Beceriler'de açılan paket yeni Claude Code oturumuna `--plugin-dir` ile verilir, `~/.claude`'a yazılmaz: `Sources/EntermCore/SkillPacks.swift`. Codex, Gemini ve Antigravity'de ek klasör yalnız kendi ayar klasörlerinden okunduğu için şimdilik yok.
-- **Claude komutları:** Ayarlar → Claude Komutları, `/effort` seviyeleri dahil tüm komutların Türkçe açıklaması; Yaz düğmesi komutu seçili oturuma Enter'sız yazar: `Sources/EntermCore/ClaudeCommands.swift`.
-- **Ajanların tuvali yönetmesi:** MCP köprüsünde `tuval_durumu`, `kutu_ac` (`sonra` ile sıraya koyma), `ekip_kur`, `worktree_ac`, `kutu_kapat` (yalnız kendi açtığı), `kart_ekle`, `kart_tasi` (Bitti'ye yalnız kullanıcı), `goster`, `duzenle`. Kutu açan araçlar yetki kartındaki Başka Ajana İş Verme iznine bağlı: `Sources/EntermApp/CanvasAgent.swift`.
-- **Portlar:** Bir tur bitince ya da terminalde komut başlayınca oturumun dinlediği portlara üç kez bakılır (zamanlayıcı yok), kutunun alt satırında ve sağ tık menüsünde görünür: `Sources/EntermCore/PortScan.swift`.
-- **Başlık ve döngü:** Ad verilmemiş kutu, programın kendi başlığını gösterir (Claude Code dökümü, Codex `session_index.jsonl`), model çağrısı yok. `/loop` ve zamanlanmış görevler kutuda sıklığı ve sonraki çalışmasıyla görünür: `Sources/EntermCore/SessionTitles.swift`.
-- **Diğer programlar:** Gemini (`GEMINI_CLI_SYSTEM_SETTINGS_PATH`, sistem ayarı yoksa), opencode (`OPENCODE_CONFIG_DIR` eklentisi), Copilot (`--plugin-dir`, `--additional-mcp-config`) ve Cursor (`--plugin-dir`) Enterm'in kendi klasöründen kanca ve köprü alır; kullanıcının ayarına yazılmaz. Grok ve Antigravity için belgelenmiş yol yok.
-- **`enterm://`:** `open?path=…&program=…&task=…`, `session/<ad>`, `settings/<sekme>`, `board`. Program başlatan adres önce sorar.
-- **Simülatör:** iOS ve Android (adb ile dokunma, kaydırma, yazma).
-- **Homebrew:** `scripts/cask.sh <dmg>` tarif üretir, `enmerasoftware/homebrew-tap` deposuna konur.
-- **Ölçüm:** `scripts/measure.sh` Enterm'in boşta işlemci ve bellek kullanımını ölçer.
-- **Sohbet görünümü:** `⌘⇧M`. Programın kendi döküm dosyasını okur, terminale yazar: `ChatView.swift`, `Sources/EntermCore/Chat.swift`.
-- **Çentik:** `Notch.swift`. Yalnız program çalışırken vardır.
-- **Yerel dikte:** `Whisper.swift`. `whisper-cli` yalnız dikte sırasında çalışır, model isteyince iner.
-- **Hareket kuralı:** Hareket yalnız bir şey olduğunda çalışır, boşta sıfır. Pencere görünmüyorsa, Düşük Güçlü modda ya da "hareketi azalt" açıksa kapanır (`MotionPolicy`).
+## Privacy and security
 
-## İzinler Ve Tarayıcı
+- **No config edits.** Enterm never writes to `~/.zshrc`, `~/.claude`, `~/.codex` or any other configuration. Integration arrives through launch arguments and environment variables.
+- **No tokens.** Your subscription tokens stay inside the official CLI and never reach Enterm. A second account lives in the CLI itself through `CLAUDE_CONFIG_DIR` or `CODEX_HOME`.
+- **End-to-end encrypted phone.** Pairing uses X25519 with a six-digit comparison; the relay only carries encrypted bytes.
+- **Local by default.** Sessions, transcripts and the MCP bridge stay on your Mac. Enterm itself goes online for things you can see: update checks, the dictation model or an agent's official installer when you ask for them, web pages you open, and, once you pair a phone, encrypted traffic through the relay. The agents talk to their own vendors exactly as they do in a plain terminal.
+- **Permissions you can see.** By default each CLI asks its own questions as it would in a plain terminal; stricter templates let Enterm's permission card decide.
 
-- Varsayılan şablon **Serbest**: program düz terminaldeki gibi kendi kurallarıyla çalışır, sorusu hemen ekrana gelir. Kutu "Onay İstiyor" diye yanar. Daha sıkı şablonlar (Salt Okuma, Geliştirme, Yönetici, Sunucu Bakımı) Enterm'in kartıyla karar verir.
-- **Tek Tık Onay** (Ayarlar → Güvenlik, kapalı) soruyu kutunun altında da gösterir, programın kendi sorusu en çok 45 saniye bekler.
-- **Safari** (Ayarlar → Tarayıcı, kapalı): ajanlar kendi penceresinde Safari'yi kullanır, site başına izin sorulur, izinli siteden çıkan sayfa okunmaz. macOS'un sorusu yalnız bu ayar açıkken ve "Dene" ile gelir.
-- **Girişleri Hatırla** (kapalı): Enterm'in kendi tarayıcısı hesapları kapanınca da tutar.
+Please report vulnerabilities privately, see [SECURITY.md](SECURITY.md).
 
-## Test Sürücüsü
+## Languages
 
-`ENTERM_DEBUG_DIR` verilirse uygulama `SIGUSR1` ile `<dir>/cmd` dosyasındaki komutları çalıştırır (`do <komut>`, `type <metin>`, `shot <dosya>`). Bkz. `scripts/run-test.sh`, `scripts/drive.sh`, `scripts/test-bridge.sh`. Testler sahte `claude` ve geçici `HOME` ile çalışır. `ENTERM_START_TERMINAL=1` turu atlayıp terminalle başlatır. Sürücüye sinyal göndermeden önce uygulamanın açılmasını bekleyin: hazır olmadan gelen `SIGUSR1` süreci kapatır.
+The interface is available in English and Turkish, following your Mac's language or the choice in Settings.
 
-## Telefon
+The code is written in Turkish, and English is a table, [`Resources/en.json`](Resources/en.json), keyed by the Turkish source text. Built text uses `%@` for the parts (`"Ekip %@"` → `"Team %@"`). After adding or changing on-screen text, run `scripts/strings.py`: it lists every string without English, and CI runs the same check. Strings that are not on-screen text (commands, identifiers) go into `Resources/en-same.json`.
 
-- `enterm-ios/`: iOS uygulaması. Xcode ile `enterm-ios/EntermPhone.xcodeproj` açılır. Proje dosyası `enterm-ios/project.yml` içinden xcodegen ile üretilir; simülatör için `scripts/build-ios.sh <simülatör kimliği>`.
-- `relay/`: aktarım ve bildirim servisi, bağımlılığı yok. Canlıda değil, ayrıntı `relay/README.md`.
-- Eşleşme: QR kodunda geçici açık anahtar var, iki taraf X25519 ile ortak sır üretir, kişi altı haneli sayıyı karşılaştırır. Aktarım yalnız şifreli bayt görür, her bağlantı yeni anahtar kullanır.
-- Eşleşen cihazlar `devices.json` içinde, 0600 izinle. Telefonda anahtar Anahtar Zinciri'nde.
-- Mac penceresindeki işler (hesaplar, Git, bağlantılar, tarayıcı, ekip, yeni oturum) telefondan `appCall` ile çağrılır: `Sources/EntermApp/PhoneBridge.swift`. Pencere kapalıysa servis onu arkada açar, öne getirmez.
+Adding a third language means a new table next to `en.json` and a small change to the bundle step and the language list, so please open an issue first and we will set it up together. Details are in [CONTRIBUTING.md](CONTRIBUTING.md#text-on-screen).
 
-## Sürüm Yayınlama
+## Contributing
 
-1. `Resources/Info.plist` içinde `CFBundleShortVersionString` artırılır ve commit edilir.
-2. `scripts/distribute.sh`: Developer ID ile imzalar, Apple'a onaylatır, `build/dist-<commit>/Enterm-<sürüm>.dmg` çıkar. Onay bilgisi `enterm` adlı notarytool profilinden okunur (`ENTERM_NOTARY_PROFILE` ile değişir).
-3. `scripts/publish.sh <dmg> "sürüm notu"`: GitHub'da sürümü açar, DMG ile imzalı `appcast.xml` dosyasını yükler. Uygulamalar güncellemeyi `releases/latest/download/appcast.xml` üzerinden bulur.
+Issues and pull requests are welcome, in English or Turkish. A new skill is the easiest first contribution. Read [CONTRIBUTING.md](CONTRIBUTING.md) first.
 
-Sparkle'ın gizli imza anahtarı yalnız yayın yapan Mac'in Anahtar Zinciri'nde durur (hesap adı `enterm`). Kaybolursa eski sürümler yeni güncellemeyi kabul etmez; yedeği `generate_keys --account enterm -x <dosya>` ile alınır ve parola yöneticisinde saklanır.
+## License
 
-## Telefon Aktarımı Açılmadan Önce
-
-- **Anahtar taşıma:** Eşleşen cihaz anahtarları şu an `devices.json` içinde 0600 izinle duruyor. Bu yalnız imzasız sürüm için kabul edildi (Ufuk, 2026-11-04), çünkü imzasız servis Anahtar Zinciri'ne her erişimde parola penceresi açar. İmzalı sürümde `PhoneCenter` anahtarları Anahtar Zinciri'ne taşır, `devices.json` içinde yalnız ad, tarih ve bildirim jetonu kalır, ilk açılışta eski dosyadaki anahtarlar taşınıp silinir.
-
+MIT, see [LICENSE](LICENSE).

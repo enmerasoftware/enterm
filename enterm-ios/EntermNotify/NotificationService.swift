@@ -11,8 +11,9 @@ final class NotificationService: UNNotificationServiceExtension {
         if let sealed = request.content.userInfo["enc"] as? String, let peer = PeerStore.load(),
            let plain = TunnelCrypto.openNotification(sealed, pairKey: peer.key),
            let notice = try? JSONDecoder().decode(PhoneNotice.self, from: plain) {
-            content.title = notice.title
-            content.body = notice.body
+            // The Mac writes in its own language; the phone shows it in the phone's.
+            content.title = L(notice.title)
+            content.body = L(notice.body)
         }
         contentHandler(content)
     }

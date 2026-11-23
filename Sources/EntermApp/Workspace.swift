@@ -56,6 +56,12 @@ struct SavedLayout: Codable, Identifiable, Equatable {
     var sizes: [String: CGSize]
 }
 
+/// Where a surface was looked at from: each area, and the all-areas surface, keeps its own.
+struct CanvasCamera: Codable, Equatable {
+    var pan: CGPoint
+    var zoom: CGFloat
+}
+
 struct LayoutSnapshot {
     let positions: [String: CGPoint]
     let sizes: [String: CGSize]
@@ -82,6 +88,8 @@ struct WindowState: Codable {
     var modeBeforeAll: ViewMode?
     /// Boxes an agent opened, by the agent that opened them. An agent may close only these.
     var openedBy: [String: String] = [:]
+    /// The pan and zoom each area was left at, by area name; the all-areas surface is "*".
+    var cameras: [String: CanvasCamera] = [:]
 
     init() {}
 
@@ -101,6 +109,7 @@ struct WindowState: Codable {
         showingAll = try c.decodeIfPresent(Bool.self, forKey: .showingAll) ?? d.showingAll
         modeBeforeAll = try c.decodeIfPresent(ViewMode.self, forKey: .modeBeforeAll)
         openedBy = try c.decodeIfPresent([String: String].self, forKey: .openedBy) ?? d.openedBy
+        cameras = try c.decodeIfPresent([String: CanvasCamera].self, forKey: .cameras) ?? d.cameras
     }
 }
 
@@ -470,7 +479,7 @@ final class ActionMenuItem: NSMenuItem {
     private let run: () -> Void
     init(_ title: String, key: String = "", enabled: Bool = true, run: @escaping () -> Void) {
         self.run = run
-        super.init(title: title, action: #selector(fire), keyEquivalent: key)
+        super.init(title: L(title), action: #selector(fire), keyEquivalent: key)
         target = self
         isEnabled = enabled
     }
@@ -481,8 +490,8 @@ final class ActionMenuItem: NSMenuItem {
 
 enum CanvasMenus {
     private static func submenu(_ title: String, _ items: [NSMenuItem]) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-        let menu = NSMenu(title: title)
+        let item = NSMenuItem(title: L(title), action: nil, keyEquivalent: "")
+        let menu = NSMenu(title: L(title))
         menu.autoenablesItems = false
         items.forEach(menu.addItem)
         item.submenu = menu
@@ -508,8 +517,9 @@ enum CanvasMenus {
         menu.addItem(ActionMenuItem("Yeni Terminal") { model.newTerminal() })
         menu.addItem(submenu("Yeni Program", programItems()))
         menu.addItem(submenu("Yeni Görünüm", ItemKind.allCases.map { kind in ActionMenuItem(kind.title) { model.addItem(kind) } }))
-        menu.addItem(submenu("Düzenle", [
-            ActionMenuItem("Ekip Kur") { Commands.perform("team") },
+        menu.addItem(submenu("Birlikte Çalış", [
+            ActionMenuItem("Yarış Başlat") { Commands.perform("race") },
+            ActionMenuItem("Ekibini Kur") { Commands.perform("team") },
             ActionMenuItem("Worktree Aç") { Commands.perform("worktree") },
             ActionMenuItem("Zamanlayıcı") { Commands.perform("scheduler") },
             ActionMenuItem("Pano") { Commands.perform("board") },
@@ -531,11 +541,14 @@ enum CanvasMenus {
         let model = AppModel.shared
         let menu = NSMenu()
         menu.autoenablesItems = false
+        if info.transcriptPath != nil {
+            menu.addItem(ActionMenuItem("Zaman Çizelgesi") { model.page = .timeline("session:\(info.id)") })
+        }
         menu.addItem(ActionMenuItem("Yeniden Adlandır") {
             model.ask(title: "Oturumun Adı", placeholder: info.tool.title, initial: info.name, confirm: "Adlandır") { model.rename(info.number, $0) }
         })
         if model.tileCount > 1 {
-            menu.addItem(ActionMenuItem(model.maximized == info.number ? "Tümünü Gör" : "Tam Ekran") {
+            menu.addItem(ActionMenuItem(model.maximized == info.number ? "Tümünü Gör" : "Kutuyu Büyüt") {
                 model.setFocus(info.number)
                 model.toggleMaximize()
             })
@@ -798,7 +811,7 @@ final class GroupFrameView: NSView {
 
     private var color: NSColor { Self.colors[group.colorIndex % Self.colors.count] }
     private var labelRect: NSRect {
-        let width = (group.name as NSString).size(withAttributes: [.font: Theme.ui(.secondary, weight: .semibold)]).width + 16
+        let width = (L(group.name) as NSString).size(withAttributes: [.font: Theme.ui(.secondary, weight: .semibold)]).width + 16
         return NSRect(x: 12, y: 0, width: width, height: 20)
     }
 
@@ -814,7 +827,7 @@ final class GroupFrameView: NSView {
         label.fill()
         color.withAlphaComponent(0.5).setStroke()
         label.stroke()
-        (group.name as NSString).draw(at: NSPoint(x: labelRect.minX + 8, y: labelRect.minY + 3), withAttributes: [
+        (L(group.name) as NSString).draw(at: NSPoint(x: labelRect.minX + 8, y: labelRect.minY + 3), withAttributes: [
             .font: Theme.ui(.secondary, weight: .semibold), .foregroundColor: color,
         ])
     }

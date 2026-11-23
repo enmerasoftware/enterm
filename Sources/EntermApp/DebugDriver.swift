@@ -175,6 +175,29 @@ final class DebugDriver {
                 SettingsStore.shared.settings.flowStartsOpen = rest == "on"
             case "team":
                 TeamBuilder.build(brief: "Test Ekibi", folder: rest, members: Team.template("software"))
+            case "race":
+                // race <folder>|<task>|<test command>
+                let parts = rest.components(separatedBy: "|")
+                if let error = RaceCenter.shared.start(task: parts.count > 1 ? parts[1] : "Test", programs: [.claude, .codex], folder: parts[0], testCommand: parts.count > 2 ? parts[2] : "") {
+                    try? error.write(toFile: (ProcessInfo.processInfo.environment["ENTERM_DEBUG_DIR"] ?? "/tmp") + "/race-error", atomically: true, encoding: .utf8)
+                }
+            case "size":
+                // size <width> <height>: for screenshots at a size people use.
+                let numbers = rest.split(separator: " ").compactMap { Double($0) }
+                if numbers.count == 2, let window = NSApp.windows.first(where: { $0.contentView is RootView }) {
+                    window.setFrame(NSRect(x: 60, y: 60, width: numbers[0], height: numbers[1]), display: true)
+                }
+            case "racetest":
+                if let race = RaceCenter.shared.open.first { RaceCenter.shared.test(race.id) }
+            case "racedrop":
+                if let race = RaceCenter.shared.open.first { RaceCenter.shared.drop(race.id) }
+            case "raceresult":
+                if let race = RaceCenter.shared.open.first { AppModel.shared.page = .race(race.id) }
+            case "racemerge":
+                if let race = RaceCenter.shared.open.first, let first = race.standings.first {
+                    let error = RaceCenter.shared.merge(race.id, winner: first.branch) ?? "ok"
+                    try? error.write(toFile: (ProcessInfo.processInfo.environment["ENTERM_DEBUG_DIR"] ?? "/tmp") + "/race-merge", atomically: true, encoding: .utf8)
+                }
             case "card":
                 BoardStore.shared.change { board in
                     var card = BoardCard(title: rest)

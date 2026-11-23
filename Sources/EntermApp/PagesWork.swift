@@ -78,7 +78,7 @@ struct HistoryPage: View {
     @State private var items: [PastConversation] = []
     var body: some View {
         let cwd = model.focusedInfo?.cwd ?? NSHomeDirectory()
-        PageFrame(title: "Geçmiş Konuşmalar") {
+        PageFrame(title: "Bu Klasördeki Konuşmalar") {
             Dim(model.displayPath(cwd)).lineLimit(1).truncationMode(.head)
             if items.isEmpty {
                 Dim("Bu klasörde Claude Code konuşması bulunamadı. Codex ve Antigravity listesi bu sürümde yok.")
@@ -115,10 +115,9 @@ struct NewViewPage: View {
             Dim("Yalnız Açılınca Yüklenir")
             Panel {
                 MenuList {
-                    MenuRow(title: "Dosya Gezgini", note: "Bu Klasörün Dosyaları") { model.page = .files }
-                    MenuRow(title: "Düzenleyici", note: "Dosyayı Burada Açıp Düzeltin") { model.page = .files }
+                    MenuRow(title: "Dosyalar", note: "Bu Klasörün Dosyalarını Görün, Düzeltin") { model.page = .files }
                     MenuRow(title: "Not", note: "Bu Klasöre Bağlı Kısa Not") { model.page = .note }
-                    MenuRow(title: "Zamanlayıcı", note: "Bir Komut Ya Da İş, Belli Saatte") { model.page = .scheduler }
+                    MenuRow(title: "Zamanlayıcı", note: "Bir Komut ya da İş, Belli Saatte") { model.page = .scheduler }
                     MenuRow(title: "Beyaz Tahta", note: "Çizin, Ajana Gösterin") { model.page = .whiteboard }
                     MenuRow(title: "Çalıştır", note: "Projenin Sunucularını Başlatın") { model.page = .run }
                     MenuRow(title: "iOS Simülatörü", note: "Uygulamanızı Yanında Görün") { model.page = .simulator }
@@ -195,7 +194,7 @@ struct EditorPage: View {
                 text = value
                 loaded = true
             } else {
-                state = "Bu Dosya Burada Açılamıyor: Çok Büyük Ya Da Metin Değil."
+                state = "Bu Dosya Burada Açılamıyor: Çok Büyük ya da Metin Değil."
             }
         }
     }
@@ -535,7 +534,7 @@ struct RestorePage: View {
     @ObservedObject var model = AppModel.shared
     @State private var pending: [SessionInfo] = []
     var body: some View {
-        PageFrame(title: "Oturumlar Geri Gelsin Mi?", centered: true) {
+        PageFrame(title: "Oturumlar Geri Gelsin mi?", centered: true) {
             Dim("Bilgisayar yeniden başladı. Dökümler yerinde. Ajanlar kendiliğinden başlamaz, açtığınızda konuşma kaldığı yerden sürer, ilk mesajda limitten yer.")
             Panel {
                 let names = SessionLabel.names(pending)

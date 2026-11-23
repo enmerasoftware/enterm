@@ -535,7 +535,7 @@ struct UninstallPage: View {
             if confirm {
                 HStack {
                     Btn("Vazgeç", kind: .plain) { confirm = false }
-                    Btn("Evet, Hepsini Sil Ve Kapat", kind: .danger) { Uninstaller.removeEverything() }
+                    Btn("Evet, Hepsini Sil ve Kapat", kind: .danger) { Uninstaller.removeEverything() }
                 }
             } else {
                 Btn("Kaldır", kind: .danger) { confirm = true }

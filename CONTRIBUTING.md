@@ -20,6 +20,14 @@ open build/test/Enterm.app
 
 `EntermCore` has no AppKit, UIKit or SwiftUI; keep it that way so the iOS client can use it. Logic that can be tested goes there, with a test in `Tests/EntermCoreTests`.
 
+## Text on screen
+
+The app is written in Turkish and shown in English on any Mac that is not set to Turkish. English lives in
+`Resources/en.json`, keyed by the Turkish text; built text uses `%@` for the parts (`"Ekip %@"` → `"Team %@"`).
+After adding or changing text, run `scripts/strings.py`: it lists every string without English. Add each one to
+`Resources/en.json`, or to `Resources/en-same.json` when it is not on-screen text (a command, an identifier).
+CI runs the same check. A word with two meanings takes a context: `L("Açık", context: "tema")` reads `"tema::Açık"`.
+
 ## Pull requests
 
 - One topic per pull request, with a sentence on why.

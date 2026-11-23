@@ -34,7 +34,9 @@ struct PageRouter: View {
         case .simulator: SimulatorPage()
         case .uninstall: UninstallPage()
         case .phone: PhonePage()
-        case .notYet(let name): NotYet(name: name)
+        case .raceSetup: RaceSetupPage()
+        case .race(let id): RaceResultPage(id: id)
+        case .timeline(let key): TimelinePage(key: key)
         }
     }
 }
@@ -105,7 +107,7 @@ struct ApprovalDialog: View {
                     if request.category == .internet {
                         Dim("Aynı adres bir kez sorulur, sonra hatırlanır. Hatırlananları Yetkiler'den silebilirsiniz.")
                     }
-                    Dim("Yalnız Bu Komut İçin · Kayda Geçer")
+                    Dim("Yalnız Bu Komut için · Kayda Geçer")
                 }
                 .padding(20)
                 DialogButtons {
@@ -242,24 +244,36 @@ struct DetailTabs: View {
     let info: SessionInfo
     @ObservedObject var model = AppModel.shared
     var body: some View {
+        // A plain terminal has no model to show, so it starts on its links.
+        let isTerminal = info.tool == .terminal
         VStack(alignment: .leading, spacing: 0) {
-            // Tabs are a choice, so they use the shared selector; the actions below stay buttons.
-            // Both rows sit 16 in, like the content under the line.
-            HStack(spacing: 8) {
-                Seg(options: [(0, "Model"), (1, "Bağlantılar"), (2, "Yetkiler")], value: $model.detailTab)
-                Spacer(minLength: 0)
+            // Whose details these are; the close cross sits to the right of it.
+            VStack(alignment: .leading, spacing: 2) {
+                T(model.name(for: info), bold: true, style: .section).lineLimit(1)
+                Dim(model.displayPath(info.cwd)).lineLimit(1).truncationMode(.head)
             }
-            .padding(16)
+            .padding(.leading, 16)
+            .padding(.trailing, 56)
+            .padding(.top, 18)
+            // Tabs are a choice, so they use the shared selector; the actions below stay buttons.
+            Seg(options: isTerminal ? [(1, "Bağlantılar"), (2, "Yetkiler")] : [(0, "Model"), (1, "Bağlantılar"), (2, "Yetkiler")],
+                value: Binding(get: { isTerminal && model.detailTab == 0 ? 1 : model.detailTab }, set: { model.detailTab = $0 }))
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+            // What can be opened from here, one row, equal widths.
             HStack(spacing: 8) {
-                Btn("Değişiklikler", kind: .plain) { Commands.perform("changes") }
-                Btn("Tarayıcı", kind: .plain, key: "⌘⇧D") { Commands.perform("browser") }
-                Spacer(minLength: 0)
+                DetailAction(title: "Değişiklikler", icon: "plus.forwardslash.minus") { Commands.perform("changes") }
+                DetailAction(title: "Tarayıcı", icon: "safari") { Commands.perform("browser") }
+                if info.transcriptPath != nil {
+                    DetailAction(title: "Zaman Çizelgesi", icon: "timeline.selection") { model.page = .timeline("session:\(info.id)") }
+                }
             }
             .padding(.horizontal, 16)
+            .padding(.top, 12)
             Line().padding(.top, 16)
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    switch model.detailTab {
+                    switch isTerminal && model.detailTab == 0 ? 1 : model.detailTab {
                     case 1: LinksTab(info: info)
                     case 2: PermissionsTab(info: info)
                     default: ModelTab(info: info)
@@ -269,6 +283,30 @@ struct DetailTabs: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+    }
+}
+
+/// An action in the details pane: an icon over its name, all of them the same width.
+struct DetailAction: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let title: String
+    let icon: String
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        let palette = Theme.palette
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Symbol(icon, color: palette.text1, size: 14)
+                T(title, color: palette.text2, style: .secondary).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .background(Color(hovering ? palette.fillSelected : palette.fill))
+            .cornerRadius(Theme.cornerControl)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.press)
+        .onHover { hovering = $0 }
     }
 }
 
@@ -288,7 +326,7 @@ struct LimitBars: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 T(title, color: Theme.palette.text2, style: .secondary)
-                T("%\(Int(window.usedPercent))", style: .secondary)
+                T(Loc.percent(Int(window.usedPercent)), style: .secondary)
                 Spacer()
                 if let resets = window.resetsAt { Dim(TimeText.reset(resets)) }
             }
@@ -301,14 +339,14 @@ enum TimeText {
     /// For a tight line: the time today, otherwise the short day too.
     static func short(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "tr_TR")
+        formatter.locale = Loc.locale
         formatter.dateFormat = Calendar.current.isDateInToday(date) ? "HH:mm" : "EEE HH:mm"
         return "Yenilenme " + formatter.string(from: date)
     }
 
     static func reset(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "tr_TR")
+        formatter.locale = Loc.locale
         formatter.dateFormat = Calendar.current.isDateInToday(date) ? "HH:mm" : "EEEE HH:mm"
         return formatter.string(from: date) + " Sıfırlanır"
     }
@@ -345,7 +383,7 @@ struct ModelTab: View {
             if info.tool == .codex, info.hooksTrusted != true {
                 Panel {
                     VStack(alignment: .leading, spacing: 8) {
-                        T("Codex Durumu İçin Onayınız Gerekiyor", bold: true)
+                        T("Codex Durumu için Onayınız Gerekiyor", bold: true)
                         Dim("Bu onay olmadan \"onay istiyor\" durumu görünmez, \"bitti\" yalnız tur sonunda gelir. Codex yine çalışır. Bu terminalde /hooks yazıp Enterm kancalarına güvenin. Tanım değişirse yeniden sorulur.")
                         Btn("/hooks Yaz", kind: .primary) {
                             AppModel.shared.connection.sendInput(number: info.number, bytes: Data("/hooks\r".utf8))
@@ -376,7 +414,7 @@ struct ModelTab: View {
             LimitBars(snapshot: AccountStore.shared.account(id: info.accountID ?? "system-codex")?.lastLimit)
             Dim("Codex'in deneysel app-server arayüzünden okunur, model çalıştırmaz.")
         }
-        Btn("Maliyet Görünümü", kind: .plain) { AppModel.shared.page = .cost }
+        Btn("Maliyet Geçmişi", kind: .plain) { AppModel.shared.page = .cost }
     }
 
     private func row(_ title: String, _ value: String) -> some View {
@@ -397,7 +435,7 @@ struct AntigravityHookCard: View {
         let path = cwd + "/.agents/hooks.json"
         Panel {
             VStack(alignment: .leading, spacing: 8) {
-                T("Antigravity Durumu İçin Onayınız Gerekiyor", bold: true)
+                T("Antigravity Durumu için Onayınız Gerekiyor", bold: true)
                 Dim("\"Çalışıyor\" ve \"Bitti\" durumları için Enterm bu klasöre küçük bir dosya yazar. Onaylamazsanız program yine çalışır.")
                 T(".agents/hooks.json")
                 if written || FileManager.default.fileExists(atPath: path) {
@@ -705,7 +743,7 @@ enum LimitActions {
             var limit = "Limit Henüz Bilinmiyor"
             if let snapshot = account.lastLimit, let window = snapshot.fiveHour ?? snapshot.sevenDay {
                 let minutes = Int(Date().timeIntervalSince(snapshot.seenAt) / 60)
-                limit = "%\(Int(window.usedPercent)) Dolu · \(minutes) dk Önce"
+                limit = "\(Loc.percent(Int(window.usedPercent))) Dolu · \(minutes) dk Önce"
             }
             actions.append(Action(title: "Başka Hesapla Devam: \(account.name)", note: "\(limit) · \(conversationNote(info))") {
                 LimitActions.resume(info, accountID: account.id)

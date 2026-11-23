@@ -239,7 +239,7 @@ struct PhonePage: View {
     }
 
     private func subtitle(_ device: DeviceSummary) -> String {
-        let format = Date.FormatStyle(date: .long, time: .omitted, locale: Locale(identifier: "tr_TR"))
+        let format = Date.FormatStyle(date: .long, time: .omitted, locale: Loc.locale)
         if device.connected { return "Şu An Bağlı · Eşleşme: \(device.pairedAt.formatted(format))" }
         if let seen = device.lastSeen { return "Son Görülme: \(seen.formatted(format))" }
         return "Eşleşme: \(device.pairedAt.formatted(format))"
@@ -288,7 +288,7 @@ struct PhonePage: View {
 
     private func removal(_ device: DeviceSummary) -> some View {
         Panel {
-            PanelHeader(title: "\(device.name) Kaldırılsın Mı?") { T("✕ Geri Alınamaz", color: Theme.palette.err) }
+            PanelHeader(title: "\(device.name) Kaldırılsın mı?") { T("✕ Geri Alınamaz", color: Theme.palette.err) }
             VStack(alignment: .leading, spacing: 8) {
                 Dim("Bu telefon oturumları göremez ve onay veremez. Tekrar kullanmak için yeniden eşleştirirsiniz.")
                 Dim("Oturumlar bilgisayarda çalışmaya devam eder.")

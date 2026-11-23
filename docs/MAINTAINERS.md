@@ -1,0 +1,66 @@
+# Enterm: Bakımcı Notları
+
+> Maintainer notes for Enterm (internals, permissions, test driver, phone, releases), kept in Turkish. The user-facing README is [../README.md](../README.md).
+
+## Yapı
+
+- `Sources/EntermCore`: Arayüzden bağımsız çekirdek. AppKit, UIKit, SwiftUI almaz; iOS istemcisi buradan başlar.
+- `Sources/entermd`: Oturum servisi. Pseudo terminallerin sahibidir, uygulama kapanınca oturumlar sürer, iş kalmayınca kapanır.
+- `Sources/enterm`: Kabuk entegrasyonu ve kancaların çağırdığı küçük komut, ayrıca ajanlar arası yerel MCP köprüsü.
+- `Sources/EntermApp`: macOS arayüzü. Tuval ve terminaller AppKit, sayfa ve diyaloglar SwiftUI.
+- `Sources/CPTY`: `forkpty` sarmalayıcısı.
+
+Kurallar: `.zshrc`, `~/.claude`, `~/.codex` değişmez. Entegrasyon başlatma argümanı ve ortam değişkeniyle gelir. Abonelik token'ı Enterm'e gelmez, ayrı hesap `CLAUDE_CONFIG_DIR` ve `CODEX_HOME` ile resmi programda durur.
+
+## Yapı Taşları
+
+- **Karşılama ve tur:** `Sources/EntermApp/FirstImpression.swift`. İlk açılışta bir kez, komut paletinden yeniden.
+- **Ana ekran:** Hiçbir şey açık değilken pencere tek komut satırıdır. Yazıp Enter'a basılır: boşsa varsayılan program, klasörse orada, başka bir şeyse komut olarak çalışır.
+- **Projeler:** Üst sekmeler. Her oturum açıldığı projeye bağlıdır, başka projedeki oturum çalışmaya devam eder.
+- **Tuval:** Oturumlar ve görünümler (Not, Web Sayfası, Tarayıcı, Beyaz Tahta, Dosyalar, Video, iOS Simülatörü). Taşıma, boyutlandırma, gruplar, kayıtlı yerleşimler, geri alma, yarım ekran yerleşimi: `CanvasView.swift`, `Workspace.swift`.
+- **Hazır beceriler:** `skills/` altında Video, Yazılım ve Görsel paketleri (Claude Code eklentisi biçiminde). Ayarlar → Hazır Beceriler'de açılan paket yeni Claude Code oturumuna `--plugin-dir` ile verilir, `~/.claude`'a yazılmaz: `Sources/EntermCore/SkillPacks.swift`. Codex, Gemini ve Antigravity'de ek klasör yalnız kendi ayar klasörlerinden okunduğu için şimdilik yok.
+- **Claude komutları:** Ayarlar → Claude Komutları, `/effort` seviyeleri dahil tüm komutların Türkçe açıklaması; Yaz düğmesi komutu seçili oturuma Enter'sız yazar: `Sources/EntermCore/ClaudeCommands.swift`.
+- **Ajanların tuvali yönetmesi:** MCP köprüsünde `tuval_durumu`, `kutu_ac` (`sonra` ile sıraya koyma), `ekip_kur`, `worktree_ac`, `kutu_kapat` (yalnız kendi açtığı), `kart_ekle`, `kart_tasi` (Bitti'ye yalnız kullanıcı), `goster`, `duzenle`. Kutu açan araçlar yetki kartındaki Başka Ajana İş Verme iznine bağlı: `Sources/EntermApp/CanvasAgent.swift`.
+- **Portlar:** Bir tur bitince ya da terminalde komut başlayınca oturumun dinlediği portlara üç kez bakılır (zamanlayıcı yok), kutunun alt satırında ve sağ tık menüsünde görünür: `Sources/EntermCore/PortScan.swift`.
+- **Başlık ve döngü:** Ad verilmemiş kutu, programın kendi başlığını gösterir (Claude Code dökümü, Codex `session_index.jsonl`), model çağrısı yok. `/loop` ve zamanlanmış görevler kutuda sıklığı ve sonraki çalışmasıyla görünür: `Sources/EntermCore/SessionTitles.swift`.
+- **Diğer programlar:** Gemini (`GEMINI_CLI_SYSTEM_SETTINGS_PATH`, sistem ayarı yoksa), opencode (`OPENCODE_CONFIG_DIR` eklentisi), Copilot (`--plugin-dir`, `--additional-mcp-config`) ve Cursor (`--plugin-dir`) Enterm'in kendi klasöründen kanca ve köprü alır; kullanıcının ayarına yazılmaz. Grok ve Antigravity için belgelenmiş yol yok.
+- **`enterm://`:** `open?path=…&program=…&task=…`, `session/<ad>`, `settings/<sekme>`, `board`. Program başlatan adres önce sorar.
+- **Simülatör:** iOS ve Android (adb ile dokunma, kaydırma, yazma).
+- **Homebrew:** `scripts/cask.sh <dmg>` tarif üretir, `enmerasoftware/homebrew-tap` deposuna konur.
+- **Ölçüm:** `scripts/measure.sh` Enterm'in boşta işlemci ve bellek kullanımını ölçer.
+- **Sohbet görünümü:** `⌘⇧M`. Programın kendi döküm dosyasını okur, terminale yazar: `ChatView.swift`, `Sources/EntermCore/Chat.swift`.
+- **Çentik:** `Notch.swift`. Yalnız program çalışırken vardır.
+- **Yerel dikte:** `Whisper.swift`. `whisper-cli` yalnız dikte sırasında çalışır, model isteyince iner.
+- **Hareket kuralı:** Hareket yalnız bir şey olduğunda çalışır, boşta sıfır. Pencere görünmüyorsa, Düşük Güçlü modda ya da "hareketi azalt" açıksa kapanır (`MotionPolicy`).
+
+## İzinler Ve Tarayıcı
+
+- Varsayılan şablon **Serbest**: program düz terminaldeki gibi kendi kurallarıyla çalışır, sorusu hemen ekrana gelir. Kutu "Onay İstiyor" diye yanar. Daha sıkı şablonlar (Salt Okuma, Geliştirme, Yönetici, Sunucu Bakımı) Enterm'in kartıyla karar verir.
+- **Tek Tık Onay** (Ayarlar → Güvenlik, kapalı) soruyu kutunun altında da gösterir, programın kendi sorusu en çok 45 saniye bekler.
+- **Safari** (Ayarlar → Tarayıcı, kapalı): ajanlar kendi penceresinde Safari'yi kullanır, site başına izin sorulur, izinli siteden çıkan sayfa okunmaz. macOS'un sorusu yalnız bu ayar açıkken ve "Dene" ile gelir.
+- **Girişleri Hatırla** (kapalı): Enterm'in kendi tarayıcısı hesapları kapanınca da tutar.
+
+## Test Sürücüsü
+
+`ENTERM_DEBUG_DIR` verilirse uygulama `SIGUSR1` ile `<dir>/cmd` dosyasındaki komutları çalıştırır (`do <komut>`, `type <metin>`, `shot <dosya>`). Bkz. `scripts/run-test.sh`, `scripts/drive.sh`, `scripts/test-bridge.sh`. Testler sahte `claude` ve geçici `HOME` ile çalışır. `ENTERM_START_TERMINAL=1` turu atlayıp terminalle başlatır. Sürücüye sinyal göndermeden önce uygulamanın açılmasını bekleyin: hazır olmadan gelen `SIGUSR1` süreci kapatır.
+
+## Telefon
+
+- `enterm-ios/`: iOS uygulaması. Xcode ile `enterm-ios/EntermPhone.xcodeproj` açılır. Proje dosyası `enterm-ios/project.yml` içinden xcodegen ile üretilir; simülatör için `scripts/build-ios.sh <simülatör kimliği>`.
+- `relay/`: aktarım ve bildirim servisi, bağımlılığı yok. Canlıda değil, ayrıntı `relay/README.md`.
+- Eşleşme: QR kodunda geçici açık anahtar var, iki taraf X25519 ile ortak sır üretir, kişi altı haneli sayıyı karşılaştırır. Aktarım yalnız şifreli bayt görür, her bağlantı yeni anahtar kullanır.
+- Eşleşen cihazlar `devices.json` içinde, 0600 izinle. Telefonda anahtar Anahtar Zinciri'nde.
+- Mac penceresindeki işler (hesaplar, Git, bağlantılar, tarayıcı, ekip, yeni oturum) telefondan `appCall` ile çağrılır: `Sources/EntermApp/PhoneBridge.swift`. Pencere kapalıysa servis onu arkada açar, öne getirmez.
+
+## Sürüm Yayınlama
+
+1. `Resources/Info.plist` içinde `CFBundleShortVersionString` artırılır ve commit edilir.
+2. `scripts/distribute.sh`: Developer ID ile imzalar, Apple'a onaylatır, `build/dist-<commit>/Enterm-<sürüm>.dmg` çıkar. Onay bilgisi `enterm` adlı notarytool profilinden okunur (`ENTERM_NOTARY_PROFILE` ile değişir).
+3. `scripts/publish.sh <dmg> "sürüm notu"`: GitHub'da sürümü açar, DMG ile imzalı `appcast.xml` dosyasını yükler. Uygulamalar güncellemeyi `releases/latest/download/appcast.xml` üzerinden bulur.
+
+Sparkle'ın gizli imza anahtarı yalnız yayın yapan Mac'in Anahtar Zinciri'nde durur (hesap adı `enterm`). Kaybolursa eski sürümler yeni güncellemeyi kabul etmez; yedeği `generate_keys --account enterm -x <dosya>` ile alınır ve parola yöneticisinde saklanır.
+
+## Telefon Aktarımı Açılmadan Önce
+
+- **Anahtar taşıma:** Eşleşen cihaz anahtarları şu an `devices.json` içinde 0600 izinle duruyor. Bu yalnız imzasız sürüm için kabul edildi (Ufuk, 2026-11-04), çünkü imzasız servis Anahtar Zinciri'ne her erişimde parola penceresi açar. İmzalı sürümde `PhoneCenter` anahtarları Anahtar Zinciri'ne taşır, `devices.json` içinde yalnız ad, tarih ve bildirim jetonu kalır, ilk açılışta eski dosyadaki anahtarlar taşınıp silinir.
+

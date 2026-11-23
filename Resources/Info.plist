@@ -14,7 +14,7 @@
     </array>
     <key>CFBundleExecutable</key><string>EntermApp</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.1.4</string>
+    <key>CFBundleShortVersionString</key><string>0.1.5</string>
     <key>CFBundleVersion</key><string>1</string>
     <key>CFBundleIconFile</key><string>Enterm</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
@@ -22,8 +22,10 @@
     <key>SUEnableAutomaticChecks</key><true/>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
-    <key>NSMicrophoneUsageDescription</key><string>Konuşarak yazmak için mikrofon gerekir. Ses, seçtiğiniz yerel modelle işlenir.</string>
-    <key>NSAppleEventsUsageDescription</key><string>Ajanların Safari'nizde çalışmasını siz açtığınızda gerekir.</string>
-    <key>NSSpeechRecognitionUsageDescription</key><string>Sistem Diktesi seçildiğinde konuşmanız yazıya çevrilir.</string>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>CFBundleLocalizations</key><array><string>en</string><string>tr</string></array>
+    <key>NSMicrophoneUsageDescription</key><string>Voice typing needs the microphone. Your voice is processed by the local model you choose.</string>
+    <key>NSAppleEventsUsageDescription</key><string>Needed when you let agents work in your Safari.</string>
+    <key>NSSpeechRecognitionUsageDescription</key><string>When System Dictation is chosen, your speech is turned into text.</string>
 </dict>
 </plist>
