@@ -331,6 +331,8 @@ struct MainMenuPanel: View {
         MenuList {
             // Only what has no other door on the bar. The phone and Settings have their own icons, the rest is in ⌘K.
             item("Yeni Görünüm", note: "Dosyalar, Not, Beyaz Tahta", id: "newView")
+            item("Kütüphane", note: "Paylaşılan İstemler, Yarış Görevleri, Beceriler", id: "library")
+            item("Tasarım Kontrolü", note: "Arayüzü Ölç, Düzelt, Yarıştır", id: "design")
             item("Yarış Başlat", note: "Aynı Görev, Birkaç Ajan, En İyisi Kazanır", id: "race")
             item("Ekibini Kur", note: "Birkaç Ajan Birlikte Çalışır", id: "team")
             item("Değişiklikler ve Git", note: "Hazırla, Commit, Push", id: "changes")

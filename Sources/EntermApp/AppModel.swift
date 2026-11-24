@@ -38,6 +38,8 @@ enum Page: Equatable {
     case raceSetup
     case race(String)
     case timeline(String)
+    case library(String?)
+    case designCheck
 }
 
 enum SettingsTab: String, CaseIterable, Identifiable {

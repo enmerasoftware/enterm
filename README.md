@@ -31,7 +31,7 @@ Race them on the same task, replay what they did, and approve their work from yo
 
 - [At a glance](#at-a-glance)
 - [Why Enterm](#why-enterm)
-- [Features](#features): [Race](#race) · [Timeline](#timeline) · [Canvas](#canvas-and-projects) · [MCP](#agents-drive-the-canvas-mcp) · [Phone](#phone) · [Built-in views](#built-in-views)
+- [Features](#features): [Race](#race) · [Timeline](#timeline) · [Library](#library) · [Design check](#design-check) · [Canvas](#canvas-and-projects) · [MCP](#agents-drive-the-canvas-mcp) · [Phone](#phone) · [Built-in views](#built-in-views)
 - [Supported agents](#supported-agents)
 - [How it works](#how-it-works)
 - [How it compares](#how-it-compares)
@@ -93,6 +93,14 @@ An animated replay of what an agent did, read from the CLI's own transcript (Cla
 - **Save as HTML** exports a single self-contained file that plays in any browser. It includes prompts and commands, so check it before you share it.
 
 Open it from a box's menu, the details pane, the command palette, or **Replay the Race**. Details: [docs/timeline.md](docs/timeline.md).
+
+### Library
+
+Prompts, race tasks and skill packs shared by the community in [enmerasoftware/enterm-library](https://github.com/enmerasoftware/enterm-library). Search and save them, **Run** a prompt in a new session with one click, **Race It** across agents, or review a skill pack's files and add it to new Claude Code sessions. **Share a Prompt** sends yours as a prefilled GitHub issue for review. Nothing runs by itself: you read it first. Details: [docs/library.md](docs/library.md).
+
+### Design check
+
+[ai-design-check](https://github.com/enmerasoftware/ai-design-check) on the project in front of you: what makes an AI-built interface look generated, listed by file and area, for web projects and SwiftUI, Compose, Flutter and React Native apps. Preview and apply the mechanical fixes, scan the running page, let an agent fix the rest, or start a **design race** where the checker itself decides whose screen is clean. Details: [docs/design-check.md](docs/design-check.md).
 
 ### Canvas and projects
 

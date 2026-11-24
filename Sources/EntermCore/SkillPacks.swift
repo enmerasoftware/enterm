@@ -67,9 +67,19 @@ public struct SkillPack: Equatable, Identifiable {
         return FileManager.default.fileExists(atPath: bundled.path) ? bundled : nil
     }
 
+    /// Packs added from the Library live in Enterm's own folder, never in the person's configuration.
+    public static var userRoot: URL { EntermPaths.support.appendingPathComponent("skills", isDirectory: true) }
+
+    /// The packs that ship with the app, then those added from the Library. A name already shipped wins.
+    public static func allPacks(builtIn root: URL?) -> [SkillPack] {
+        let shipped = root.map { packs(in: $0) } ?? []
+        let added = packs(in: userRoot).filter { pack in !shipped.contains { $0.id == pack.id } }
+        return shipped + added
+    }
+
     /// The `--plugin-dir` arguments for the packs that are on. A pack that is gone is skipped, never an error.
     public static func pluginArguments(enabled: [String], root: URL?) -> [String] {
-        guard let root, !enabled.isEmpty else { return [] }
-        return packs(in: root).filter { enabled.contains($0.id) }.flatMap { ["--plugin-dir", $0.folder.path] }
+        guard !enabled.isEmpty else { return [] }
+        return allPacks(builtIn: root).filter { enabled.contains($0.id) }.flatMap { ["--plugin-dir", $0.folder.path] }
     }
 }

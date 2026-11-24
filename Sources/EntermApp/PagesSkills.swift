@@ -32,15 +32,16 @@ struct SkillsSettings: View {
                     }
                 }
             }
+            DesignSkillCard()
             Dim("Codex, Gemini ve Antigravity için şimdilik yok: bu programlar ek beceri klasörünü yalnız kendi ayar klasörlerinden okuyor, Enterm o klasörlere yazmaz.")
                 .fixedSize(horizontal: false, vertical: true)
             Dim("Yeni beceri eklemek açık kaynak deposunda bir klasör ve bir SKILL.md dosyası kadar kolay: CONTRIBUTING.md.")
                 .fixedSize(horizontal: false, vertical: true)
         }
         .onAppear {
-            guard let executable = Bundle.main.executablePath,
-                  let root = SkillPack.root(executable: executable, environment: ProcessInfo.processInfo.environment) else { return }
-            packs = SkillPack.packs(in: root)
+            // The packs that ship with the app, then those added from the Library.
+            let root = Bundle.main.executablePath.flatMap { SkillPack.root(executable: $0, environment: ProcessInfo.processInfo.environment) }
+            packs = SkillPack.allPacks(builtIn: root)
         }
     }
 
@@ -126,5 +127,31 @@ struct ClaudeCommandsSettings: View {
     private func type(_ text: String, into info: SessionInfo) {
         model.connection.sendInput(number: info.number, bytes: Data(text.utf8))
         model.hint = "Yazıldı: \(text.trimmingCharacters(in: .whitespaces))"
+    }
+}
+
+/// ai-design-check's fix skill: not shipped inside the app, so it is always the newest; added from GitHub on request.
+private struct DesignSkillCard: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    @ObservedObject var library = LibraryCenter.shared
+    var body: some View {
+        Panel {
+            PanelHeader(title: "Tasarım · ai-design-check") {
+                if library.isInstalled(DesignCenter.skillEntry) {
+                    HStack(spacing: 8) {
+                        T("✓ Eklendi", color: Theme.palette.add, style: .secondary, weight: .semibold)
+                        Btn("Kaldır", kind: .plain) { library.removeSkill(DesignCenter.skillEntry) }
+                    }
+                } else {
+                    Btn("Dosyalara Bak ve Ekle", kind: .outline) { library.stage(DesignCenter.skillEntry) }
+                }
+            }
+            Dim("Oturumda \"bu ekranın tasarımını düzelt\" deyin: ajan ekranı ölçer, ürünüzden kısa bir yön yazar, onarır ve önce-sonra sayısını gösterir. Kaynak: github.com/enmerasoftware/ai-design-check")
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(12)
+        }
+        .sheet(isPresented: Binding(get: { library.staged?.item.id == DesignCenter.skillEntry.id }, set: { if !$0 { library.cancelStaged() } })) {
+            if let staged = library.staged { SkillReview(staged: staged) }
+        }
     }
 }

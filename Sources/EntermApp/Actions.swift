@@ -12,6 +12,8 @@ struct Command: Identifiable {
 enum Commands {
     static let all: [Command] = [
         Command(id: "race", title: "Yarış Başlat", key: ""),
+        Command(id: "library", title: "Kütüphane", key: ""),
+        Command(id: "design", title: "Tasarım Kontrolü", key: ""),
         Command(id: "timeline", title: "Zaman Çizelgesi", key: ""),
         Command(id: "team", title: "Ekibini Kur", key: ""),
         Command(id: "manager", title: "Yönetici Görünümü", key: "⌘⇧Y"),
@@ -105,11 +107,19 @@ enum Commands {
         for program in SettingsStore.shared.settings.startablePrograms {
             list.append(Command(id: "custom:\(program.id)", title: "Yeni \(program.name)", key: ""))
         }
+        // Saved Library items open on their page, where they are read before they run.
+        for item in LibraryCenter.shared.savedItems {
+            list.append(Command(id: "library:\(item.id)", title: "Kütüphane: \(item.title(turkish: Loc.isTurkish))", key: ""))
+        }
         return list
     }
 
     static func perform(_ id: String) {
         let model = AppModel.shared
+        if id.hasPrefix("library:") {
+            model.page = .library(String(id.dropFirst("library:".count)))
+            return
+        }
         if id.hasPrefix("goto:"), let number = UInt32(id.dropFirst(5)) {
             model.setFocus(number)
             model.onLayoutChange?()
@@ -129,6 +139,8 @@ enum Commands {
         }
         switch id {
         case "race": model.page = .raceSetup
+        case "library": model.page = .library(nil)
+        case "design": model.page = .designCheck
         case "timeline":
             if let info = model.focusedInfo { model.page = .timeline("session:\(info.id)") }
         case "newProject": model.showHomeScreen()

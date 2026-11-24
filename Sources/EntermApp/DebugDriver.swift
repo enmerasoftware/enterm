@@ -187,6 +187,10 @@ final class DebugDriver {
                 if numbers.count == 2, let window = NSApp.windows.first(where: { $0.contentView is RootView }) {
                     window.setFrame(NSRect(x: 60, y: 60, width: numbers[0], height: numbers[1]), display: true)
                 }
+            case "libstage":
+                // libstage <item id>: download a Library skill pack for review, as its button does.
+                if let item = LibraryCenter.shared.index.items.first(where: { $0.id == rest }) { LibraryCenter.shared.stage(item) }
+            case "libadd": LibraryCenter.shared.addStaged()
             case "racetest":
                 if let race = RaceCenter.shared.open.first { RaceCenter.shared.test(race.id) }
             case "racedrop":

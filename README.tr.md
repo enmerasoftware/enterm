@@ -31,7 +31,7 @@ Onları aynı görevde yarıştırın, yaptıklarını yeniden izleyin, işlerin
 
 - [Bir bakışta](#bir-bakışta)
 - [Neden Enterm](#neden-enterm)
-- [Özellikler](#özellikler): [Yarış](#yarış) · [Zaman çizelgesi](#zaman-çizelgesi) · [Tuval](#tuval-ve-projeler) · [MCP](#ajanlar-tuvali-yönetir-mcp) · [Telefon](#telefon) · [Yerleşik görünümler](#yerleşik-görünümler)
+- [Özellikler](#özellikler): [Yarış](#yarış) · [Zaman çizelgesi](#zaman-çizelgesi) · [Kütüphane](#kütüphane) · [Tasarım kontrolü](#tasarım-kontrolü) · [Tuval](#tuval-ve-projeler) · [MCP](#ajanlar-tuvali-yönetir-mcp) · [Telefon](#telefon) · [Yerleşik görünümler](#yerleşik-görünümler)
 - [Desteklenen ajanlar](#desteklenen-ajanlar)
 - [Nasıl çalışır](#nasıl-çalışır)
 - [Karşılaştırma](#karşılaştırma)
@@ -93,6 +93,14 @@ Bir ajanın yaptıklarının, programın kendi dökümünden okunan hareketli bi
 - **HTML Olarak Kaydet** her tarayıcıda oynayan, kendi içinde tam tek bir dosya dışa aktarır. Dosya istekleri ve komutları içerir, paylaşmadan önce göz atın.
 
 Bir kutunun menüsünden, ayrıntılar bölmesinden, komut paletinden ya da **Yarışı Tekrar İzle** ile açın. Ayrıntılar: [docs/timeline.md](docs/timeline.md).
+
+### Kütüphane
+
+Topluluğun [enmerasoftware/enterm-library](https://github.com/enmerasoftware/enterm-library) deposunda paylaştığı istemler, yarış görevleri ve beceri paketleri. Arayın ve kaydedin; bir istemi **Çalıştır** ile tek tıkla yeni bir oturumda başlatın, **Yarıştır** ile ajanlara aynı anda verin, ya da bir beceri paketinin dosyalarına bakıp yeni Claude Code oturumlarına ekleyin. **İstem Paylaş** sizinkini incelenmek üzere önceden doldurulmuş bir GitHub önerisi olarak gönderir. Hiçbir şey kendiliğinden çalışmaz: önce okursunuz. Ayrıntı: [docs/library.md](docs/library.md).
+
+### Tasarım kontrolü
+
+Öndeki projede [ai-design-check](https://github.com/enmerasoftware/ai-design-check): yapay zekâyla yapılmış bir arayüzü üretilmiş gösteren şeyler, dosyaya ve alana göre; web projeleri ile SwiftUI, Compose, Flutter ve React Native uygulamaları için. Mekanik düzeltmeleri önizleyip uygulayın, çalışan sayfayı tarayın, kalanını bir ajana düzelttirin ya da denetleyicinin kendisinin hangi ekranın temiz olduğuna karar verdiği bir **tasarım yarışı** başlatın. Ayrıntı: [docs/design-check.md](docs/design-check.md).
 
 ### Tuval ve projeler
 

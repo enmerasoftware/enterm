@@ -17,6 +17,8 @@ final class RaceCenter: ObservableObject {
 
     private var bags = Set<AnyCancellable>()
     private var worked: Set<String> = []
+    /// A task and test command handed over by the Library, read once by the race page.
+    var prefill: (task: String, test: String, forceTest: Bool)?
     /// The tab the person started a race from, to go back to when it ends.
     private var origin: [String: String] = [:]
     private var timer: Timer?
@@ -363,6 +365,12 @@ struct RaceSetupPage: View {
             folder = model.focusedInfo?.cwd ?? NSHomeDirectory()
             let files = Set((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? [])
             testCommand = RacePlan.testCommand(files: files) ?? ""
+            // From the Library: its task, and its test command when the project has none of its own.
+            if let prefill = RaceCenter.shared.prefill {
+                task = prefill.task
+                if prefill.forceTest || testCommand.isEmpty { testCommand = prefill.test }
+                RaceCenter.shared.prefill = nil
+            }
             chosen = chosen.filter { !catalog.isMissing($0) }
         }
     }

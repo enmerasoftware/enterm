@@ -518,6 +518,8 @@ enum CanvasMenus {
         menu.addItem(submenu("Yeni Program", programItems()))
         menu.addItem(submenu("Yeni Görünüm", ItemKind.allCases.map { kind in ActionMenuItem(kind.title) { model.addItem(kind) } }))
         menu.addItem(submenu("Birlikte Çalış", [
+            ActionMenuItem("Kütüphane") { Commands.perform("library") },
+            ActionMenuItem("Tasarım Kontrolü") { Commands.perform("design") },
             ActionMenuItem("Yarış Başlat") { Commands.perform("race") },
             ActionMenuItem("Ekibini Kur") { Commands.perform("team") },
             ActionMenuItem("Worktree Aç") { Commands.perform("worktree") },

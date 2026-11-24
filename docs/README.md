@@ -9,6 +9,8 @@ Technical documentation for Enterm, the native macOS canvas for AI coding agents
 | [iPhone companion](phone.md) | Pairing (QR, X25519, six-digit check), per-connection encryption, what the relay can and cannot see, sealed notifications, Face ID approvals, app lock, Live Activity and self-hosting the relay. |
 | [Race](race.md) | One task for several agents in separate worktrees: branch naming, the prompt, finish detection, stats, tests, merging the winner, dropping, phone control and limitations. |
 | [Timeline](timeline.md) | The replay of what an agent did: transcript parsing, event kinds, gap compression, playback and what the HTML export contains. |
+| [Library](library.md) | Shared prompts, race tasks and skill packs: browsing, running, racing, reviewing and adding packs, sharing, safety and files. |
+| [Design check](design-check.md) | ai-design-check on the focused project: findings, mechanical fixes, running-page scan, fixing with an agent, design races, the fix skill. |
 | [FAQ](faq.md) | Short answers about config files, tokens, supported agents, quitting, privacy, SSH, power use, languages and uninstalling. |
 | [Troubleshooting](troubleshooting.md) | Failure modes Enterm detects and how to fix them: missing programs, hooks that need trust, the service, notifications, worktrees, races, MCP tools and the phone. |
 | [Maintainer notes](MAINTAINERS.md) | Internals, test driver, phone and release process, in Turkish. |
