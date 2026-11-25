@@ -13,7 +13,8 @@ Downloads and the signed update feed for every version are on the
 
 ### Added
 
-- **Library**: prompts, race tasks and skill packs shared in [`library/`](library). Browse, search, save, run a prompt in a new session with one click, race a task, review a skill pack's files and add it, share your own prompt as a prefilled GitHub issue. See [docs/library.md](docs/library.md).
+- **Library**: prompts, race tasks and skill packs shared in [`library/`](library). Browse, search, save, run a prompt in a new session with one click, race a task, review a skill pack's files and add it, share your own prompt from the app: it appears at once on the community shelf, for everyone and on the website, marked unreviewed until a maintainer reviews it. Like and report community items; fill in `${blanks}` before a prompt runs. See [docs/library.md](docs/library.md).
+- **Website** at [enterm.enmeraapps.com](https://enterm.enmeraapps.com), with the Library on the web; one small Node server (`site/`) serves it and the community shelf next to the phone relay.
 - **Design Check**: runs [ai-design-check](https://github.com/enmerasoftware/ai-design-check) on the focused project, lists findings by file and area, previews and applies mechanical fixes, scans the running page, fixes with an agent, or starts a design race with the checker as the test. See [docs/design-check.md](docs/design-check.md).
 - Skill packs added from the Library are given to new Claude Code sessions next to the shipped ones.
 

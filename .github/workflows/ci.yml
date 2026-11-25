@@ -3,9 +3,9 @@ name: Tests
 on:
   push:
     branches: [main]
-    paths-ignore: ["library/**", ".github/workflows/library.yml"]
+    paths-ignore: ["library/**", "site/**", ".github/workflows/library.yml"]
   pull_request:
-    paths-ignore: ["library/**", ".github/workflows/library.yml"]
+    paths-ignore: ["library/**", "site/**", ".github/workflows/library.yml"]
 
 concurrency:
   group: tests-${{ github.ref }}

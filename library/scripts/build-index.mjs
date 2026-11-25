@@ -9,12 +9,11 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
+import { PROGRAMS, RACE_PROGRAMS, FORBIDDEN, SECRETS, parseTags } from "./rules.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CHECK = process.argv.includes("--check");
 
-const PROGRAMS = ["claude", "codex", "gemini", "opencode", "copilot", "cursor"];
-const RACE_PROGRAMS = ["claude", "codex", "gemini"]; // the programs Enterm can race
 const KINDS = ["prompt", "race"];
 const KIND_ORDER = ["prompt", "race", "skill"];
 const TAGS = readTags();
@@ -25,17 +24,6 @@ const TITLE_MAX = 60;
 const SUMMARY_MAX = 200;
 const PROMPT_FIELDS = ["title", "summary", "kind", "test", "programs", "tags", "author", "title_tr", "summary_tr"];
 const SKILL_FIELDS = ["id", "title", "summary", "repo", "path", "ref", "programs", "tags", "author", "title_tr", "summary_tr"];
-
-// Phrases a prompt in this library must never contain. They are bait for prompt injection or
-// plainly destructive; a maintainer can still reject anything else by hand.
-const FORBIDDEN = [
-  [/ignore (all |any )?(the )?(previous|prior|above) (instructions|messages|rules)/i, "prompt-injection bait"],
-  [/disregard (all |any )?(the )?(previous|prior|above|system)/i, "prompt-injection bait"],
-  [/rm\s+-rf\s+(\/|~|\$HOME)(\s|$)/i, "destructive command"],
-  [/(curl|wget)[^\n|]*\|\s*(ba|z)?sh/i, "pipes a download into a shell"],
-  [/--dangerously-skip-permissions|--yolo\b|--dangerously-bypass/i, "turns off the agent's permission checks"],
-  [/git push\s+(-f|--force)/i, "force push"],
-];
 
 const errors = [];
 const fail = (where, msg) => errors.push(`${where}: ${msg}`);
@@ -123,7 +111,7 @@ function stripCommentUnlessQuoted(s) {
 function readTags() {
   const file = join(ROOT, "TAGS.md");
   if (!existsSync(file)) { console.error("TAGS.md is missing"); process.exit(1); }
-  const tags = [...readFileSync(file, "utf8").matchAll(/^\|\s*`([a-z0-9-]+)`\s*\|/gm)].map((m) => m[1]);
+  const tags = parseTags(readFileSync(file, "utf8"));
   if (tags.length === 0) { console.error("TAGS.md lists no tags (expected table rows like | `review` | ... |)"); process.exit(1); }
   return tags;
 }
@@ -199,6 +187,7 @@ function readPrompts() {
     if (body.length < 80) fail(path, "the prompt text after the front matter is missing or too short (80 characters at least)");
     if (body.length > 8000) fail(path, "the prompt text is longer than 8000 characters");
     for (const [re, why] of FORBIDDEN) if (re.test(body)) fail(path, `the prompt text contains ${why} (${body.match(re)[0]})`);
+    for (const [re, why] of SECRETS) if (re.test(body)) fail(path, `the prompt text contains what looks like ${why}`);
     items.push({
       id,
       kind: d.kind,

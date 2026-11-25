@@ -37,7 +37,7 @@ struct PageRouter: View {
         case .raceSetup: RaceSetupPage()
         case .race(let id): RaceResultPage(id: id)
         case .timeline(let key): TimelinePage(key: key)
-        case .library(let id): LibraryPage(selected: id)
+        case .library(let id): LibraryPage(selected: id).id(id ?? "")
         case .designCheck: DesignCheckPage()
         }
     }

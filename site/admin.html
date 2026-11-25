@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Kütüphane Yönetimi · Enterm</title>
+<style>
+  :root { --bg:#0e1113; --panel:#161b1e; --line:#262d31; --text:#e7ecee; --dim:#93a0a6; --accent:#7fa6ff; --ok:#86d19a; --warn:#f0b35a; --bad:#ff7a7a; }
+  @media (prefers-color-scheme: light) { :root { --bg:#f5f6f7; --panel:#fff; --line:#dde2e5; --text:#15191b; --dim:#5d686e; --accent:#2f5fd0; --ok:#1f8a43; --warn:#a86400; --bad:#c62828; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .dim { color: var(--dim); }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin: 16px 0; }
+  input, select { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font:inherit; }
+  input[type=password] { flex: 1; min-width: 220px; }
+  button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font:inherit; cursor:pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.bad { color: var(--bad); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; margin: 12px 0; }
+  .card h2 { font-size:16px; margin:0 0 2px; }
+  .tags { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0; }
+  .pill { font-size:12px; padding:1px 8px; border-radius:99px; border:1px solid var(--line); color:var(--dim); }
+  .pill.ok { color:var(--ok); border-color:var(--ok); } .pill.warn { color:var(--warn); border-color:var(--warn); } .pill.bad { color:var(--bad); border-color:var(--bad); }
+  pre { white-space:pre-wrap; word-break:break-word; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:12px; max-height: 260px; overflow:auto; font: 12px/1.5 ui-monospace, Menlo, monospace; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .reports { color: var(--warn); font-size: 13px; }
+  #note { min-height: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Kütüphane Yönetimi</h1>
+  <div class="dim">Topluluğun paylaştıkları. Bildirilenler en üstte. Anahtar sunucudaki <code>admin-token</code> dosyasındadır ve yalnız bu tarayıcıda saklanır.</div>
+  <div class="bar">
+    <input id="token" type="password" placeholder="Yönetici anahtarı" autocomplete="off">
+    <button class="primary" id="load">Yükle</button>
+    <select id="filter">
+      <option value="all">Tümü</option>
+      <option value="reported">Bildirilenler</option>
+      <option value="hidden">Gizlenenler</option>
+      <option value="open">İncelenmeyenler</option>
+      <option value="reviewed">İncelenenler</option>
+    </select>
+  </div>
+  <div id="note" class="dim"></div>
+  <div id="list"></div>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  let items = [];
+  try { $('token').value = localStorage.getItem('enterm-admin') || ''; } catch {}
+
+  const call = async (path, body) => {
+    const res = await fetch(path, { method: body ? 'POST' : 'GET', headers: { authorization: 'Bearer ' + $('token').value.trim(), 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    if (res.status === 401) throw new Error('Anahtar yanlış.');
+    if (!res.ok) throw new Error('Sunucu hatası: ' + res.status);
+    return res.json();
+  };
+
+  const load = async () => {
+    $('note').textContent = 'Yükleniyor…';
+    try {
+      items = (await call('/api/admin/items')).items;
+      try { localStorage.setItem('enterm-admin', $('token').value.trim()); } catch {}
+      render();
+    } catch (e) { $('note').textContent = e.message; }
+  };
+
+  // The front matter the reviewed library wants: library/prompts/<slug>.md.
+  const asLibraryFile = (i) => {
+    const q = (s) => JSON.stringify(s);
+    const lines = ['---', `title: ${q(i.title)}`, `summary: ${q(i.summary.endsWith('.') ? i.summary : i.summary + '.')}`, `kind: ${i.kind}`];
+    if (i.test) lines.push(`test: ${q(i.test)}`);
+    lines.push(`programs: [${i.programs.join(', ')}]`, `tags: [${i.tags.join(', ')}]`, 'author: enmerasoftware', '---', '', i.text, '');
+    return lines.join('\n');
+  };
+
+  const act = async (id, action) => {
+    if (action === 'delete' && !confirm('Kalıcı olarak silinsin mi?')) return;
+    try { await call('/api/admin/items/' + id, { action }); await load(); } catch (e) { $('note').textContent = e.message; }
+  };
+
+  const render = () => {
+    const f = $('filter').value;
+    const shown = items.filter((i) => f === 'all' || (f === 'reported' && i.reports.length) || (f === 'hidden' && i.hidden) || (f === 'open' && !i.reviewed) || (f === 'reviewed' && i.reviewed));
+    $('note').textContent = `${items.length} öğe · ${items.filter((i) => i.reports.length).length} bildirilen · ${items.filter((i) => i.hidden).length} gizli`;
+    const list = $('list');
+    list.replaceChildren();
+    for (const i of shown) {
+      const card = el('div', 'card');
+      card.append(el('h2', null, i.title), el('div', 'dim', i.summary));
+      const tags = el('div', 'tags');
+      tags.append(el('span', 'pill', i.kind === 'race' ? 'yarış' : 'istem'), el('span', 'pill', '@' + i.author), el('span', 'pill', i.lang), el('span', 'pill', '♥ ' + i.votes), el('span', 'pill', new Date(i.created).toLocaleString('tr-TR')));
+      if (i.reviewed) tags.append(el('span', 'pill ok', 'incelendi'));
+      if (i.hidden) tags.append(el('span', 'pill bad', i.hiddenReason === 'reports' ? 'bildirimle gizlendi' : 'gizli'));
+      for (const p of i.programs) tags.append(el('span', 'pill', p));
+      for (const t of i.tags) tags.append(el('span', 'pill', '#' + t));
+      card.append(tags);
+      if (i.test) card.append(el('div', 'dim', 'Test: ' + i.test));
+      card.append(el('pre', null, i.text));
+      for (const r of i.reports) card.append(el('div', 'reports', `Bildirim (${new Date(r.at).toLocaleString('tr-TR')}): ${r.reason || '—'}`));
+      const actions = el('div', 'actions');
+      const button = (label, action, cls) => { const b = el('button', cls, label); b.onclick = () => act(i.id, action); actions.append(b); };
+      if (!i.reviewed) button('İncelendi', 'review', 'primary'); else button('İncelemeyi Geri Al', 'unreview');
+      if (i.hidden) button('Göster', 'show'); else button('Gizle', 'hide');
+      const copy = el('button', null, 'Kütüphane Dosyası Olarak Kopyala');
+      copy.onclick = async () => { try { await navigator.clipboard.writeText(asLibraryFile(i)); copy.textContent = 'Kopyalandı'; } catch { copy.textContent = 'Kopyalanamadı'; } };
+      actions.append(copy);
+      button('Sil', 'delete', 'bad');
+      card.append(actions);
+      list.append(card);
+    }
+  };
+
+  $('load').onclick = load;
+  $('filter').onchange = render;
+  $('token').addEventListener('keydown', (e) => { if (e.key === 'Enter') load(); });
+  if ($('token').value) load();
+})();
+</script>
+</body>
+</html>

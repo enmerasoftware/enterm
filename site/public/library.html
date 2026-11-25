@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title data-i18n="lib_meta_title">Enterm Library: prompts, race tasks and skill packs for coding agents</title>
+<meta name="description" content="Reviewed prompts, race tasks and skill packs for Claude Code, Codex, Gemini and other coding agents. Read them here, run them in Enterm with one click." data-i18n-attr="content:lib_meta_desc">
+<meta name="theme-color" content="#0a0c0d">
+<link rel="canonical" href="https://enterm.enmeraapps.com/library">
+<link rel="icon" href="/img/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="/img/icon.png" type="image/png" sizes="256x256">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Enterm">
+<meta property="og:title" content="Enterm Library">
+<meta property="og:description" content="Reviewed prompts, race tasks and skill packs for coding agents. Run them in Enterm with one click.">
+<meta property="og:url" content="https://enterm.enmeraapps.com/library">
+<meta property="og:image" content="https://enterm.enmeraapps.com/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://enterm.enmeraapps.com/img/og.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/site.css">
+<link rel="stylesheet" href="/css/library.css">
+<script src="/js/tr.js" defer></script>
+<script src="/js/site.js" defer></script>
+<script src="/js/library.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main" data-i18n="skip">Skip to content</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Enterm home"><img src="/img/icon.png" alt="" width="30" height="30"><span>Enterm</span></a>
+    <nav class="nav" id="nav" aria-label="Main" data-i18n-attr="aria-label:nav_label">
+      <a href="/#race" data-i18n="nav_race">Race</a>
+      <a href="/#timeline" data-i18n="nav_timeline">Timeline</a>
+      <a href="/library" aria-current="page" data-i18n="nav_library">Library</a>
+      <a href="/#phone" data-i18n="nav_phone">iPhone</a>
+      <a href="/#install" data-i18n="nav_install">Install</a>
+      <a href="https://github.com/enmerasoftware/enterm/tree/main/docs" data-i18n="nav_docs">Docs</a>
+    </nav>
+    <div class="top-right">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="tr" aria-pressed="false">TR</button>
+      </div>
+      <a class="btn btn-small star-btn" href="https://github.com/enmerasoftware/enterm" aria-label="Star Enterm on GitHub" data-i18n-attr="aria-label:star_aria">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>
+        <span class="star-label" data-i18n="star_short">Star</span><span class="count star-count"></span>
+      </a>
+      <button class="menu-btn" type="button" aria-controls="nav" aria-expanded="false" aria-label="Menu" data-i18n-attr="aria-label:menu"><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main id="main" class="lib-page">
+  <section class="lib-hero">
+    <div class="wrap">
+      <span class="eyebrow" data-i18n="lib_eyebrow">Library</span>
+      <h1 data-i18n="lp_h">Prompts, race tasks and skill packs for coding agents.</h1>
+      <p class="lead" data-i18n="lp_lead">Reviewed entries are checked for secrets, destructive steps and prompt-injection bait. Read them here; in Enterm, <strong>Run</strong> a prompt in a new session, <strong>Race It</strong> across agents, or review a skill pack's files and add it.</p>
+      <div class="lib-cta">
+        <a class="btn btn-primary" data-dmg href="https://github.com/enmerasoftware/enterm/releases/latest" data-i18n="lp_get">Get Enterm to run them</a>
+        <a class="btn" href="https://github.com/enmerasoftware/enterm/blob/main/library/CONTRIBUTING.md" data-i18n="lp_guidelines">How entries are reviewed</a>
+      </div>
+      <p class="share-note small"><span class="kind k-comm" data-i18n="comm_badge">Community · unreviewed</span> <span data-i18n="lp_share_note">Sharing, liking and reporting happen in the Enterm app: Library → Share, and your prompt or race task appears here at once for everyone. This page only reads.</span></p>
+    </div>
+  </section>
+
+  <section class="wrap lib-tools" aria-label="Filters" data-i18n-attr="aria-label:lp_filters">
+    <div class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <label class="sr-only" for="q" data-i18n="lp_search_label">Search the Library</label>
+      <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search titles, text, tags, programs…" data-i18n-attr="placeholder:lp_search_ph">
+      <kbd aria-hidden="true">/</kbd>
+    </div>
+    <div class="kinds seg-lg" role="group" aria-label="Kind" data-i18n-attr="aria-label:lp_kind">
+      <button type="button" data-kind="all" aria-pressed="true"><span data-i18n="lp_all">All</span> <b class="n" data-n="all"></b></button>
+      <button type="button" data-kind="prompt" aria-pressed="false"><span data-i18n="lp_prompts">Prompts</span> <b class="n" data-n="prompt"></b></button>
+      <button type="button" data-kind="race" aria-pressed="false"><span data-i18n="lp_races">Race tasks</span> <b class="n" data-n="race"></b></button>
+      <button type="button" data-kind="skill" aria-pressed="false"><span data-i18n="lp_skills">Skill packs</span> <b class="n" data-n="skill"></b></button>
+    </div>
+    <div class="tool-row">
+      <div class="sources seg-lg" role="group" aria-label="Source" data-i18n-attr="aria-label:lp_source_label">
+        <button type="button" data-src="all" aria-pressed="true" data-i18n="lp_src_all">Everything</button>
+        <button type="button" data-src="reviewed" aria-pressed="false" data-i18n="lp_src_rev">Reviewed</button>
+        <button type="button" data-src="community" aria-pressed="false" data-i18n="lp_src_comm">Community</button>
+      </div>
+    </div>
+    <div class="tags" id="tags" role="group" aria-label="Tags" data-i18n-attr="aria-label:lp_tags"></div>
+  </section>
+
+  <section class="wrap lib-results" aria-labelledby="rev-h">
+    <div class="group-head"><h2 id="rev-h" data-i18n="lp_rev_h">Reviewed</h2><p class="result-line small muted" id="result-line" aria-live="polite"></p></div>
+    <div class="grid" id="grid"></div>
+    <div class="state" id="state" data-i18n="lp_loading">Loading the Library…</div>
+  </section>
+
+  <section class="wrap lib-results comm" id="community" aria-labelledby="comm-h">
+    <div class="group-head">
+      <h2 id="comm-h"><span data-i18n="lp_comm_h">Community</span> <span class="kind k-comm" data-i18n="lp_unrev">unreviewed</span></h2>
+      <div class="seg-lg sort" role="group" aria-label="Sort" data-i18n-attr="aria-label:lp_sort">
+        <button type="button" data-sort="top" aria-pressed="true" data-i18n="lp_top">Top</button>
+        <button type="button" data-sort="new" aria-pressed="false" data-i18n="lp_new">New</button>
+      </div>
+    </div>
+    <p class="comm-note small" data-i18n="lp_comm_note">Shared from the Enterm app and shown at once, without review. Read every prompt before you run it. Reviewed ones are marked, and the best are promoted into the reviewed Library.</p>
+    <p class="result-line small muted" id="comm-line" aria-live="polite"></p>
+    <div class="grid" id="comm-grid"></div>
+    <div class="state" id="comm-state"></div>
+  </section>
+</main>
+
+<dialog class="detail" id="detail" aria-labelledby="d-title">
+  <div class="d-inner">
+    <div class="d-head">
+      <span class="kind" id="d-kind"></span>
+      <button type="button" class="d-close" id="d-close" aria-label="Close" data-i18n-attr="aria-label:close">✕</button>
+    </div>
+    <h2 id="d-title"></h2>
+    <p class="d-summary" id="d-summary"></p>
+    <p class="d-warn small" id="d-warn" hidden data-i18n="lp_d_warn">Community entry, shown without review. Read it fully before you run it.</p>
+    <dl class="d-meta" id="d-meta"></dl>
+    <div class="d-text-wrap" id="d-text-wrap">
+      <div class="d-text-bar"><span data-i18n="lp_text">Prompt text</span><button type="button" class="btn btn-small btn-primary" id="d-copy"><span data-i18n="lp_copy">Copy</span></button></div>
+      <pre class="d-text" id="d-text" tabindex="0"></pre>
+    </div>
+    <div class="d-skill" id="d-skill"></div>
+    <p class="d-foot small muted" data-i18n="lp_dfoot">Read it before you run it. In Enterm, open the Library to Run, Race It or Save this entry.</p>
+    <div class="d-links" id="d-links"></div>
+  </div>
+</dialog>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="/"><img src="/img/icon.png" alt="" width="30" height="30"><span>Enterm</span></a>
+        <p class="small" style="margin-top:12px" data-i18n="ft_tag">A native macOS canvas for AI coding agents that still feels like a terminal.</p>
+      </div>
+      <div><h4 data-i18n="ft_product">Product</h4><ul>
+        <li><a href="https://github.com/enmerasoftware/enterm/releases/latest" data-i18n="ft_download">Download</a></li>
+        <li><a href="/library" data-i18n="nav_library">Library</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/blob/main/CHANGELOG.md" data-i18n="ft_changelog">Changelog</a></li>
+      </ul></div>
+      <div><h4 data-i18n="ft_project">Project</h4><ul>
+        <li><a href="https://github.com/enmerasoftware/enterm">GitHub</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/tree/main/library" data-i18n="lp_source">Library source</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/blob/main/library/CONTRIBUTING.md" data-i18n="lp_contrib">Library guidelines</a></li>
+      </ul></div>
+      <div><h4 data-i18n="ft_trust">Trust</h4><ul>
+        <li><a href="/privacy" data-i18n="ft_privacy">Privacy</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/blob/main/SECURITY.md" data-i18n="ft_security">Security</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/blob/main/LICENSE" data-i18n="ft_license">MIT licence</a></li>
+      </ul></div>
+    </div>
+    <div class="fine"><span data-i18n="ft_made">Made by Enmera. No trackers on this site.</span><span data-i18n="ft_aff">Claude Code, Codex, Gemini and the other CLIs belong to their vendors; Enterm is not affiliated with them.</span></div>
+  </div>
+</footer>
+</body>
+</html>

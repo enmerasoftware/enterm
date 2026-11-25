@@ -191,6 +191,20 @@ final class DebugDriver {
                 // libstage <item id>: download a Library skill pack for review, as its button does.
                 if let item = LibraryCenter.shared.index.items.first(where: { $0.id == rest }) { LibraryCenter.shared.stage(item) }
             case "libadd": LibraryCenter.shared.addStaged()
+            case "librefresh": LibraryCenter.shared.refresh(force: true)
+            case "liblike":
+                if let item = LibraryCenter.shared.item(rest) { LibraryCenter.shared.toggleLike(item) }
+            case "libshare":
+                // libshare <title>|<summary>|<text>
+                let parts = rest.components(separatedBy: "|")
+                if parts.count == 3 {
+                    let submission = CommunityLibrary.Submission(kind: .prompt, title: parts[0], summary: parts[1], text: parts[2], test: nil,
+                                                                 programs: ["claude"], tags: [], author: "", lang: "tr", device: "")
+                    LibraryCenter.shared.share(submission) { result in
+                        if case .success(let item) = result { AppModel.shared.page = .library(item.id) }
+                        if case .failure(let failure) = result { AppModel.shared.hint = failure.text }
+                    }
+                }
             case "racetest":
                 if let race = RaceCenter.shared.open.first { RaceCenter.shared.test(race.id) }
             case "racedrop":

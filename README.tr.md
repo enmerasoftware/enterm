@@ -96,7 +96,7 @@ Bir kutunun menüsünden, ayrıntılar bölmesinden, komut paletinden ya da **Ya
 
 ### Kütüphane
 
-Topluluğun [`library/`](library) klasöründe paylaştığı istemler, yarış görevleri ve beceri paketleri. Arayın ve kaydedin; bir istemi **Çalıştır** ile tek tıkla yeni bir oturumda başlatın, **Yarıştır** ile ajanlara aynı anda verin, ya da bir beceri paketinin dosyalarına bakıp yeni Claude Code oturumlarına ekleyin. **İstem Paylaş** sizinkini incelenmek üzere önceden doldurulmuş bir GitHub önerisi olarak gönderir. Hiçbir şey kendiliğinden çalışmaz: önce okursunuz. Ayrıntı: [docs/library.md](docs/library.md).
+[`library/`](library) klasöründeki incelenmiş istemler, yarış görevleri ve beceri paketleri; bir de topluluk rafı: uygulamadan paylaştığınız istem hemen herkesin Kütüphanesinde ve [enterm.enmeraapps.com/library](https://enterm.enmeraapps.com/library) sayfasında görünür. Arayın ve kaydedin; bir istemi **Çalıştır** ile tek tıkla yeni bir oturumda başlatın, **Yarıştır** ile ajanlara aynı anda verin, ya da bir beceri paketinin dosyalarına bakıp yeni Claude Code oturumlarına ekleyin. **İstem Paylaş** sizinkini otomatik denetimden sonra yayınlar; başkalarının paylaştıklarını beğenip bildirebilirsiniz. Hiçbir şey kendiliğinden çalışmaz: önce okursunuz. Ayrıntı: [docs/library.md](docs/library.md).
 
 ### Tasarım kontrolü
 

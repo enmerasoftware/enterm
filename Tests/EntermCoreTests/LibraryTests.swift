@@ -44,4 +44,57 @@ final class LibraryTests: XCTestCase {
         let item = LibraryEntry(id: "../evil name", kind: .skill, title: "x", summary: "", text: nil)
         XCTAssertEqual(LibraryShare.folderName(for: item), "evil-name")
     }
+
+    func testCommunityItemsParseAndKeepOnlyWhatTheShelfAllows() throws {
+        let json = """
+        {"items":[
+          {"id":"c-0a1b2c3d","kind":"race","title":"Fix the flaky test","summary":"Makes the flaky test pass every time.","text":"Find why ${test:the login test} fails one run in ten and fix the cause.","test":"npm test","programs":["claude","codex"],"tags":["testing"],"author":"Ada","lang":"en","created":"2026-11-25T10:00:00Z","reviewed":false,"votes":4},
+          {"id":"c-ffffffff","kind":"prompt","title":"Reviewed","summary":"s","text":"t","reviewed":true},
+          {"id":"review-a-diff","kind":"prompt","title":"Not community","text":"t"},
+          {"id":"c-12345678","kind":"skill","title":"No skills here","text":"t"}
+        ]}
+        """
+        let items = try XCTUnwrap(CommunityLibrary.parse(Data(json.utf8)))
+        XCTAssertEqual(items.map(\.id), ["c-0a1b2c3d", "c-ffffffff"])
+        XCTAssertTrue(items[0].isCommunity && !items[0].isReviewedCommunity)
+        XCTAssertTrue(items[1].isReviewedCommunity)
+        XCTAssertEqual(items[0].test, "npm test")
+        XCTAssertEqual(items[0].votes, 4)
+        XCTAssertTrue(items[0].webURL?.absoluteString.hasSuffix("/library#c-0a1b2c3d") ?? false)
+        XCTAssertEqual(CommunityLibrary.parseVotes(Data(#"{"votes":{"a":2}}"#.utf8)), ["a": 2])
+    }
+
+    func testSubmissionProblems() {
+        let text = String(repeating: "Review the diff and list correctness bugs. ", count: 3)
+        func make(_ kind: LibraryEntry.Kind = .prompt, title: String = "Review the diff", test: String? = nil, programs: [String] = ["claude"]) -> CommunityLibrary.Submission {
+            CommunityLibrary.Submission(kind: kind, title: title, summary: "Finds bugs in the diff.", text: text, test: test, programs: programs, tags: [], author: "", lang: "en", device: "x")
+        }
+        XCTAssertNil(make().problem)
+        XCTAssertNotNil(make(title: "  ").problem)
+        XCTAssertNotNil(make(programs: []).problem)
+        XCTAssertNotNil(make(.race, programs: ["claude", "codex"]).problem, "a race needs a test")
+        XCTAssertNotNil(make(.race, test: "npm test", programs: ["claude", "cursor"]).problem, "a race needs two racing programs")
+        XCTAssertNil(make(.race, test: "npm test", programs: ["claude", "codex"]).problem)
+        XCTAssertNil(make(test: "   ").test)
+    }
+
+    func testPromptVariables() {
+        let text = "Fix ${bug} in ${file:main.swift}, then test ${bug}. Keep ${not closed"
+        XCTAssertEqual(PromptVariables.find(in: text), [.init(name: "bug", fallback: ""), .init(name: "file", fallback: "main.swift")])
+        XCTAssertEqual(PromptVariables.fill(text, with: ["bug": "the crash"]), "Fix the crash in main.swift, then test the crash. Keep ${not closed")
+        XCTAssertEqual(PromptVariables.fill("Hi ${name}", with: [:]), "Hi ${name}")
+        XCTAssertEqual(PromptVariables.fill("Cost: $5 and ${x:1}", with: [:]), "Cost: $5 and 1")
+    }
+
+    func testShelfKeepsSavedCommunityItemsAndReadsOldFiles() throws {
+        var shelf = LibraryShelf()
+        let item = LibraryEntry(id: "c-00000001", kind: .prompt, title: "T", summary: "S", text: "x", source: CommunityLibrary.source)
+        shelf.toggle(item)
+        XCTAssertEqual(shelf.kept.map(\.id), ["c-00000001"])
+        shelf.toggle(item)
+        XCTAssertTrue(shelf.kept.isEmpty && shelf.saved.isEmpty)
+        let old = try JSONDecoder().decode(LibraryShelf.self, from: Data(#"{"saved":["a"],"installedSkills":{}}"#.utf8))
+        XCTAssertEqual(old.saved, ["a"])
+        XCTAssertTrue(old.liked.isEmpty && old.mine.isEmpty)
+    }
 }

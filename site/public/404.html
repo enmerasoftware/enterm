@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title data-i18n="nf_title">Not found · Enterm</title>
+<meta name="description" content="This page does not exist." data-i18n-attr="content:nf_desc">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0a0c0d">
+<link rel="icon" href="/img/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="/img/icon.png" type="image/png" sizes="256x256">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<meta property="og:site_name" content="Enterm">
+<meta property="og:title" content="Not found · Enterm">
+<meta property="og:image" content="https://enterm.enmeraapps.com/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/site.css">
+<script src="/js/tr.js" defer></script>
+<script src="/js/site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main" data-i18n="skip">Skip to content</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Enterm home"><img src="/img/icon.png" alt="" width="30" height="30"><span>Enterm</span></a>
+    <nav class="nav" id="nav" aria-label="Main" data-i18n-attr="aria-label:nav_label">
+      <a href="/#race" data-i18n="nav_race">Race</a>
+      <a href="/#timeline" data-i18n="nav_timeline">Timeline</a>
+      <a href="/library" data-i18n="nav_library">Library</a>
+      <a href="/#phone" data-i18n="nav_phone">iPhone</a>
+      <a href="/#install" data-i18n="nav_install">Install</a>
+      <a href="https://github.com/enmerasoftware/enterm/tree/main/docs" data-i18n="nav_docs">Docs</a>
+    </nav>
+    <div class="top-right">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="tr" aria-pressed="false">TR</button>
+      </div>
+      <a class="btn btn-small star-btn" href="https://github.com/enmerasoftware/enterm" aria-label="Star Enterm on GitHub" data-i18n-attr="aria-label:star_aria">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>
+        <span class="star-label" data-i18n="star_short">Star</span><span class="count star-count"></span>
+      </a>
+      <button class="menu-btn" type="button" aria-controls="nav" aria-expanded="false" aria-label="Menu" data-i18n-attr="aria-label:menu"><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+<section class="page nf">
+  <div class="wrap">
+    <div class="nf-term" aria-hidden="true"><span class="p">$</span> cd <span id="nf-path">/this-page</span><br><span class="e">cd: no such file or directory</span><br><span class="p">$</span> <span class="cur"></span></div>
+    <h1 data-i18n="nf_h">This page is not here.</h1>
+    <p class="lead" data-i18n="nf_p">The link may be old, or the address has a typo.</p>
+    <div class="hero-cta" style="justify-content:flex-start">
+      <a class="btn btn-primary" href="/" data-i18n="nf_home">Go to the home page</a>
+      <a class="btn" href="/library" data-i18n="nav_library">Library</a>
+    </div>
+  </div>
+</section>
+<style>
+.nf-term { font: .95rem/1.8 var(--mono); background: #08090a; border: 1px solid var(--line-2); border-radius: 12px; padding: 16px 18px; margin-bottom: 32px; max-width: 560px; overflow-wrap: anywhere; }
+.nf-term .p { color: var(--lime); } .nf-term .e { color: var(--coral); }
+.nf-term .cur { display: inline-block; width: .6em; height: 1.1em; background: var(--lime); vertical-align: -3px; animation: nfb 1s steps(1) infinite; }
+@keyframes nfb { 50% { opacity: 0; } }
+</style>
+<script>
+(function(){var p=document.getElementById("nf-path");if(p)p.textContent=location.pathname.slice(0,80);})();
+</script>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="/"><img src="/img/icon.png" alt="" width="30" height="30"><span>Enterm</span></a>
+        <p class="small" style="margin-top:12px" data-i18n="ft_tag">A native macOS canvas for AI coding agents that still feels like a terminal.</p>
+      </div>
+      <div><h4 data-i18n="ft_product">Product</h4><ul>
+        <li><a href="https://github.com/enmerasoftware/enterm/releases/latest" data-i18n="ft_download">Download</a></li>
+        <li><a href="/library" data-i18n="nav_library">Library</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/blob/main/CHANGELOG.md" data-i18n="ft_changelog">Changelog</a></li>
+      </ul></div>
+      <div><h4 data-i18n="ft_project">Project</h4><ul>
+        <li><a href="https://github.com/enmerasoftware/enterm">GitHub</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/tree/main/docs" data-i18n="nav_docs">Docs</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/discussions" data-i18n="ft_disc">Discussions</a></li>
+      </ul></div>
+      <div><h4 data-i18n="ft_trust">Trust</h4><ul>
+        <li><a href="/privacy" data-i18n="ft_privacy">Privacy</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/blob/main/SECURITY.md" data-i18n="ft_security">Security</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/blob/main/LICENSE" data-i18n="ft_license">MIT licence</a></li>
+      </ul></div>
+    </div>
+    <div class="fine"><span data-i18n="ft_made">Made by Enmera. No trackers on this site.</span><span data-i18n="ft_aff">Claude Code, Codex, Gemini and the other CLIs belong to their vendors; Enterm is not affiliated with them.</span></div>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title data-i18n="meta_title">Enterm: run AI coding agents side by side on a macOS canvas</title>
+<meta name="description" content="Enterm is a free, open-source macOS app that runs Claude Code, Codex, Gemini and other official agent CLIs side by side on a canvas of terminals. Race them on one task, replay what they did, approve from your iPhone." data-i18n-attr="content:meta_desc">
+<meta name="theme-color" content="#0a0c0d">
+<link rel="canonical" href="https://enterm.enmeraapps.com/">
+<link rel="icon" href="/img/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="/img/icon.png" type="image/png" sizes="256x256">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Enterm">
+<meta property="og:title" content="Enterm: AI coding agents side by side on one canvas">
+<meta property="og:description" content="Free and open source for macOS. Run Claude Code, Codex, Gemini and more as they ship, race them on one task, replay what they did, approve from your iPhone.">
+<meta property="og:url" content="https://enterm.enmeraapps.com/">
+<meta property="og:image" content="https://enterm.enmeraapps.com/img/og.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Enterm: a canvas of terminal boxes running AI coding agents">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="tr_TR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Enterm: AI coding agents side by side on one canvas">
+<meta name="twitter:description" content="Free and open source for macOS. Race agents on one task, replay what they did, approve from your iPhone.">
+<meta name="twitter:image" content="https://enterm.enmeraapps.com/img/og.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/site.css">
+<link rel="stylesheet" href="/css/home.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Enterm","description":"A native macOS canvas for AI coding agents that still feels like a terminal.","operatingSystem":"macOS 14 or later, Apple silicon","applicationCategory":"DeveloperApplication","url":"https://enterm.enmeraapps.com/","downloadUrl":"https://github.com/enmerasoftware/enterm/releases/latest","license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"author":{"@type":"Organization","name":"Enmera","url":"https://github.com/enmerasoftware"}}</script>
+<script src="/js/tr.js" defer></script>
+<script src="/js/site.js" defer></script>
+<script src="/js/home.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main" data-i18n="skip">Skip to content</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="Enterm home"><img src="/img/icon.png" alt="" width="30" height="30"><span>Enterm</span></a>
+    <nav class="nav" id="nav" aria-label="Main" data-i18n-attr="aria-label:nav_label">
+      <a href="#race" data-i18n="nav_race">Race</a>
+      <a href="#timeline" data-i18n="nav_timeline">Timeline</a>
+      <a href="/library" data-i18n="nav_library">Library</a>
+      <a href="#phone" data-i18n="nav_phone">iPhone</a>
+      <a href="#install" data-i18n="nav_install">Install</a>
+      <a href="https://github.com/enmerasoftware/enterm/tree/main/docs" data-i18n="nav_docs">Docs</a>
+    </nav>
+    <div class="top-right">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="tr" aria-pressed="false">TR</button>
+      </div>
+      <a class="btn btn-small star-btn" href="https://github.com/enmerasoftware/enterm" aria-label="Star Enterm on GitHub" data-i18n-attr="aria-label:star_aria">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>
+        <span class="star-label" data-i18n="star_short">Star</span><span class="count star-count"></span>
+      </a>
+      <button class="menu-btn" type="button" aria-controls="nav" aria-expanded="false" aria-label="Menu" data-i18n-attr="aria-label:menu"><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ============ HERO ============ -->
+<section class="hero" aria-labelledby="hero-h">
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="wrap hero-copy">
+    <a class="pill reveal" href="https://github.com/enmerasoftware/enterm/releases/latest">
+      <span class="pill-dot" aria-hidden="true"></span>
+      <span data-i18n="hero_pill">Free and open source · MIT · macOS 14+</span>
+      <span class="pill-v version">v0.1.5</span>
+    </a>
+    <h1 id="hero-h" class="reveal d1"><span data-i18n="hero_h1a">All your AI coding agents,</span> <span class="hl" data-i18n="hero_h1b">side by side on one canvas.</span></h1>
+    <p class="lead reveal d2" data-i18n="hero_lead">Enterm runs Claude Code, Codex, Gemini and other official CLIs exactly as they ship, in terminal boxes you can tile, move and group. Race them on the same task, replay what they did, and approve their work from your iPhone.</p>
+    <div class="hero-cta reveal d3">
+      <a class="btn btn-primary" data-dmg href="https://github.com/enmerasoftware/enterm/releases/latest">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8 0 0-2.5-1-2.5-3.9zM14 5.5c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1 .1 2.1-.6 2.8-1.4z"/></svg>
+        <span data-i18n="cta_download">Download for Mac</span>
+      </a>
+      <a class="btn star-btn" href="https://github.com/enmerasoftware/enterm">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>
+        <span data-i18n="cta_star">Star on GitHub</span><span class="count star-count"></span>
+      </a>
+    </div>
+    <div class="hero-brew reveal d3">
+      <button type="button" class="brew-chip" data-copy="brew tap enmerasoftware/tap\nbrew trust enmerasoftware/tap\nbrew install --cask enterm"><code><span aria-hidden="true">$ </span>brew install --cask enterm</code><span class="brew-copy" data-i18n="hero_brew_copy">copy all 3 steps</span></button>
+      <a href="#install" class="small" data-i18n="hero_brew_more">all install steps</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="stage-tilt" id="stage-tilt">
+      <div class="window stage" id="stage" aria-label="An animated example of the Enterm canvas: four boxes with agents working, an approval request and its answer from the phone." data-i18n-attr="aria-label:stage_aria" role="img">
+        <div class="window-bar">
+          <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="tab" data-i18n="stage_tab_all">All Projects</span>
+          <span class="tab on">web-app</span>
+          <span class="tab">api</span>
+          <span class="tab tab-plus" aria-hidden="true">+</span>
+          <span class="bar-right"><span class="usage"><span data-i18n="stage_usage">5h limit</span> <b><i style="width:38%"></i></b></span></span>
+        </div>
+        <div class="canvas" id="canvas">
+          <svg class="link" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path id="link-path" d="M47 24 C 49 24, 49 24, 51 24" /></svg>
+          <div class="box" data-box="claude" style="--x:2.5%;--y:5%;--w:46%;--h:55%">
+            <div class="box-head"><span class="spark" style="--c:var(--lime)"></span><b>Claude Code</b><span class="path">web-app</span><span class="status s-run"><i></i><em data-i18n="st_running">Running</em></span></div>
+            <div class="box-body"><div class="ln"><span class="pr">❯</span> Add a password reset page</div></div>
+          </div>
+          <div class="box" data-box="codex" style="--x:51.5%;--y:5%;--w:46%;--h:41%">
+            <div class="box-head"><span class="spark" style="--c:var(--blue)"></span><b>Codex</b><span class="path">api</span><span class="status s-run"><i></i><em data-i18n="st_running">Running</em></span></div>
+            <div class="box-body"><div class="ln"><span class="pr">❯</span> Find why /orders is slow</div></div>
+          </div>
+          <div class="box" data-box="gemini" style="--x:51.5%;--y:51%;--w:46%;--h:41%">
+            <div class="box-head"><span class="spark" style="--c:var(--violet)"></span><b>Gemini</b><span class="path">docs</span><span class="status s-wait"><i></i><em data-i18n="st_waiting">Waiting</em></span></div>
+            <div class="box-body"><div class="ln"><span class="pr">❯</span> Update the install steps in the README</div></div>
+          </div>
+          <div class="box" data-box="term" style="--x:2.5%;--y:64%;--w:46%;--h:28%">
+            <div class="box-head"><span class="spark" style="--c:var(--silver)"></span><b data-i18n="stage_terminal">Terminal</b><span class="path">zsh</span><span class="port" hidden>:5173</span></div>
+            <div class="box-body"><div class="ln"><span class="pr">$</span> npm run dev</div></div>
+          </div>
+          <div class="approve" id="approve" hidden>
+            <div class="approve-t"><span class="spark" style="--c:var(--violet)"></span><b>Gemini</b> <span data-i18n="ap_wants">wants to run</span> <code>npm run build</code></div>
+            <div class="approve-b"><span class="ab deny" data-i18n="ap_deny">Deny</span><span class="ab allow" data-i18n="ap_allow">Allow</span></div>
+            <div class="approve-done"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span data-i18n="ap_phone">Allowed from iPhone with Face ID</span></div>
+          </div>
+          <div class="cmdbar"><span class="pr">❯</span><span class="cmd-text" data-i18n="stage_cmd">Type a command or search sessions</span><kbd>⌘K</kbd><span class="plus" aria-hidden="true">+</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AGENTS ============ -->
+<section class="agents" aria-labelledby="agents-h">
+  <div class="wrap center">
+    <p id="agents-h" class="agents-h" data-i18n="agents_h">Runs the official CLIs you already use, unmodified, with your own plan and settings</p>
+  </div>
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <span>Claude Code <code>claude</code></span><span>Codex <code>codex</code></span><span>Gemini <code>gemini</code></span><span>opencode <code>opencode</code></span><span>GitHub Copilot <code>copilot</code></span><span>Cursor <code>cursor-agent</code></span><span>Antigravity <code>agy</code></span><span>Grok <code>grok</code></span><span class="own" data-i18n="agents_own">your own program</span>
+      <span>Claude Code <code>claude</code></span><span>Codex <code>codex</code></span><span>Gemini <code>gemini</code></span><span>opencode <code>opencode</code></span><span>GitHub Copilot <code>copilot</code></span><span>Cursor <code>cursor-agent</code></span><span>Antigravity <code>agy</code></span><span>Grok <code>grok</code></span><span class="own" data-i18n="agents_own">your own program</span>
+    </div>
+  </div>
+  <p class="sr-only" data-i18n="agents_sr">Supported: Claude Code, Codex, Gemini, opencode, GitHub Copilot, Cursor, Antigravity, Grok, or a program you add.</p>
+</section>
+
+<!-- ============ WHY ============ -->
+<section class="section why" aria-labelledby="why-h">
+  <div class="wrap">
+    <span class="eyebrow reveal" data-i18n="why_eyebrow">Why Enterm</span>
+    <h2 id="why-h" class="reveal" data-i18n="why_h">A terminal that grew a canvas, not an IDE that hides the terminal.</h2>
+    <div class="cards">
+      <article class="card reveal"><div class="ic" aria-hidden="true">⌘</div><h3 data-i18n="why1_h">Vendor-neutral</h3><p data-i18n="why1_p">Use whichever agent fits the task, or several at once. No account, no subscription, no lock-in.</p></article>
+      <article class="card reveal d1"><div class="ic" aria-hidden="true">❯_</div><h3 data-i18n="why2_h">Official CLIs, as they ship</h3><p data-i18n="why2_p">Enterm starts the programs you already use. It does not patch, proxy or reimplement them, and never edits <code>~/.zshrc</code>, <code>~/.claude</code> or <code>~/.codex</code>.</p></article>
+      <article class="card reveal d2"><div class="ic" aria-hidden="true">∞</div><h3 data-i18n="why3_h">Sessions survive quitting</h3><p data-i18n="why3_p">A background service, <code>entermd</code>, owns the terminals. Close the window or update the app; the work goes on and is there when you come back.</p></article>
+      <article class="card reveal"><div class="ic" aria-hidden="true">▦</div><h3 data-i18n="why4_h">A canvas, not a tab strip</h3><p data-i18n="why4_p">Every agent and terminal is a box you can tile, move, resize and group, in project tabs that each remember their own pan and zoom.</p></article>
+      <article class="card reveal d1"><div class="ic" aria-hidden="true">!</div><h3 data-i18n="why5_h">See who needs you</h3><p data-i18n="why5_p">Permission questions light up the box and collect in one Approvals inbox. Usage limits for Claude Code and Codex sit on the status line.</p></article>
+      <article class="card reveal d2"><div class="ic" aria-hidden="true">◌</div><h3 data-i18n="why6_h">Light by design</h3><p data-i18n="why6_p">Native AppKit and SwiftUI. Nothing animates or polls while idle, and no telemetry. A feature you do not use costs nothing.</p></article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RACE ============ -->
+<section class="section race-sec" id="race" aria-labelledby="race-h">
+  <div class="wrap split">
+    <div>
+      <span class="eyebrow reveal" data-i18n="race_eyebrow">Race</span>
+      <h2 id="race-h" class="reveal" data-i18n="race_h">One task, several agents. Keep the best result.</h2>
+      <p class="lead reveal" data-i18n="race_lead">Give the same task to two or three of Claude Code, Codex and Gemini. Each gets its own git worktree from the same commit, so the race is fair and your main folder is untouched.</p>
+      <ol class="steps reveal">
+        <li><span data-i18n="race_s1"><strong>Live lanes.</strong> Elapsed time, files changed, lines added and removed, and a runner heading for the flag.</span></li>
+        <li><span data-i18n="race_s2"><strong>Medals and tests.</strong> Medals mark the finishing order; the results page runs your test command per entrant.</span></li>
+        <li><span data-i18n="race_s3"><strong>Pick Winner.</strong> Merges the winner's branch with <code>--no-ff</code> and removes every worktree and branch the race made. Or drop it all.</span></li>
+      </ol>
+      <a class="more-link reveal" href="https://github.com/enmerasoftware/enterm/blob/main/docs/race.md" data-i18n="race_more">How races work</a>
+    </div>
+    <div class="reveal d1">
+      <div class="window race" id="race-demo">
+        <div class="window-bar">
+          <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="race-title"><span data-i18n="race_tab">Race:</span> Add a password reset page</span>
+          <button type="button" class="btn btn-small race-replay" id="race-replay"><span aria-hidden="true">↻</span> <span data-i18n="race_again">Run again</span></button>
+        </div>
+        <div class="race-body">
+          <div class="lanes" id="race-lanes"></div>
+          <div class="results" id="race-results" aria-live="polite">
+            <div class="results-h" data-i18n="race_results">Race Results</div>
+            <div class="results-rows" id="race-rows"></div>
+            <p class="results-note" data-i18n="race_note">Line counts don't show quality; look at the diff and the tests.</p>
+            <div class="merge" id="race-merge"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TIMELINE ============ -->
+<section class="section tl-sec" id="timeline" aria-labelledby="tl-h">
+  <div class="wrap">
+    <div class="tl-head">
+      <span class="eyebrow reveal" data-i18n="tl_eyebrow">Timeline</span>
+      <h2 id="tl-h" class="reveal" data-i18n="tl_h">Replay what an agent did, in seconds.</h2>
+      <p class="lead reveal" data-i18n="tl_lead">An animated replay read from the CLI's own transcript (Claude Code and Codex), so nothing extra is recorded. Long pauses are shortened, so you watch the work, not the waiting. Save it as one HTML file that plays in any browser.</p>
+    </div>
+    <div class="window tl reveal d1" id="tl-demo">
+      <div class="tl-controls">
+        <button type="button" class="btn btn-small btn-primary" id="tl-play"><span class="tl-play-ic" aria-hidden="true">▶</span> <span class="tl-play-label" data-i18n="tl_play">Play</span></button>
+        <button type="button" class="btn btn-small" id="tl-restart"><span aria-hidden="true">⏮</span> <span data-i18n="tl_restart">Restart</span></button>
+        <div class="seg" role="group" aria-label="Speed" data-i18n-attr="aria-label:tl_speed">
+          <button type="button" data-speed="fast" aria-pressed="false" data-i18n="tl_fast">Fast</button>
+          <button type="button" data-speed="normal" aria-pressed="true" data-i18n="tl_normal">Normal</button>
+          <button type="button" data-speed="slow" aria-pressed="false" data-i18n="tl_slow">Slow</button>
+        </div>
+        <span class="tl-clock" id="tl-clock">0:00 / 0:20</span>
+        <span class="tl-save"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0-12l-4 4m4-4l4 4M5 14v5h14v-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-i18n="tl_save">Save as HTML</span></span>
+      </div>
+      <div class="tl-lanes" id="tl-lanes" role="slider" tabindex="0" aria-label="Replay position" data-i18n-attr="aria-label:tl_pos" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0" aria-valuetext="0:00"></div>
+      <div class="tl-legend" aria-hidden="true">
+        <span style="--c:var(--lime)" data-i18n="k_prompt">Prompt</span><span style="--c:var(--silver)" data-i18n="k_reply">Reply</span><span style="--c:var(--green)" data-i18n="k_edit">Edit</span><span style="--c:var(--blue)" data-i18n="k_command">Command</span><span style="--c:var(--violet)" data-i18n="k_read">Read</span>
+      </div>
+      <div class="tl-bottom">
+        <div class="tl-feed panel"><h3 data-i18n="tl_flow">Flow</h3><ol id="tl-feed"></ol></div>
+        <div class="tl-files panel"><h3 data-i18n="tl_files">Files</h3><ul id="tl-files"></ul></div>
+      </div>
+      <p class="tl-foot small muted" data-i18n="tl_foot">Drag on a lane to scrub. In the app, Fast, Normal and Slow set how long the whole replay takes, and a race replays all its lanes together.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ REAL SCREENS ============ -->
+<section class="section shots" aria-labelledby="shots-h">
+  <div class="wrap">
+    <div class="center">
+      <span class="eyebrow reveal" data-i18n="shots_eyebrow">The real app</span>
+      <h2 id="shots-h" class="reveal" data-i18n="shots_h">Straight from the Mac.</h2>
+    </div>
+    <div class="shot-main reveal">
+      <div class="window">
+        <video id="hero-video" muted loop playsinline preload="none" poster="/img/hero-poster.webp" width="800" height="500" aria-label="Two agents racing on the same task, then the timeline replay" data-i18n-attr="aria-label:video_aria">
+          <source src="/img/hero.mp4" type="video/mp4">
+        </video>
+      </div>
+      <button type="button" class="video-toggle btn btn-small" id="video-toggle" hidden><span data-i18n="video_pause">Pause video</span></button>
+    </div>
+    <div class="shot-grid">
+      <figure class="reveal"><a href="/img/race.webp"><img src="/img/race-800.webp" srcset="/img/race-800.webp 800w, /img/race.webp 1600w" sizes="(max-width: 760px) 92vw, 380px" width="1600" height="1000" loading="lazy" decoding="async" alt="Two agents racing on the same task, each in its own worktree, with live lanes at the bottom of each box" data-i18n-attr="alt:shot1_alt"></a><figcaption data-i18n="shot1">A race: one box per agent, a live lane in each.</figcaption></figure>
+      <figure class="reveal d1"><a href="/img/race-results.webp"><img src="/img/race-results-800.webp" srcset="/img/race-results-800.webp 800w, /img/race-results.webp 1600w" sizes="(max-width: 760px) 92vw, 380px" width="1600" height="1000" loading="lazy" decoding="async" alt="Race results: Codex finished first but its tests failed, Claude Code finished second with tests passed" data-i18n-attr="alt:shot2_alt"></a><figcaption data-i18n="shot2">Results: first to finish is not always the one to merge.</figcaption></figure>
+      <figure class="reveal d2"><a href="/img/timeline.webp"><img src="/img/timeline-800.webp" srcset="/img/timeline-800.webp 800w, /img/timeline.webp 1600w" sizes="(max-width: 760px) 92vw, 380px" width="1600" height="1000" loading="lazy" decoding="async" alt="Timeline replay of a race with two lanes, the flow of events and the files touched" data-i18n-attr="alt:shot3_alt"></a><figcaption data-i18n="shot3">The timeline replaying both racers.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LIBRARY ============ -->
+<section class="section lib-sec" id="library" aria-labelledby="lib-h">
+  <div class="wrap split">
+    <div>
+      <span class="eyebrow reveal" data-i18n="lib_eyebrow">Library</span>
+      <h2 id="lib-h" class="reveal" data-i18n="lib_h">Prompts, race tasks and skill packs, one click from running.</h2>
+      <p class="lead reveal" data-i18n="lib_lead">Search the Library inside Enterm, <strong>Run</strong> a prompt in a new session, <strong>Race It</strong> across agents, or review a skill pack's files and add it to new Claude Code sessions. Nothing runs by itself: you read it first.</p>
+      <ul class="checks reveal">
+        <li data-i18n="lib_c1"><strong>Share from the app.</strong> Library → Share, and your prompt or race task shows up at once for everyone, under <em>Community · unreviewed</em>.</li>
+        <li data-i18n="lib_c2"><strong>Reviewed items get promoted</strong> after a check for secrets, destructive steps and prompt-injection bait.</li>
+        <li data-i18n="lib_c3"><strong>Likes</strong> show what people find useful; anything wrong can be reported from the app.</li>
+      </ul>
+      <p class="reveal lib-count muted small" id="lib-count"></p>
+      <a class="btn btn-primary reveal" href="/library"><span data-i18n="lib_cta">Browse the Library</span> <span aria-hidden="true">→</span></a>
+    </div>
+    <div class="lib-stack reveal d1" id="lib-stack" aria-hidden="true">
+      <div class="lib-card c1"><span class="kind k-race" data-i18n="kind_race">Race task</span><b>Kata: a correct CSV parser in JavaScript</b><p>Race to write an RFC 4180 CSV parser and writer that handles quotes, newlines in fields and clear errors.</p><span class="lib-acts"><i class="go">Race It</i><i>Copy</i></span></div>
+      <div class="lib-card c2"><span class="kind k-prompt" data-i18n="kind_prompt">Prompt</span><b>Accessibility pass on a screen</b><p>Check one screen for keyboard use, screen reader names, focus, contrast and text size, fix what fails, and verify each fix.</p><span class="lib-acts"><i class="go">Run</i><i>Race It</i></span></div>
+      <div class="lib-card c3"><span class="kind k-skill" data-i18n="kind_skill">Skill pack</span><b>AI design check</b><p>Find and fix what makes an AI-built interface look generated.</p><span class="lib-acts"><i class="go">Review Files and Add</i></span></div>
+      <div class="lib-card c4 community"><span class="kind k-comm" data-i18n="comm_badge">Community · unreviewed</span><b data-i18n="lib_yours">Your prompt here</b><p data-i18n="lib_yours_p">Shared from Enterm a moment ago. Visible to everyone right away.</p><span class="lib-acts"><i class="go" data-i18n="lib_like">♥ Like</i><i data-i18n="lib_report">Report</i></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DESIGN CHECK ============ -->
+<section class="section dc-sec" id="design" aria-labelledby="dc-h">
+  <div class="wrap split flip">
+    <div>
+      <span class="eyebrow reveal" data-i18n="dc_eyebrow">Design Check</span>
+      <h2 id="dc-h" class="reveal" data-i18n="dc_h">Make the interface stop looking generated.</h2>
+      <p class="lead reveal" data-i18n="dc_lead">Enterm runs <a href="https://github.com/enmerasoftware/ai-design-check">ai-design-check</a> on the project in front of you: what makes an AI-built interface look generated, listed by file and area. For the web and for SwiftUI, Compose, Flutter and React Native apps.</p>
+      <ul class="checks reveal">
+        <li data-i18n="dc_c1"><strong>Preview Mechanical Fixes</strong>, then apply them: spacing and corners to the scale, very heavy type to bold.</li>
+        <li data-i18n="dc_c2"><strong>Scan Running Page</strong> measures your local page at desktop and phone width.</li>
+        <li data-i18n="dc_c3"><strong>Fix with an Agent</strong>, or start a <strong>design race</strong> where the checker decides whose screen is clean.</li>
+      </ul>
+      <a class="more-link reveal" href="https://github.com/enmerasoftware/enterm/blob/main/docs/design-check.md" data-i18n="dc_more">About Design Check</a>
+    </div>
+    <div class="reveal d1">
+      <div class="window dc" id="dc-demo">
+        <div class="window-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span data-i18n="dc_title">Design Check</span><span class="bar-right small" data-i18n="dc_example">example run</span></div>
+        <div class="dc-body">
+          <div class="dc-cmd"><span class="pr">$</span> <span id="dc-typed">npx --yes @enmera/ai-design-check@latest</span><span class="caret" aria-hidden="true"></span></div>
+          <div class="dc-totals"><span class="t-err"><b id="dc-err">0</b> <span data-i18n="dc_errors">errors</span></span><span class="t-warn"><b id="dc-warn">0</b> <span data-i18n="dc_warnings">warnings</span></span><span class="t-note"><b id="dc-note">0</b> <span data-i18n="dc_notes">notes</span></span></div>
+          <div class="dc-rows" id="dc-rows"></div>
+          <div class="dc-acts"><span class="dc-act" data-step="1" data-i18n="dc_a1">Preview Mechanical Fixes</span><span class="dc-act" data-step="2" data-i18n="dc_a2">Apply</span><span class="dc-act" data-step="3" data-i18n="dc_a3">Fix with an Agent</span><span class="dc-act" data-step="4" data-i18n="dc_a4">Design Race</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PHONE ============ -->
+<section class="section phone-sec" id="phone" aria-labelledby="phone-h">
+  <div class="wrap split">
+    <div>
+      <span class="eyebrow reveal" data-i18n="ph_eyebrow">iPhone companion</span>
+      <h2 id="phone-h" class="reveal" data-i18n="ph_h">Step away. Approve from the lock screen.</h2>
+      <p class="lead reveal" data-i18n="ph_lead">Pair your iPhone with a QR code. When an agent asks for permission, answer from the lock screen with Face ID, follow progress in a Live Activity, and follow and settle races.</p>
+      <ul class="checks reveal">
+        <li data-i18n="ph_c1"><strong>End-to-end encrypted.</strong> Both sides derive a key with X25519 and you compare a six-digit number. The relay only ever sees encrypted bytes, and every connection uses a fresh key.</li>
+        <li data-i18n="ph_c2"><strong>Chat and terminal.</strong> Read Claude Code and Codex sessions as a conversation with a reply box, or switch to the terminal.</li>
+        <li data-i18n="ph_c3"><strong>Start sessions and check usage</strong> from the phone. You can host your own relay.</li>
+      </ul>
+      <p class="small muted reveal" data-i18n="ph_note">The iPhone app is on its way to the App Store. It speaks English and Turkish.</p>
+    </div>
+    <div class="phone-wrap reveal d1">
+      <div class="phone" id="phone-demo" role="img" aria-label="An iPhone lock screen: Claude Code asks to run npm test, the request is allowed with Face ID, and a Live Activity shows progress." data-i18n-attr="aria-label:ph_aria">
+        <div class="ph-island" aria-hidden="true"></div>
+        <div class="ph-time">9:41</div>
+        <div class="ph-date" data-i18n="ph_date">Tuesday 24 November</div>
+        <div class="ph-note" id="ph-note">
+          <div class="ph-note-h"><img src="/img/icon-128.webp" alt="" width="20" height="20"><span>ENTERM</span><span class="ph-now" data-i18n="ph_now">now</span></div>
+          <b>Claude Code · web-app</b>
+          <p data-i18n="ph_ask">Wants to run <code>npm test</code></p>
+          <div class="ph-btns"><span data-i18n="ap_deny">Deny</span><span class="ph-allow" data-i18n="ap_allow">Allow</span></div>
+          <div class="ph-ok"><span class="ph-check" aria-hidden="true">✓</span> <span data-i18n="ph_allowed">Allowed</span></div>
+        </div>
+        <div class="ph-face" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M4 12V8a4 4 0 0 1 4-4h4M28 4h4a4 4 0 0 1 4 4v4M36 28v4a4 4 0 0 1-4 4h-4M12 36H8a4 4 0 0 1-4-4v-4M14 15v3M26 15v3M20 15v8h-2M15 28c3 2.5 7 2.5 10 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="ph-live" id="ph-live">
+          <div class="ph-live-t"><span class="spark" style="--c:var(--lime)"></span><b>web-app</b><span data-i18n="ph_live">2 running · 1 waiting</span></div>
+          <div class="ph-bar"><i></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MORE ============ -->
+<section class="section more" aria-labelledby="more-h">
+  <div class="wrap">
+    <span class="eyebrow reveal" data-i18n="more_eyebrow">And more</span>
+    <h2 id="more-h" class="reveal" data-i18n="more_h">Built for long days with many agents.</h2>
+    <div class="grid-more">
+      <article class="mini reveal"><h3 data-i18n="m1_h">Agents drive the canvas</h3><p data-i18n="m1_p">A local MCP bridge lets agents open boxes, set up a team, open a git worktree and move board cards. Tools that open boxes need your permission.</p></article>
+      <article class="mini reveal d1"><h3 data-i18n="m2_h">A board for agents</h3><p data-i18n="m2_p">Move a card to <em>In Progress</em> and it goes to its agent; the agent reports back. Only you can move a card to <em>Done</em>.</p></article>
+      <article class="mini reveal d2"><h3 data-i18n="m3_h">Chat view</h3><p data-i18n="m3_p">See a Claude Code or Codex session as a conversation, read from its transcript. <kbd>⇧⌘M</kbd></p></article>
+      <article class="mini reveal"><h3 data-i18n="m4_h">Built-in views</h3><p data-i18n="m4_p">A browser, notes, a whiteboard, files, video, and iOS Simulator and Android emulator boxes beside your terminals.</p></article>
+      <article class="mini reveal d1"><h3 data-i18n="m5_h">Local dictation</h3><p data-i18n="m5_p">Hold <kbd>⌃⌘</kbd> and speak. whisper.cpp runs on your Mac, only while you dictate.</p></article>
+      <article class="mini reveal d2"><h3 data-i18n="m6_h">English and Turkish</h3><p data-i18n="m6_p">The Mac and iPhone apps follow your system language, or the choice in Settings.</p></article>
+      <article class="mini reveal"><h3 data-i18n="m7_h">No tokens, no telemetry</h3><p data-i18n="m7_p">Your subscription tokens stay inside the official CLI. Enterm goes online only for things you can see.</p></article>
+      <article class="mini reveal d1"><h3 data-i18n="m8_h">Signed updates</h3><p data-i18n="m8_p">Developer ID signed, notarized by Apple, and updated through Sparkle with an EdDSA key.</p></article>
+      <article class="mini reveal d2"><h3 data-i18n="m9_h">Ports and titles</h3><p data-i18n="m9_p">The ports a session listens on appear on its box, and untitled boxes show the program's own session title.</p></article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPARE ============ -->
+<section class="section compare" aria-labelledby="cmp-h">
+  <div class="wrap">
+    <span class="eyebrow reveal" data-i18n="cmp_eyebrow">Where it fits</span>
+    <h2 id="cmp-h" class="reveal" data-i18n="cmp_h">Between a terminal and an IDE.</h2>
+    <div class="table-wrap reveal" tabindex="0" role="region" aria-labelledby="cmp-h">
+      <table>
+        <thead><tr><th scope="col"><span class="sr-only" data-i18n="cmp_feature">Feature</span></th><th scope="col" data-i18n="cmp_t">Terminal or tmux</th><th scope="col" data-i18n="cmp_i">IDE agent panel</th><th scope="col" data-i18n="cmp_c">Cloud agent runner</th><th scope="col" class="us">Enterm</th></tr></thead>
+        <tbody>
+          <tr><th scope="row" data-i18n="cmp_r1">Runs the vendors' official CLIs unchanged</th><td>✓</td><td data-i18n="cmp_varies">varies</td><td>–</td><td class="us">✓</td></tr>
+          <tr><th scope="row" data-i18n="cmp_r2">Several vendors side by side</th><td>✓</td><td data-i18n="cmp_varies">varies</td><td data-i18n="cmp_varies">varies</td><td class="us">✓</td></tr>
+          <tr><th scope="row" data-i18n="cmp_r3">Sessions survive closing the window</th><td>tmux</td><td>–</td><td>✓</td><td class="us">✓</td></tr>
+          <tr><th scope="row" data-i18n="cmp_r4">Sees which agent needs you, collects approvals</th><td>–</td><td>✓</td><td>✓</td><td class="us">✓</td></tr>
+          <tr><th scope="row" data-i18n="cmp_r5">Same task to several agents, compare and merge</th><td>–</td><td>–</td><td data-i18n="cmp_some">some</td><td class="us">✓</td></tr>
+          <tr><th scope="row" data-i18n="cmp_r6">Animated replay of what an agent did</th><td>–</td><td>–</td><td>–</td><td class="us">✓</td></tr>
+          <tr><th scope="row" data-i18n="cmp_r7">Approvals from your phone</th><td>–</td><td>–</td><td data-i18n="cmp_some">some</td><td class="us">✓</td></tr>
+          <tr><th scope="row" data-i18n="cmp_r8">Code stays on your Mac</th><td>✓</td><td>✓</td><td>–</td><td class="us">✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INSTALL ============ -->
+<section class="section install" id="install" aria-labelledby="inst-h">
+  <div class="wrap">
+    <div class="center">
+      <span class="eyebrow reveal" data-i18n="in_eyebrow">Install</span>
+      <h2 id="inst-h" class="reveal" data-i18n="in_h">Install it the way you like.</h2>
+      <p class="lead reveal" data-i18n="in_lead">Free, no account. macOS 14 (Sonoma) or later on Apple silicon.</p>
+    </div>
+    <div class="install-grid">
+      <div class="panel inst reveal">
+        <h3 data-i18n="in_dmg_h">Download the DMG</h3>
+        <p class="muted" data-i18n="in_dmg_p">Open it and drag Enterm into Applications. Signed with a Developer ID, notarized by Apple, and it updates itself.</p>
+        <a class="btn btn-primary" data-dmg href="https://github.com/enmerasoftware/enterm/releases/latest"><span data-i18n="cta_download">Download for Mac</span> <span class="sub version">v0.1.5</span></a>
+      </div>
+      <div class="panel inst reveal d1">
+        <h3 data-i18n="in_brew_h">Or use Homebrew</h3>
+        <div class="codebox"><div><span class="p">$ </span>brew tap enmerasoftware/tap</div><div><span class="p">$ </span>brew trust enmerasoftware/tap</div><div><span class="p">$ </span>brew install --cask enterm</div>
+          <button type="button" class="copy" data-copy="brew tap enmerasoftware/tap\nbrew trust enmerasoftware/tap\nbrew install --cask enterm" aria-label="Copy the Homebrew commands" data-i18n-attr="aria-label:copy_brew"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg></button>
+        </div>
+        <p class="small muted" data-i18n="in_brew_p">Homebrew asks before it loads casks from a new tap; <code>brew trust</code> answers that once.</p>
+      </div>
+    </div>
+    <p class="center small muted reveal in-after" data-i18n="in_after">Then install the agents you want the way their vendors describe. Enterm finds them through your login shell, and if one is missing it shows the official install command and runs it in a terminal you can see.</p>
+  </div>
+</section>
+
+<!-- ============ STAR ============ -->
+<section class="section star-sec" aria-labelledby="star-h">
+  <div class="wrap center">
+    <div class="star-orbit" aria-hidden="true"><span>★</span></div>
+    <h2 id="star-h" class="reveal" data-i18n="st_h">Enterm is free and open source.</h2>
+    <p class="lead reveal" data-i18n="st_lead">If it helps you, a star on GitHub helps other people find it. Issues, ideas and pull requests are welcome, in English or Turkish.</p>
+    <div class="hero-cta reveal">
+      <a class="btn btn-primary star-btn big" href="https://github.com/enmerasoftware/enterm">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>
+        <span data-i18n="cta_star">Star on GitHub</span><span class="count star-count"></span>
+      </a>
+      <a class="btn" href="https://github.com/enmerasoftware/enterm/discussions" data-i18n="st_disc">Join the discussion</a>
+      <a class="btn" href="https://github.com/enmerasoftware/enterm/blob/main/CONTRIBUTING.md" data-i18n="st_contrib">Contribute</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="section faq" id="faq" aria-labelledby="faq-h">
+  <div class="wrap">
+    <h2 id="faq-h" class="reveal" data-i18n="faq_h">Questions</h2>
+    <div class="faq-list">
+      <details class="reveal"><summary data-i18n="fq1">Does it cost anything?</summary><p data-i18n="fa1">No. Enterm is free and open source under the MIT licence. There is no account and no subscription. You use the agents with your own plans.</p></details>
+      <details class="reveal"><summary data-i18n="fq2">Will it change my Claude Code or Codex setup?</summary><p data-i18n="fa2">No. Enterm never writes to <code>~/.zshrc</code>, <code>~/.claude</code>, <code>~/.codex</code> or any other configuration of yours. Integration arrives through launch arguments and environment variables, and your subscription tokens stay inside the official CLI.</p></details>
+      <details class="reveal"><summary data-i18n="fq3">Which Macs does it run on?</summary><p data-i18n="fa3">macOS 14 (Sonoma) or later on Apple silicon. Release builds are arm64 only.</p></details>
+      <details class="reveal"><summary data-i18n="fq4">What happens to my sessions when I quit?</summary><p data-i18n="fa4">They keep running. A background service, <code>entermd</code>, owns the terminals, and the next launch picks them up.</p></details>
+      <details class="reveal"><summary data-i18n="fq5">Does Enterm collect data?</summary><p data-i18n="fa5">No telemetry. It goes online only for things you can see: update checks, the dictation model or an agent's installer when you ask, web pages you open, the Library, and encrypted traffic through the relay once you pair a phone.</p></details>
+      <details class="reveal"><summary data-i18n="fq6">Is Enterm made by Anthropic, OpenAI or Google?</summary><p data-i18n="fa6">No. Claude Code, Codex, Gemini and the other CLIs belong to their vendors; Enterm is not affiliated with them. It is made by Enmera.</p></details>
+    </div>
+    <p class="small muted reveal faq-more"><a href="https://github.com/enmerasoftware/enterm/blob/main/docs/faq.md" data-i18n="faq_more">More answers in the FAQ</a></p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div>
+        <a class="brand" href="/"><img src="/img/icon.png" alt="" width="30" height="30"><span>Enterm</span></a>
+        <p class="small" style="margin-top:12px" data-i18n="ft_tag">A native macOS canvas for AI coding agents that still feels like a terminal.</p>
+      </div>
+      <div><h4 data-i18n="ft_product">Product</h4><ul>
+        <li><a href="https://github.com/enmerasoftware/enterm/releases/latest" data-i18n="ft_download">Download</a></li>
+        <li><a href="/library" data-i18n="nav_library">Library</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/blob/main/CHANGELOG.md" data-i18n="ft_changelog">Changelog</a></li>
+      </ul></div>
+      <div><h4 data-i18n="ft_project">Project</h4><ul>
+        <li><a href="https://github.com/enmerasoftware/enterm">GitHub</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/tree/main/docs" data-i18n="nav_docs">Docs</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/discussions" data-i18n="ft_disc">Discussions</a></li>
+      </ul></div>
+      <div><h4 data-i18n="ft_trust">Trust</h4><ul>
+        <li><a href="/privacy" data-i18n="ft_privacy">Privacy</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/blob/main/SECURITY.md" data-i18n="ft_security">Security</a></li>
+        <li><a href="https://github.com/enmerasoftware/enterm/blob/main/LICENSE" data-i18n="ft_license">MIT licence</a></li>
+      </ul></div>
+    </div>
+    <div class="fine"><span data-i18n="ft_made">Made by Enmera. No trackers on this site.</span><span data-i18n="ft_aff">Claude Code, Codex, Gemini and the other CLIs belong to their vendors; Enterm is not affiliated with them.</span></div>
+  </div>
+</footer>
+</body>
+</html>

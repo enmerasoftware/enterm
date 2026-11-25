@@ -14,7 +14,11 @@ final class LibraryCenter: ObservableObject {
     @Published private(set) var problem: String?
     /// A skill pack downloaded and waiting for the person to look at its files and add it.
     @Published private(set) var staged: StagedSkill?
+    /// What people shared from Enterm, published without review; and the like counts of every item.
+    @Published private(set) var community: [LibraryEntry]
+    @Published private(set) var votes: [String: Int] = [:]
     private var lastRead = Date.distantPast
+    private static var communityCache: URL { EntermPaths.support.appendingPathComponent("library-community.json") }
 
     struct StagedSkill: Equatable {
         let item: LibraryEntry
@@ -26,6 +30,7 @@ final class LibraryCenter: ObservableObject {
 
     private init() {
         index = (try? Data(contentsOf: LibraryIndex.cacheFile)).flatMap(LibraryIndex.parse) ?? LibraryIndex()
+        community = (try? Data(contentsOf: Self.communityCache)).flatMap(CommunityLibrary.parse) ?? []
     }
 
     /// Fetches the index again at most every few minutes; the saved copy shows meanwhile and offline.
@@ -48,22 +53,138 @@ final class LibraryCenter: ObservableObject {
                 try? data.write(to: LibraryIndex.cacheFile, options: .atomic)
             }
         }.resume()
+        get(CommunityLibrary.listURL) { [weak self] data in
+            guard let self, let items = CommunityLibrary.parse(data) else { return }
+            self.community = items
+            try? data.write(to: Self.communityCache, options: .atomic)
+        }
+        get(CommunityLibrary.votesURL) { [weak self] data in
+            if let votes = CommunityLibrary.parseVotes(data) { self?.votes = votes }
+        }
+    }
+
+    /// The reviewed Library and the community shelf together, with the latest like counts.
+    var everything: LibraryIndex {
+        var all = index
+        all.items = (index.items + community).map { item in
+            var item = item
+            item.votes = votes[item.id] ?? item.votes
+            return item
+        }
+        return all
+    }
+
+    func item(_ id: String) -> LibraryEntry? {
+        everything.items.first { $0.id == id } ?? shelf.kept.first { $0.id == id }
     }
 
     func isSaved(_ item: LibraryEntry) -> Bool { shelf.saved.contains(item.id) }
 
     func toggleSave(_ item: LibraryEntry) {
-        shelf.toggle(item.id)
+        shelf.toggle(item)
         shelf.save()
     }
 
-    var savedItems: [LibraryEntry] { shelf.saved.compactMap { id in index.items.first { $0.id == id } } }
+    var savedItems: [LibraryEntry] { shelf.saved.compactMap(item) }
+
+    // MARK: The community shelf
+
+    func isLiked(_ item: LibraryEntry) -> Bool { shelf.liked.contains(item.id) }
+    func isMine(_ item: LibraryEntry) -> Bool { shelf.mine.contains(item.id) }
+    func likes(_ item: LibraryEntry) -> Int { votes[item.id] ?? item.votes }
+
+    /// Likes or takes the like back at once on screen; the server's count replaces the guess when it answers.
+    func toggleLike(_ item: LibraryEntry) {
+        let like = !isLiked(item)
+        if like { shelf.liked.insert(item.id) } else { shelf.liked.remove(item.id) }
+        shelf.save()
+        votes[item.id] = max(0, likes(item) + (like ? 1 : -1))
+        post("vote", ["id": item.id, "like": like]) { [weak self] status, json in
+            guard let self else { return }
+            if status == 200, let count = json["votes"] as? Int { self.votes[item.id] = count }
+        }
+    }
+
+    func report(_ item: LibraryEntry, reason: String) {
+        post("report", ["id": item.id, "reason": reason]) { status, _ in
+            AppModel.shared.hint = status == 200 ? "Bildirildi · Teşekkürler" : "Bildirim Gönderilemedi"
+        }
+    }
+
+    /// Takes back something this Mac shared.
+    func withdraw(_ item: LibraryEntry) {
+        post("delete", ["id": item.id]) { [weak self] status, json in
+            guard let self else { return }
+            guard status == 200 else {
+                AppModel.shared.hint = (json["error"] as? String) ?? "Geri Alınamadı"
+                return
+            }
+            self.community.removeAll { $0.id == item.id }
+            self.shelf.mine.remove(item.id)
+            if self.isSaved(item) { self.shelf.toggle(item) }
+            self.shelf.save()
+            AppModel.shared.hint = "Paylaşım Geri Alındı"
+        }
+    }
+
+    /// Publishes a prompt or race task to the community shelf. The answer is the new item, or why not, in the person's language.
+    func share(_ submission: CommunityLibrary.Submission, done: @escaping (Result<LibraryEntry, ShareFailure>) -> Void) {
+        guard let body = try? JSONEncoder().encode(submission),
+              var fields = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] else { return }
+        fields["device"] = nil
+        post("submit", fields) { [weak self] status, json in
+            guard let self else { return }
+            if status == 201, let raw = json["item"] as? [String: Any], let item = CommunityLibrary.entry(raw) {
+                self.community.insert(item, at: 0)
+                self.shelf.mine.insert(item.id)
+                self.shelf.save()
+                done(.success(item))
+                return
+            }
+            let message: String
+            switch status {
+            case 0: message = L("Sunucuya ulaşılamadı. İnternet bağlantınızı denetleyip yeniden deneyin.")
+            case 429: message = L("Kısa sürede çok paylaştınız. Biraz sonra yeniden deneyin.")
+            case 409: message = L("Bu istem Kütüphane'de zaten var.")
+            default: message = (json["error"] as? String) ?? L("Paylaşılamadı.")
+            }
+            done(.failure(ShareFailure(text: message)))
+        }
+    }
+
+    struct ShareFailure: Error { let text: String }
+
+    private func get(_ url: URL, _ use: @escaping (Data) -> Void) {
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
+        request.setValue("Enterm/\(EntermVersion.current)", forHTTPHeaderField: "User-Agent")
+        URLSession.shared.dataTask(with: request) { data, response, _ in
+            guard let data, (response as? HTTPURLResponse)?.statusCode == 200 else { return }
+            DispatchQueue.main.async { use(data) }
+        }.resume()
+    }
+
+    /// A POST with this Mac's random id; status 0 when the server could not be reached.
+    private func post(_ name: String, _ fields: [String: Any], _ done: @escaping (Int, [String: Any]) -> Void) {
+        var fields = fields
+        fields["device"] = CommunityLibrary.deviceID
+        var request = URLRequest(url: CommunityLibrary.endpoint(name), timeoutInterval: 20)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Enterm/\(EntermVersion.current)", forHTTPHeaderField: "User-Agent")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: fields)
+        URLSession.shared.dataTask(with: request) { data, response, _ in
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let json = data.flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] } ?? [:]
+            DispatchQueue.main.async { done(status, json) }
+        }.resume()
+    }
 
     // MARK: Using an item
 
     /// A new session with the prompt as its first message, in the folder in front of the person.
-    func run(_ item: LibraryEntry, with tool: ToolKind, folder: String) {
-        guard let text = item.text, !text.isEmpty else { return }
+    func run(_ item: LibraryEntry, with tool: ToolKind, folder: String, values: [String: String] = [:]) {
+        guard let raw = item.text, !raw.isEmpty else { return }
+        let text = PromptVariables.fill(raw, with: values)
         let quoted = NotFoundActions.shellQuote(text)
         let arguments = tool == .gemini ? "-i \(quoted)" : quoted
         AppModel.shared.page = nil
@@ -211,12 +332,13 @@ struct LibraryPage: View {
     @State private var kind: LibraryEntry.Kind?
     @State private var tag: String?
     @State private var savedOnly = false
+    @State private var shelfFilter: String?
     @State private var sharing = false
 
     var body: some View {
         PageFrame(title: "Kütüphane", wide: true) {
             VStack(alignment: .leading, spacing: 16) {
-                Dim("Topluluğun paylaştığı istemler, yarış görevleri ve beceri paketleri. Hiçbir şey kendiliğinden çalışmaz: önce okursunuz, sonra tek tıkla kullanırsınız.")
+                Dim("İncelenmiş istemler, yarış görevleri ve beceri paketleri; bir de topluluğun Enterm'den paylaştıkları. Hiçbir şey kendiliğinden çalışmaz: önce okursunuz, sonra tek tıkla kullanırsınız.")
                     .fixedSize(horizontal: false, vertical: true)
                 toolbar
                 if let problem = center.problem { T(problem, color: Theme.palette.err, style: .secondary) }
@@ -231,14 +353,29 @@ struct LibraryPage: View {
             catalog.refresh()
             if selected == nil { selected = results.first?.id }
         }
-        .sheet(isPresented: $sharing) { LibraryShareSheet { sharing = false } }
+        .sheet(isPresented: $sharing) {
+            LibraryShareSheet(tags: center.index.tags) { shared in
+                sharing = false
+                if let shared {
+                    shelfFilter = nil
+                    savedOnly = false
+                    query = ""
+                    kind = nil
+                    tag = nil
+                    selected = shared.id
+                }
+            }
+        }
         .sheet(isPresented: Binding(get: { center.staged != nil }, set: { if !$0 { center.cancelStaged() } })) {
             if let staged = center.staged { SkillReview(staged: staged) }
         }
     }
 
     private var results: [LibraryEntry] {
-        center.index.filter(query: query, kind: kind, tag: tag, saved: savedOnly ? Set(center.shelf.saved) : nil)
+        var all = center.everything
+        if savedOnly { all.items += center.shelf.kept.filter { kept in !all.items.contains { $0.id == kept.id } } }
+        return all.filter(query: query, kind: kind, tag: tag, saved: savedOnly ? Set(center.shelf.saved) : nil)
+            .filter { shelfFilter == nil || (shelfFilter == "community") == $0.isCommunity }
     }
 
     private var toolbar: some View {
@@ -258,11 +395,14 @@ struct LibraryPage: View {
         return Panel {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    Seg(options: [(nil, "Tümü"), (.prompt, "İstemler"), (.race, "Yarış"), (.skill, "Beceriler")] as [(LibraryEntry.Kind?, String)], value: $kind)
+                    Seg(options: [(nil, "Tümü"), ("library", "İncelenmiş"), ("community", "Topluluk")] as [(String?, String)], value: $shelfFilter)
                         .padding([.horizontal, .top], 12)
+                    Seg(options: [(nil, "Tümü"), (.prompt, "İstemler"), (.race, "Yarış"), (.skill, "Beceriler")] as [(LibraryEntry.Kind?, String)], value: $kind)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 8)
                     tags
                     if results.isEmpty {
-                        Dim(center.index.items.isEmpty ? "Kütüphane okunuyor…" : (savedOnly ? "Henüz kaydettiğiniz bir şey yok." : "Aramanıza uyan bir şey yok."))
+                        Dim(center.index.items.isEmpty ? "Kütüphane okunuyor…" : (savedOnly ? "Henüz kaydettiğiniz bir şey yok." : (shelfFilter == "community" && query.isEmpty && tag == nil ? "Toplulukta henüz bir şey yok. İlk paylaşan siz olun: İstem Paylaş." : "Aramanıza uyan bir şey yok.")))
                             .padding(16)
                     }
                     ForEach(results) { item in
@@ -280,9 +420,20 @@ struct LibraryPage: View {
                                         .font(.system(size: 12))
                                         .foregroundColor(Color(palette.text2))
                                         .lineLimit(2)
+                                    if item.isCommunity {
+                                        Text(L(item.isReviewedCommunity ? "Topluluk · İncelendi" : "Topluluk · İncelenmedi"))
+                                            .font(.system(size: 10, weight: .medium))
+                                            .foregroundColor(Color(item.isReviewedCommunity ? palette.add : palette.limit))
+                                    }
                                 }
                                 Spacer(minLength: 0)
-                                if center.isSaved(item) { Symbol("bookmark.fill", color: palette.need, size: 11).padding(.top, 2) }
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    if center.isSaved(item) { Symbol("bookmark.fill", color: palette.need, size: 11) }
+                                    if center.likes(item) > 0 {
+                                        Text(verbatim: "♥ \(center.likes(item))").font(.system(size: 11)).foregroundColor(Color(palette.text3))
+                                    }
+                                }
+                                .padding(.top, 2)
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
@@ -302,7 +453,7 @@ struct LibraryPage: View {
         let palette = Theme.palette
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                ForEach(center.index.tags.prefix(14), id: \.self) { name in
+                ForEach(center.everything.tags.prefix(14), id: \.self) { name in
                     Button { tag = tag == name ? nil : name } label: {
                         Text(verbatim: "#\(name)")
                             .font(.system(size: 11, weight: .medium))
@@ -320,7 +471,7 @@ struct LibraryPage: View {
 
     @ViewBuilder
     private var detail: some View {
-        if let item = results.first(where: { $0.id == selected }) ?? center.index.items.first(where: { $0.id == selected }) {
+        if let item = results.first(where: { $0.id == selected }) ?? selected.flatMap(center.item) {
             LibraryDetail(item: item)
                 .id(item.id)
         } else {
@@ -347,6 +498,10 @@ private struct LibraryDetail: View {
     @ObservedObject var catalog = ToolCatalog.shared
     let item: LibraryEntry
     @State private var tool: ToolKind = .claude
+    @State private var filling = false
+    @State private var values: [String: String] = [:]
+
+    private var variables: [PromptVariables.Variable] { PromptVariables.find(in: item.text ?? "") }
 
     private var choices: [ToolKind] {
         let all: [ToolKind] = [.claude, .codex, .gemini, .opencode, .copilot, .cursor]
@@ -367,6 +522,11 @@ private struct LibraryDetail: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
+                    Btn("\(center.likes(item))", kind: center.isLiked(item) ? .selected : .plain, icon: center.isLiked(item) ? "heart.fill" : "heart") {
+                        center.toggleLike(item)
+                    }
+                    .fixedSize()
+                    .help(center.isLiked(item) ? "Beğeniyi Geri Al" : "Beğen")
                     IconBtn(center.isSaved(item) ? "bookmark.fill" : "bookmark", label: center.isSaved(item) ? "Kaydedildi" : "Kaydet", active: center.isSaved(item)) {
                         center.toggleSave(item)
                     }
@@ -374,11 +534,15 @@ private struct LibraryDetail: View {
                 }
                 // One fact per line, so a narrow pane wraps nothing in the middle of a word.
                 VStack(alignment: .leading, spacing: 3) {
-                    Dim("\(L(Self.kindTitle(item.kind))) · @\(item.author)").lineLimit(1)
+                    Dim(item.isCommunity ? "\(L(Self.kindTitle(item.kind))) · \(item.author) · \(L(item.isReviewedCommunity ? "Topluluk · İncelendi" : "Topluluk · İncelenmedi"))" : "\(L(Self.kindTitle(item.kind))) · @\(item.author)").lineLimit(1)
                     if !item.programs.isEmpty {
                         Dim(item.programs.compactMap { ToolKind(rawValue: $0)?.title }.joined(separator: " · ")).lineLimit(1)
                     }
                     if !item.tags.isEmpty { Dim(item.tags.map { "#\($0)" }.joined(separator: "  ")).lineLimit(1) }
+                }
+                if item.isCommunity && !item.isReviewedCommunity {
+                    T("Bu istem incelenmeden yayınlandı. Çalıştırmadan önce okuyun; sorunluysa bildirin.", color: palette.limit, style: .secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if let text = item.text {
                     ScrollView {
@@ -399,6 +563,16 @@ private struct LibraryDetail: View {
             .padding(16)
         }
         .onAppear { if !choices.contains(tool), let first = choices.first { tool = first } }
+        .sheet(isPresented: $filling) {
+            VariablesSheet(item: item, variables: variables, values: $values) { go in
+                filling = false
+                if go { center.run(item, with: tool, folder: folder, values: values) }
+            }
+        }
+    }
+
+    private func start() {
+        if variables.isEmpty { center.run(item, with: tool, folder: folder) } else { filling = true }
     }
 
     @ViewBuilder
@@ -410,7 +584,7 @@ private struct LibraryDetail: View {
                     Dim("Bu istemin çalıştığı programlardan hiçbiri kurulu değil.")
                 } else {
                     ChoiceMenu(options: choices.map { ($0, $0.title) }, value: $tool).frame(width: 160)
-                    Btn("Çalıştır", kind: .primary, icon: "play.fill") { center.run(item, with: tool, folder: folder) }
+                    Btn("Çalıştır", kind: .primary, icon: "play.fill") { start() }
                 }
                 Btn("Yarıştır", kind: .outline, icon: "flag.checkered") { center.race(item) }
                 Btn("Kopyala", kind: .plain, icon: "doc.on.doc") {
@@ -419,7 +593,8 @@ private struct LibraryDetail: View {
                     model.hint = "Panoya Kopyalandı"
                 }
                 Spacer()
-                if let url = item.webURL { Btn("GitHub'da Aç", kind: .plain) { NSWorkspace.shared.open(url) } }
+                if item.isCommunity { communityMenu }
+                if let url = item.webURL { Btn(item.isCommunity ? "Sitede Aç" : "GitHub'da Aç", kind: .plain) { NSWorkspace.shared.open(url) } }
             }
             Dim(L("Klasör: \(model.displayPath(folder)) · Yeni oturum bu klasörde açılır."))
         case .skill:
@@ -436,6 +611,26 @@ private struct LibraryDetail: View {
             Dim("Paket Enterm'in kendi klasörüne iner ve yalnız yeni Claude Code oturumlarına verilir; ~/.claude klasörünüze hiçbir şey yazılmaz.")
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    /// Report it, or take it back when this Mac shared it.
+    private var communityMenu: some View {
+        Menu {
+            if center.isMine(item) {
+                Button(L("Paylaşımı Geri Al")) { center.withdraw(item) }
+                Divider()
+            }
+            Button(L("Bildir: Zararlı ya da Tehlikeli")) { center.report(item, reason: "unsafe") }
+            Button(L("Bildir: Gizli Bilgi İçeriyor")) { center.report(item, reason: "secret") }
+            Button(L("Bildir: Reklam ya da Anlamsız")) { center.report(item, reason: "spam") }
+            Button(L("Bildir: Çalışmıyor")) { center.report(item, reason: "broken") }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(L("Diğer"))
     }
 
     static func kindTitle(_ kind: LibraryEntry.Kind) -> String {
@@ -491,31 +686,78 @@ struct SkillReview: View {
     }
 }
 
-/// Sharing a prompt: written here, sent as a prefilled GitHub issue the person reads before submitting.
+/// The blanks of a prompt, filled in before it starts a session.
+private struct VariablesSheet: View {
+    @ObservedObject private var appearance = AppearanceTick.shared
+    let item: LibraryEntry
+    let variables: [PromptVariables.Variable]
+    @Binding var values: [String: String]
+    let done: (Bool) -> Void
+
+    var body: some View {
+        let palette = Theme.palette
+        VStack(alignment: .leading, spacing: 12) {
+            Text(verbatim: item.title(turkish: Loc.isTurkish)).font(.system(size: 17, weight: .semibold)).foregroundColor(Color(palette.text1))
+            Dim("Bu istemde doldurulacak yerler var. Boş bıraktığınız varsayılanını alır.")
+            ForEach(variables, id: \.self) { variable in
+                VStack(alignment: .leading, spacing: 4) {
+                    T(variable.name, style: .secondary, weight: .semibold)
+                    EntermField(placeholder: variable.fallback.isEmpty ? L("Değer") : variable.fallback,
+                                text: Binding(get: { values[variable.name] ?? "" }, set: { values[variable.name] = $0 }))
+                }
+            }
+            HStack {
+                Spacer()
+                Btn("Vazgeç", kind: .plain, key: "Esc") { done(false) }
+                Btn("Çalıştır", kind: .primary, key: "⏎") { done(true) }.keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 480)
+        .background(Color(palette.surface1))
+    }
+}
+
+/// Sharing a prompt or race task: it goes to the community shelf at once, after the server's checks.
 private struct LibraryShareSheet: View {
     @ObservedObject private var appearance = AppearanceTick.shared
-    let close: () -> Void
+    let tags: [String]
+    let close: (LibraryEntry?) -> Void
     @State private var title = ""
     @State private var summary = ""
     @State private var text = ""
+    @State private var test = ""
     @State private var kind: LibraryEntry.Kind = .prompt
     @State private var programs: Set<String> = ["claude"]
+    @State private var chosenTags: Set<String> = []
+    @AppStorage("libraryAuthor") private var author = ""
+    @State private var sending = false
+    @State private var problem: String?
+
+    private var submission: CommunityLibrary.Submission {
+        CommunityLibrary.Submission(kind: kind, title: title, summary: summary, text: text, test: kind == .race ? test : nil,
+                                    programs: programs.sorted(), tags: chosenTags.sorted(), author: author,
+                                    lang: Loc.isTurkish ? "tr" : "en", device: "")
+    }
 
     var body: some View {
         let palette = Theme.palette
         VStack(alignment: .leading, spacing: 12) {
             Text("İstem Paylaş").font(.system(size: 17, weight: .semibold)).foregroundColor(Color(palette.text1))
-            Dim("GitHub'da önceden doldurulmuş bir öneri açılır; göndermeden önce okursunuz. İncelendikten sonra Kütüphane'ye eklenir. Gizli bilgi, şifre ya da şirkete özel ayrıntı yazmayın.")
+            Dim("Otomatik denetimden geçince hemen herkesin Kütüphanesinde ve enterm.enmeraapps.com'da görünür; sonra incelenir. Gizli bilgi, şifre ya da şirkete özel ayrıntı yazmayın. İstediğinizde geri alabilirsiniz.")
                 .fixedSize(horizontal: false, vertical: true)
+            Seg(options: [(.prompt, "İstem"), (.race, "Yarış Görevi")] as [(LibraryEntry.Kind, String)], value: $kind)
             EntermField(placeholder: "Başlık", text: $title)
             EntermField(placeholder: "Tek cümlelik özet", text: $summary)
-            Seg(options: [(.prompt, "İstem"), (.race, "Yarış Görevi")] as [(LibraryEntry.Kind, String)], value: $kind)
+            T("İstem metni", style: .secondary, weight: .semibold)
             TextEditor(text: $text)
                 .font(Theme.swiftFont(size: 12))
                 .frame(height: 160)
                 .padding(6)
                 .background(Color(palette.terminal))
                 .cornerRadius(Theme.cornerControl)
+            Dim("Doldurulacak yerler için ${ad} ya da ${ad:varsayılan} yazın; çalıştırırken sorulur.")
+            if kind == .race { EntermField(placeholder: "Test komutu (ör. npm test)", text: $test) }
             HStack(spacing: 6) {
                 ForEach(["claude", "codex", "gemini", "opencode", "copilot", "cursor"], id: \.self) { program in
                     Btn(ToolKind(rawValue: program)?.title ?? program, kind: programs.contains(program) ? .selected : .plain) {
@@ -523,20 +765,54 @@ private struct LibraryShareSheet: View {
                     }
                 }
             }
+            if !tags.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(tags, id: \.self) { name in
+                            Btn("#\(name)", kind: chosenTags.contains(name) ? .selected : .plain) {
+                                if chosenTags.contains(name) { chosenTags.remove(name) } else if chosenTags.count < 4 { chosenTags.insert(name) }
+                            }
+                        }
+                    }
+                }
+            }
+            EntermField(placeholder: "Adınız (isteğe bağlı, herkese görünür)", text: $author)
+            if let problem { T(problem, color: palette.err, style: .secondary).fixedSize(horizontal: false, vertical: true) }
             HStack {
-                Spacer()
-                Btn("Vazgeç", kind: .plain, key: "Esc", action: close)
-                Btn("GitHub'da Aç", kind: .primary) {
-                    if let url = LibraryShare.issueURL(title: title, summary: summary, text: text, kind: kind, programs: programs.sorted()) {
+                Btn("GitHub'dan Öner", kind: .plain) {
+                    if let url = LibraryShare.issueURL(title: title, summary: summary, text: text, kind: kind, programs: programs.sorted(), test: kind == .race ? test : nil) {
                         NSWorkspace.shared.open(url)
                     }
-                    close()
                 }
-                .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .help(L("İncelenmiş Kütüphane için GitHub'da bir öneri açar"))
+                Spacer()
+                if sending { ProgressView().controlSize(.small) }
+                Btn("Vazgeç", kind: .plain, key: "Esc") { close(nil) }
+                Btn("Paylaş", kind: .primary) { send() }
+                    .disabled(sending)
             }
         }
         .padding(20)
-        .frame(width: 560)
+        .frame(width: 580)
         .background(Color(palette.surface1))
+    }
+
+    private func send() {
+        if let local = submission.problem {
+            problem = L(local)
+            return
+        }
+        sending = true
+        problem = nil
+        LibraryCenter.shared.share(submission) { result in
+            sending = false
+            switch result {
+            case .success(let item):
+                AppModel.shared.hint = "Paylaşıldı · Herkesin Kütüphanesinde"
+                close(item)
+            case .failure(let failure):
+                problem = failure.text
+            }
+        }
     }
 }
