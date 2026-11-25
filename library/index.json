@@ -1,0 +1,945 @@
+{
+  "version": 1,
+  "generated": "2026-11-24T22:41:06.323Z",
+  "items": [
+    {
+      "id": "accessibility-pass-on-a-screen",
+      "kind": "prompt",
+      "title": "Accessibility pass on a screen",
+      "summary": "Check one screen for keyboard use, screen reader names, focus, contrast and text size, fix what fails, and verify each fix.",
+      "title_tr": "Bir ekranda erişilebilirlik geçişi",
+      "summary_tr": "Bir ekranı klavye kullanımı, ekran okuyucu adları, odak, kontrast ve yazı boyutu açısından kontrol eder, sorunları düzeltir ve her düzeltmeyi doğrular.",
+      "text": "Do an accessibility pass on one screen of this app and fix what fails. If I did not name the screen, pick the most used one (the main page, the sign-in, or the primary list) and say which.\n\nCheck, against WCAG 2.2 AA for web or the platform's guidelines for iOS and Android:\n1. **Names and roles**: every control has an accessible name (icon-only buttons included), images have alt text or are marked decorative, form fields have labels tied to them, headings form a real outline, landmarks exist.\n2. **Keyboard and focus**: every action works with the keyboard alone, tab order follows the visual order, focus is always visible, dialogs trap and then return focus, nothing is reachable only on hover.\n3. **Contrast and size**: text and meaningful icons meet contrast ratios (4.5:1 for body text, 3:1 for large text and UI parts), touch targets are at least 24 px on web and 44 pt on iOS, and the screen works at 200% zoom or the largest Dynamic Type size without clipping.\n4. **State and change**: errors are announced and linked to their field, loading and empty states are announced, colour is never the only signal, motion respects reduced-motion settings.\n\nHow to work:\n- Use the tools the project has; on web run axe (`npx @axe-core/cli <url>`) or Lighthouse's accessibility audit if available; on iOS use Accessibility Inspector, on Android the Accessibility Scanner or `adb shell uiautomator dump`. Automated tools find about a third of problems, so also read the code and walk through it by keyboard or screen reader logic.\n- Fix in shared components when the problem is in a component, so every screen benefits. Keep the visual design unless a fix needs it to change (for example contrast).\n- Add tests where the project has a way to (for example `jest-axe`, Testing Library queries by role, UI tests that query by accessibility label).\n\nReport a table: issue, where, rule, fix, how verified. Include the automated tool's result before and after, and list issues you found but left because they need a design decision.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "accessibility",
+        "frontend",
+        "mobile"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/accessibility-pass-on-a-screen.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "add-a-ci-workflow",
+      "kind": "prompt",
+      "title": "Add a CI workflow that runs the checks",
+      "summary": "Add a GitHub Actions workflow that installs from the lock file, builds, lints and tests on every push and pull request, and is fast and cached.",
+      "title_tr": "Kontrolleri çalıştıran bir CI iş akışı ekle",
+      "summary_tr": "Her push ve pull request'te kilit dosyasından kurup derleyen, lint ve test çalıştıran, hızlı ve önbellekli bir GitHub Actions iş akışı ekler.",
+      "text": "Add continuous integration to this repository with GitHub Actions (or improve the existing workflow if there is one).\n\n1. Find the commands a developer runs: install, build, type-check, lint, format check and tests, from the README, package scripts, Makefile or similar. Run each one locally first and note which pass today. A workflow that fails on day one helps nobody: if a check fails now, keep it out of the required job and list it for me.\n2. Write `.github/workflows/ci.yml`:\n   - triggers on `push` to the default branch and on `pull_request`;\n   - `permissions: contents: read` unless a step needs more;\n   - pinned runtime versions that match the project (read `.nvmrc`, `.python-version`, `go.mod`, `rust-toolchain`, `engines` and the like);\n   - install from the lock file (`npm ci`, `pnpm install --frozen-lockfile`, `pip install -r` with hashes or `uv sync --frozen`, and so on) with the setup action's built-in caching;\n   - one job per concern only if that makes it faster or clearer; a matrix only for versions or platforms the project claims to support;\n   - `concurrency` that cancels superseded runs on the same branch;\n   - a timeout on each job.\n3. Use only well-known actions and pin them to a major version tag at least; never add a step that sends code or secrets to a third-party service.\n4. Validate the YAML (for example `actionlint` if available) and, if `act` is installed, run the workflow locally.\n\nDo not push. Report the workflow, the commands it runs, the checks you left out and why, and the expected run time.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "ci",
+        "testing"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/add-a-ci-workflow.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "add-api-contract-tests",
+      "kind": "prompt",
+      "title": "Add contract tests for an HTTP API",
+      "summary": "Write tests that pin down each endpoint's status codes, response shapes and error formats, so an accidental breaking change fails the build.",
+      "title_tr": "Bir HTTP API için sözleşme testleri ekle",
+      "summary_tr": "Her uç noktanın durum kodlarını, yanıt yapısını ve hata biçimini sabitleyen testler yazar; yanlışlıkla yapılan kırıcı bir değişiklik derlemeyi düşürür.",
+      "text": "Add contract tests for this project's HTTP API, so that a change that would break clients fails the test suite.\n\n1. List the endpoints from the router or the OpenAPI spec if there is one. For each, note the method, path, auth requirement, request body, success responses and error responses. If there is an OpenAPI or JSON Schema document, check it against the code and list where they disagree.\n2. Use the project's existing test framework and HTTP test helpers (for example `supertest`, the framework's test client, `httptest`). Run the app in-process against a test database with seeded data, not against a deployed server.\n3. For each endpoint, test:\n   - the success case: status code, content type, and the full shape of the body (field names, types, required versus optional, nullability), using a schema assertion if the project has one or explicit assertions if not;\n   - authentication and authorisation: no credentials, wrong user, and the right user;\n   - validation errors: status code and the error body format;\n   - not found and conflict cases where they exist;\n   - pagination, sorting and filtering parameters, including their limits.\n4. Assert on what clients depend on, not on incidental details such as generated IDs, timestamps or field order.\n5. If the spec and the code disagree, do not silently pick one: write the test for the current behaviour, mark the disagreement in a comment, and list it in your report.\n\nRun the full suite and make sure the new tests pass. Then prove they guard the contract: rename one response field temporarily, run the tests, see them fail, and restore it. Report endpoints covered, tests added, spec mismatches, and endpoints you could not cover with the reason.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "testing",
+        "backend"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/add-api-contract-tests.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "add-loading-empty-and-error-states",
+      "kind": "prompt",
+      "title": "Add loading, empty and error states to a screen",
+      "summary": "Make a data-driven screen honest about every state it can be in, with clear copy and a way out of each error, and test each state.",
+      "title_tr": "Bir ekrana yükleniyor, boş ve hata durumları ekle",
+      "summary_tr": "Veriye dayalı bir ekranın girebileceği her durumu açıkça göstermesini sağlar; her hatadan çıkış yolu sunar ve her durumu test eder.",
+      "text": "Take one screen in this app that loads data and make it handle every state properly. If I did not name the screen, pick the most used list or dashboard screen and say which.\n\n1. Read how the screen loads data and list the states it can actually be in: first load, refreshing, loaded, empty (no data at all), empty because of a filter or search, partial failure, full failure, offline, unauthorised or expired session, and very large data. Note what the screen shows in each today, including blank screens and endless spinners.\n2. Implement each state using the project's existing components and patterns (look for existing skeletons, empty-state and error components first):\n   - **Loading**: a skeleton or placeholder that matches the layout; do not block content that is already shown during a refresh.\n   - **Empty**: say what would be here and offer the action that fills it; for an empty search or filter, say so and offer to clear it.\n   - **Error**: plain words about what failed, no raw error text or codes as the main message, and a retry action. Keep data that already loaded.\n   - **Offline and session expiry**: handled the same way the rest of the app does.\n3. Copy in sentence case, short, and in the translation system if the project has one.\n4. Make the states reachable for testing: add tests (component, UI or snapshot tests, whichever the project uses) that render each state with mocked data or a mocked failed request, and assert on the visible text and the action.\n\nVerify by running the tests, and if you can run the app, force each state (for example block the network or return an empty list) and take a screenshot of each. Report the states before and after, the files changed and the tests added.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "frontend",
+        "mobile",
+        "design"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/add-loading-empty-and-error-states.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "add-structured-logging",
+      "kind": "prompt",
+      "title": "Add structured logging to a service",
+      "summary": "Replace ad hoc print and log calls on the main paths with structured, levelled logs that carry a request ID and never leak secrets.",
+      "title_tr": "Bir servise yapılandırılmış günlük ekle",
+      "summary_tr": "Ana yollardaki rastgele print ve log çağrılarını, istek kimliği taşıyan, seviyeli ve sır sızdırmayan yapılandırılmış kayıtlarla değiştirir.",
+      "text": "Add structured logging to this service so that a failed request can be traced from its log lines alone.\n\n1. Survey what exists: the logging library and config, how logs are written today (print statements, string-formatted lines), where logs go in production if you can tell (stdout, a file, a collector). Prefer the library already in use, or the standard one for the stack (for example `pino`, `structlog`, `slog`, `tracing`, `os.Logger`, `zap`). Ask before adding a new dependency if there is a reasonable built-in option.\n2. Set up one logger configured in one place: JSON output in production, readable output in development, level from an environment variable, and a timestamp, level, message and service name on every line.\n3. Add a request or job ID: take it from an incoming header (for example `X-Request-ID` or the trace context) or create one, attach it to every log line for that request through the framework's context mechanism, and return it in the response header.\n4. Log at the boundaries, with fields instead of interpolated strings: request start and end (method, route template, status, duration), outgoing calls (target, duration, status), job start, end and failure, and every caught error with its type and stack at `error` level. Use `debug` for detail, `info` for business events, `warn` for recoverable trouble.\n5. Never log secrets or personal data: add redaction for fields such as `password`, `token`, `authorization`, `cookie`, `secret`, `apiKey`, card numbers and email addresses where the project treats them as personal. Write a test that proves a password in a request body does not appear in the output.\n6. Replace the old print and log calls on the paths you touched; leave the rest and list them.\n\nVerify by running the service, making a successful request and a failing one, and showing the log lines they produce. Run the test suite. Report the setup, the fields, the redaction rules and the sample output.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "observability",
+        "backend"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/add-structured-logging.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "audit-error-handling",
+      "kind": "prompt",
+      "title": "Audit error handling for swallowed failures",
+      "summary": "Find errors that are caught and ignored, logged without context or turned into wrong results, and make each failure visible and handled.",
+      "title_tr": "Hata yönetiminde yutulan hataları denetle",
+      "summary_tr": "Yakalanıp yok sayılan, bağlamsız kaydedilen ya da yanlış sonuca dönüşen hataları bulur ve her hatayı görünür ve ele alınmış hale getirir.",
+      "text": "Audit how this project handles errors and fix the places where failures disappear.\n\n1. Search for the patterns that hide failures in this stack, for example: empty `catch` or `except` blocks, `except Exception: pass`, `catch (e) {}` and `.catch(() => {})`, ignored `err` values in Go, `try?` and `_ =` in Swift and Rust, `unwrap_or_default` on results that matter, promises that are never awaited, error callbacks that only `console.log`, and functions that return `null`, `[]` or `false` for \"failed\" so callers cannot tell failure from empty.\n2. For each hit, read the context and classify it: fine as is (an expected, harmless case, ideally with a comment saying so), should be logged with context, should be returned or re-thrown to the caller, or should be shown to the user. Pay most attention to money, data writes, auth, external calls and background jobs.\n3. Fix the ones that matter: propagate errors with context (what was being done, with which ID), keep the original error as the cause, use the project's error types and logging, and show the user a useful message where the UI swallowed the error. Do not change behaviour that callers rely on without listing it.\n4. Check the top-level handlers: unhandled rejections or panics, the HTTP error middleware, job runner failure hooks. Make sure unexpected errors are logged once with a stack and that clients get a safe message.\n5. Add a test for each fix that forces the failure (a mocked dependency that throws or returns an error) and asserts the error is now surfaced.\n\nRun the test suite. Report a table: location, what happened to the error before, what happens now, test added. List the cases you judged harmless and why.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "review",
+        "backend",
+        "observability"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/audit-error-handling.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "draft-a-pr-description-from-the-diff",
+      "kind": "prompt",
+      "title": "Draft a pull request description from the diff",
+      "summary": "Read the branch's commits and diff and write a pull request description that says what changed, why, how it was tested and what to look at.",
+      "title_tr": "Farktan bir pull request açıklaması hazırla",
+      "summary_tr": "Dalın commit'lerini ve farkını okur; neyin neden değiştiğini, nasıl test edildiğini ve nereye bakılması gerektiğini anlatan bir PR açıklaması yazar.",
+      "text": "Write a pull request description for the current branch. Do not push, open the pull request or change code.\n\n1. Find the base branch (the repository's default branch unless I say otherwise). Read `git log <base>..HEAD` and the full `git diff <base>...HEAD`. Read enough of the surrounding code to understand why each change was made.\n2. If the repository has a pull request template (`.github/pull_request_template.md` or similar), follow it exactly. Otherwise use these sections:\n   - **What**: one or two sentences on the change from the user's or caller's point of view.\n   - **Why**: the problem or the goal; link the issue if a commit or the branch name references one.\n   - **How**: the approach and any decision a reviewer might question, with the alternative you or the author rejected.\n   - **Testing**: what was tested and how. Run the test suite now and include the command and the result; list manual checks that still need doing.\n   - **Risk and rollout**: migrations, config or environment changes, feature flags, backwards compatibility, anything to watch after deploy.\n   - **Review guide**: the files to read first and the ones that are mechanical.\n3. Write it for a reviewer who has not seen the work: plain language, no marketing words, no restating of every file. Mention screenshots that should be attached if the UI changed.\n4. Suggest a title in sentence case, under 72 characters, that says what the change does.\n\nSave it to `PR_DESCRIPTION.md` (not committed) and print it. Point out anything in the diff that looks unfinished or accidental, such as debug output, commented-out code or unrelated changes.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "git",
+        "docs"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/draft-a-pr-description-from-the-diff.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "explain-and-fix-a-failing-ci-run",
+      "kind": "prompt",
+      "title": "Explain and fix a failing CI run",
+      "summary": "Read the logs of a failing CI run, reproduce the failure locally, fix the cause, and say why it passed on your machine.",
+      "title_tr": "Kırmızı bir CI çalışmasını açıkla ve düzelt",
+      "summary_tr": "Başarısız bir CI çalışmasının kayıtlarını okur, hatayı yerelde yeniden üretir, nedeni düzeltir ve neden yerelde geçtiğini açıklar.",
+      "text": "The latest CI run on this branch is failing. Find out why and fix it.\n\n1. Get the logs. With GitHub Actions: `gh run list --branch \"$(git branch --show-current)\" --limit 5`, then `gh run view <id> --log-failed`. For other CI systems, ask me for the log if you cannot fetch it. Quote the first real error, not the last line.\n2. Classify it: a real test failure, a build or type error, lint, a missing secret or permission, a dependency or cache problem, an environment difference (OS, runtime version, time zone, locale, case-sensitive file system, CPU count), or a flaky test. Check whether the same job fails on the default branch too (`gh run list --branch main`).\n3. Reproduce locally with the same command the workflow runs, and match the environment where it matters (for example the same Node, Python or Xcode version, `TZ=UTC`, `CI=true`, a clean install from the lock file). If you cannot reproduce it, explain what differs and how you know.\n4. Fix the cause. If it is the code, fix the code. If it is the workflow, change the workflow. Do not mark tests as skipped, raise timeouts or add retries to get to green, unless you prove the test is flaky for reasons outside this change and say so.\n5. Verify by running the failing step locally until it passes, then the full suite. Do not push; tell me it is ready to push.\n\nReport: the failing step, the error, the cause in one sentence, why it passed locally before, the fix, and the commands you used to verify it.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "ci",
+        "debugging"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/explain-and-fix-a-failing-ci-run.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "onboarding-notes-for-a-new-teammate",
+      "kind": "prompt",
+      "title": "Explain this codebase and write onboarding notes",
+      "summary": "Map the codebase for a new teammate and write ONBOARDING.md with how to run it, how a request flows through it and where the traps are.",
+      "title_tr": "Kod tabanını anlat, ekibe giriş notları yaz",
+      "summary_tr": "Yeni bir ekip arkadaşı için kod tabanının haritasını çıkarır; nasıl çalıştırılacağını, bir isteğin nasıl aktığını ve tuzakları ONBOARDING.md'ye yazar.",
+      "text": "A new teammate starts tomorrow. Explore this repository and write `ONBOARDING.md` at its root so they can make a safe first change on day one. Do not change any other file.\n\nExplore first:\n1. Read the README, build files, CI config and the top-level folders. Identify languages, frameworks, entry points and how the parts talk to each other.\n2. Actually run the setup, build and tests following what you found. Note every step that was missing, wrong or surprising, with the exact command that worked.\n3. Pick the most important user-facing flow (for example a request to the main API, or the main screen of the app) and trace it through the code from entry to storage and back, naming real files and functions.\n4. Look at `git log` for the last few months: which areas change most, and which files are touched together.\n\nThen write `ONBOARDING.md` with these sections, each short and concrete:\n- **What this is**: two or three sentences.\n- **Run it**: copy-pasteable commands that you verified, with prerequisites and versions.\n- **Map**: the folders that matter, one line each.\n- **How a request flows**: the traced flow with file paths.\n- **Where to make common changes**: for example add an endpoint, add a screen, add a migration.\n- **Tests and checks**: how to run them and what CI runs.\n- **Traps**: things that surprised you, generated files not to edit, slow steps, flaky areas.\n- **Who and where**: owners or docs you found references to; do not invent names.\n\nEvery file path and command in the document must exist and work; check each one before you finish. Mark anything you inferred but could not verify with \"(unverified)\". Report the setup problems you hit separately, as candidates for fixing.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "onboarding",
+        "docs"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/onboarding-notes-for-a-new-teammate.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "find-and-fix-flaky-tests",
+      "kind": "prompt",
+      "title": "Find and fix flaky tests",
+      "summary": "Run the suite repeatedly to catch tests that pass and fail without code changes, find why each one is flaky, and fix the cause.",
+      "title_tr": "Kararsız testleri bul ve düzelt",
+      "summary_tr": "Kod değişmeden bazen geçip bazen kalan testleri yakalamak için paketi tekrar tekrar çalıştırır, nedenini bulur ve kökten düzeltir.",
+      "text": "Find the flaky tests in this project and fix their causes.\n\n1. Work out how to run the tests (README, package scripts, Makefile, CI config). Run the full suite once and record the result, so you know what already fails for a real reason.\n2. Run the suite at least 10 times, or the slow parts in a loop, with randomised order if the runner supports it (for example `--shuffle`, `-p random`, `--random-order`, `-count=1`). Also try running in parallel if the project normally does. Record every test that both passed and failed across runs. If CI history is available (`gh run list`), check it for tests that failed on main and passed on retry.\n3. For each flaky test, find the cause before touching it. Common causes: shared state between tests, test order dependence, real time and sleeps, time zones and dates, unseeded randomness, network or filesystem access, ports in use, async work not awaited, and assertions on unordered collections. Prove the cause by making the test fail on purpose (for example run it right after the test that pollutes the state, or fix the clock to the problematic moment).\n4. Fix the cause in the test or in the code. Do not add retries, longer timeouts or sleeps unless the test truly measures time, and never delete or skip a test to make it green. If a fix needs a product decision, stop and describe it.\n5. Verify: run each fixed test at least 30 times in a loop and the whole suite 10 more times. All runs must pass.\n\nReport a table: test, cause, proof, fix, runs after the fix. List any test you suspect but could not make fail.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "testing",
+        "debugging"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/find-and-fix-flaky-tests.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "find-and-fix-n-plus-one-queries",
+      "kind": "prompt",
+      "title": "Find and fix N+1 database queries",
+      "summary": "Count the queries each main endpoint makes, find loops that query once per row, batch them, and prove the counts dropped.",
+      "title_tr": "N+1 veritabanı sorgularını bul ve düzelt",
+      "summary_tr": "Her ana uç noktanın kaç sorgu yaptığını sayar, satır başına sorgu atan döngüleri bulur, toplu hale getirir ve sayıların düştüğünü kanıtlar.",
+      "text": "Find and fix N+1 query problems in this application.\n\n1. Turn on query logging or counting for the test or development environment (for example Django's `assertNumQueries` or `django-debug-toolbar`, Rails' `bullet` or the log, Prisma or Sequelize query events, SQLAlchemy echo, an ORM hook). Do not change production configuration.\n2. List the endpoints, pages or jobs that load lists of records. For each, make a request with realistic data (at least 20 parent rows with children) and record the number of queries and the time.\n3. Look for queries inside loops, lazy-loaded relations accessed per item in templates or serializers, and per-item calls to a helper that queries. Confirm each one in the query log.\n4. Fix each with the ORM's eager loading (`select_related`/`prefetch_related`, `includes`, `include`, `joinedload`/`selectinload`), a single batched query with `IN`, or a data loader. Load only the columns and relations that are used. Add an index if the new query needs one, as a migration.\n5. Lock the fix in: add a test that asserts the query count for the endpoint does not grow with the number of rows (for example the same count for 2 and for 20 parents).\n6. Run the full test suite.\n\nReport a table: endpoint, queries before and after, time before and after, and the change. Mention queries that are slow for other reasons (missing index, large scans) and that you did not change.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "performance",
+        "data",
+        "backend"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/find-and-fix-n-plus-one-queries.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "fix-a-generated-looking-screen",
+      "kind": "prompt",
+      "title": "Fix a screen that looks AI-generated",
+      "summary": "Measure a screen with ai-design-check, fix the generic choices that make it look generated, and show the findings before and after.",
+      "title_tr": "Yapay zekâ üretimi gibi görünen bir ekranı düzelt",
+      "summary_tr": "Bir ekranı ai-design-check ile ölçer, onu üretilmiş gösteren sıradan tercihleri düzeltir ve bulguları önce ve sonra gösterir.",
+      "text": "Improve the design of one screen in this project so it stops looking generated, without changing its features, data or wording. If I did not name the screen, ask which one, or pick the main screen and say so.\n\nUse the ai-design-check rules and checker. If the `ai-design-check` skill pack is loaded, follow its `ai-design-fix` skill. Otherwise run the checker with `npx @enmera/ai-design-check <path>` and read its rules with `npx @enmera/ai-design-check rules`.\n\n1. Measure first: run the checker on the files of this screen and save the output. Take a screenshot of the screen as it is now if you can run it, or note the commit so a before and after comparison is possible.\n2. Write a three-line brief at the top of your report: who uses this screen, the one job they come to do, and what the product should feel like. Use what the code and README say; do not invent a brand.\n3. Fix in this order, and only what the findings or the brief justify: usability (the main action, what is in its way), truthful states (loading, empty, error), copy (sentence case, plain labels), numbers (locale formatting), components (reuse the shared ones instead of one-off styles), spacing and type scale, then decoration (gradients, glows, emoji, endless animation).\n4. Make each change in the shared component or theme where possible, so the fix holds everywhere.\n5. Run the checker again and the project's build and tests.\n\nReport the finding counts before and after per rule, a list of changes with the reason for each, screenshots before and after if you could take them, and anything you left because it needs a product decision.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex"
+      ],
+      "tags": [
+        "design",
+        "frontend",
+        "mobile"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/fix-a-generated-looking-screen.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "harden-input-validation",
+      "kind": "prompt",
+      "title": "Harden input validation at the edges",
+      "summary": "Find every place outside input enters the system, validate it at that boundary with clear errors, and add tests for hostile inputs.",
+      "title_tr": "Sınırlarda girdi doğrulamasını sıkılaştır",
+      "summary_tr": "Dışarıdan gelen girdinin sisteme girdiği her yeri bulur, o sınırda açık hata mesajlarıyla doğrular ve kötü niyetli girdiler için test ekler.",
+      "text": "Harden how this project validates input that comes from outside: HTTP requests, CLI arguments, files, environment variables, queue messages and webhooks.\n\n1. Inventory the entry points. List each one with the file, the fields it accepts, and what validation exists today. Note where a value travels unchecked into a database query, a shell command, a file path, a template, a redirect URL, a regex or an allocation size.\n2. Find the project's validation approach (a schema library, framework validators, hand-written checks) and use it. Do not introduce a new library if one is already in use.\n3. At each boundary, validate type, required fields, length and size limits, numeric ranges, allowed values, formats (email, URL, ID), and reject unknown fields where that is safe. Normalise before checking (trim, Unicode normalisation) where the project expects it. Validation belongs at the edge; inner code should be able to trust its inputs.\n4. Errors must be clear to the caller (which field, what was wrong), must use the project's existing error format and status codes, and must not echo secrets or stack traces.\n5. For each boundary you change, add tests with hostile inputs: missing and extra fields, wrong types, empty strings, very long strings, negative and huge numbers, path traversal (`../`), SQL and shell metacharacters, Unicode lookalikes, and null bytes. Each test asserts the exact rejection.\n6. Be careful not to break valid clients: if a new limit could reject data that real users send today, say so and pick a generous limit, or ask.\n\nRun the full suite at the end. Report a table: entry point, what was unchecked, what is validated now, tests added. List risky sinks you found but did not fix.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "security",
+        "backend"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/harden-input-validation.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "add-i18n-keys-for-hardcoded-strings",
+      "kind": "prompt",
+      "title": "Move hardcoded UI text into translation keys",
+      "summary": "Find user-facing strings written directly in the UI code, move them into the project's translation files with good keys, and check nothing is left.",
+      "title_tr": "Koda gömülü arayüz metinlerini çeviri anahtarlarına taşı",
+      "summary_tr": "Arayüz kodunda doğrudan yazılmış kullanıcı metinlerini bulur, iyi adlandırılmış anahtarlarla çeviri dosyalarına taşır ve geride bir şey kalmadığını kontrol eder.",
+      "text": "Move the hardcoded user-facing text in this app into the project's translation system.\n\n1. Find the i18n setup (for example `i18next`, `react-intl`, `vue-i18n`, Rails I18n, gettext, `Localizable.strings` or String Catalogs on Apple platforms, `strings.xml` on Android, ARB files in Flutter). If there is none, stop and propose one that fits the stack before writing anything.\n2. Find hardcoded strings shown to users: text in components and views, button and menu labels, placeholders, `alt` and accessibility labels, validation and error messages, toasts, email templates, page titles. Skip log messages, test data, CSS classes and identifiers.\n3. Move each one to a key that follows the existing naming convention; if there is none, use `screen.element.purpose` (for example `checkout.payButton.label`). Reuse an existing key only when the meaning is the same, not just the words.\n4. Do it properly:\n   - Use the library's interpolation for values; never build sentences by joining fragments, because word order changes between languages.\n   - Use plural rules for counts, not `count === 1 ? ... : ...`.\n   - Format dates, numbers and money with the locale's formatter.\n   - Add a short note for translators where the meaning is ambiguous (for example \"Open\" as a verb or as a status).\n5. Add the keys to the source-language file. For other existing languages, add the keys and mark them as untranslated in the way the project does; do not machine-translate unless I ask.\n\nVerify: build and run the tests; run the app and check the changed screens still show the same text; search again for hardcoded strings in the files you touched and show the search comes back clean. If the project has a missing-key check or a pseudo-locale, run it. Report the number of strings moved per screen and the ones you deliberately left.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "i18n",
+        "frontend",
+        "mobile"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/add-i18n-keys-for-hardcoded-strings.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "profile-and-fix-the-slowest-path",
+      "kind": "prompt",
+      "title": "Profile and fix the slowest path",
+      "summary": "Measure where time actually goes in a slow operation, fix the biggest cost, and prove the speed-up with before and after numbers.",
+      "title_tr": "En yavaş yolu ölç ve hızlandır",
+      "summary_tr": "Yavaş bir işlemde zamanın gerçekte nereye gittiğini ölçer, en büyük maliyeti düzeltir ve hızlanmayı önce ve sonra sayılarıyla kanıtlar.",
+      "text": "Make the slowest important path in this project faster, guided by measurement, not by guessing.\n\n1. Decide what to measure. If I named an operation, use it. Otherwise find the hot path: the main request, the build step, the startup, or the slowest tests (`--durations`, `--verbose` timings). Say what you picked and why.\n2. Write a repeatable benchmark or timing script for it with realistic data size. Run it at least 5 times and record the median and spread. This is the baseline.\n3. Profile it with the right tool for the stack (for example `node --cpu-prof`, `py-spy`, `cProfile`, `pprof`, Instruments or `perf`, the database's `EXPLAIN ANALYZE`). Find where most of the time goes. Do not optimise anything that is under 5% of the total.\n4. Fix the biggest cost. Typical wins: N+1 queries, missing indexes, repeated work in a loop, unnecessary serialisation, blocking I/O on the hot path, missing caching of pure results, quadratic algorithms. Keep behaviour identical.\n5. Run the test suite; it must pass unchanged. Run the benchmark again the same way and compare medians.\n6. Repeat steps 3 to 5 only while each change gives a clear win. Stop when the remaining costs are spread out or need a design decision.\n\nReport: what you measured, the baseline, a table of changes with the time each one saved, the final number and the speed-up ratio, the profiler evidence for each change, and the ideas you did not do with their expected gain. Leave the benchmark script in the repo if it is useful, and say where.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "performance"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/profile-and-fix-the-slowest-path.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "remove-dead-code-with-proof",
+      "kind": "prompt",
+      "title": "Remove dead code with proof",
+      "summary": "Find code that nothing calls, prove each piece is unreachable, remove it in small steps, and show the build and tests still pass.",
+      "title_tr": "Ölü kodu kanıtla birlikte kaldır",
+      "summary_tr": "Hiçbir yerden çağrılmayan kodu bulur, her parçanın erişilemez olduğunu kanıtlar, küçük adımlarla siler ve derleme ile testlerin hâlâ geçtiğini gösterir.",
+      "text": "Find and remove dead code in this project, with proof for every deletion.\n\n1. Run the build and the test suite and record the result as the baseline.\n2. Find candidates with the stack's tools where available (for example `ts-prune` or `knip` for TypeScript, `vulture` for Python, `staticcheck` or `deadcode` for Go, `cargo +nightly udeps` and compiler warnings for Rust, Periphery for Swift), plus a search for unused exports, files nothing imports, feature flags that are always on or off, and branches for platforms or versions the project no longer supports.\n3. For each candidate, prove it is dead before deleting it. Search the whole repository for its name, including strings, configs, templates, scripts, docs and tests. Be careful with code reached dynamically: reflection, dependency injection, routes registered by name, serializers, public library APIs, plugin entry points, migrations, and anything called from another repository. If you cannot prove it, leave it and list it as \"probably dead\".\n4. Delete in small groups, by area. After each group, build and run the tests. If something breaks, put it back and note why it was not dead.\n5. Remove things that only existed for the dead code: their tests, fixtures, helpers and dependencies in the package manifest, again with proof.\n\nReport a table: what was removed, its size in lines, and the proof (for example \"no references outside its own file; not exported from the package index; not named in any config\"). Give the total lines removed, the final build and test results, and the list of suspicious code you left with the reason.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "refactor"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/remove-dead-code-with-proof.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "reproduce-and-fix-a-bug-from-an-issue",
+      "kind": "prompt",
+      "title": "Reproduce and fix a bug from an issue",
+      "summary": "Turn a bug report into a failing test, find the real cause, fix it with the smallest change, and show the test passing.",
+      "title_tr": "Bir hata kaydını yeniden üret ve düzelt",
+      "summary_tr": "Bir hata raporunu başarısız bir teste çevirir, gerçek nedeni bulur, en küçük değişiklikle düzeltir ve testin geçtiğini gösterir.",
+      "text": "Fix the bug described below (or in the issue I link; read it with `gh issue view <number>` if `gh` is available). If there is no description yet, ask me for it before you start.\n\n1. Restate the bug in one sentence: the input, what happens, and what should happen. List any detail the report is missing and the assumption you are making.\n2. Reproduce it before changing anything. Write an automated test that fails because of the bug, in the project's existing test style. If a test is not possible, write the smallest script or exact steps that show the failure. Run it and paste the failure. If you cannot reproduce it, stop and say what you tried and what you need.\n3. Find the cause. Read the code path from the entry point; test one hypothesis at a time with the cheapest check (a log line, a debugger, a small script, `git bisect` if it used to work). Drop a hypothesis as soon as a check disproves it. State the cause in one sentence with the file and line.\n4. Fix the cause, not the symptom, with the smallest change that does it. Do not refactor nearby code. Look for the same mistake elsewhere in the codebase and list where it appears.\n5. Verify: the new test passes, the full suite passes, and the original reproduction steps now give the expected result.\n\nReport: the cause, the proof, the fix, the test you added, the commands you ran with their results, and other places with the same pattern. Draft a short comment for the issue explaining the fix.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "debugging",
+        "testing"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/reproduce-and-fix-a-bug-from-an-issue.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "review-branch-like-a-senior-engineer",
+      "kind": "prompt",
+      "title": "Review this branch like a senior engineer",
+      "summary": "Read every change on the current branch against its base and report real defects with file, line, a triggering input and a fix.",
+      "title_tr": "Bu dalı kıdemli bir mühendis gibi incele",
+      "summary_tr": "Geçerli daldaki her değişikliği tabanına göre okur ve gerçek hataları dosya, satır, tetikleyen girdi ve düzeltmeyle raporlar.",
+      "text": "Review the changes on the current branch as a senior engineer who has to sign off on them before they ship. Do not change any files.\n\n1. Find the base: use the upstream default branch (`git symbolic-ref refs/remotes/origin/HEAD`, falling back to `main` or `master`). Run `git diff <base>...HEAD --stat`, then read the full diff. Include uncommitted changes from `git diff` and say that you did.\n2. For every changed file, read the surrounding code, the callers of anything whose signature or behaviour changed, and the tests that cover it. A hunk on its own is not enough context.\n3. Look for problems in this order: wrong behaviour, crashes and unhandled errors, security (unchecked input, injection, secrets, missing authorisation), data loss or corruption, concurrency and ordering, edge cases (empty, very large, unicode, time zones, null), then performance. Skip style unless it hides a bug.\n4. For each finding, give: `file:line`, what goes wrong, a concrete input or sequence that triggers it, how sure you are (proven, likely, guess), and the smallest fix. If you can prove a finding by running a test or a one-off script, do it and include the command and its output.\n5. Check that the change is tested: name behaviour that changed without a test that would catch a regression.\n6. Run the project's test suite and linter if they exist, and report the exact command and result.\n\nFinish with a short list of findings ordered by severity, then a one-line verdict: ready to merge, ready after the listed fixes, or not ready. Five real findings beat twenty maybes; if you found nothing serious, say so plainly.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "review",
+        "git"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/review-branch-like-a-senior-engineer.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "security-audit-of-auth-flows",
+      "kind": "prompt",
+      "title": "Security audit of the authentication flows",
+      "summary": "Trace sign-up, sign-in, sessions, password reset and authorisation checks, and report exploitable weaknesses with proof and a fix.",
+      "title_tr": "Kimlik doğrulama akışlarının güvenlik denetimi",
+      "summary_tr": "Kayıt, giriş, oturum, parola sıfırlama ve yetki kontrollerini izler; istismar edilebilir zayıflıkları kanıt ve düzeltmeyle raporlar.",
+      "text": "Audit the authentication and authorisation code in this project. Report first; change code only for findings I approve afterwards.\n\nTrace each flow in the code, end to end, and check:\n1. **Sign-up and sign-in**: password hashing (a slow algorithm such as argon2, bcrypt or scrypt, with a proper cost), constant-time comparison, rate limiting and lockout, user enumeration through different errors or timings, MFA handling if present.\n2. **Sessions and tokens**: how they are created, stored and expired; cookie flags (`HttpOnly`, `Secure`, `SameSite`); JWT algorithm pinning, signature verification, expiry and audience checks; rotation on sign-in and privilege change; revocation on sign-out and password change.\n3. **Password reset and email change**: token randomness, single use, short expiry, binding to the user, no token in logs or the `Referer`, and no account takeover through a changed email.\n4. **Authorisation**: every route or handler that reads or writes data checks that the caller may access that specific record (no IDs trusted from the request without an ownership check), admin routes are protected server-side, and defaults deny.\n5. **OAuth or SSO** if present: `state` and PKCE, redirect URI validation, account linking by verified email only.\n6. **Surrounding protections**: CSRF for cookie-based sessions, CORS that does not reflect arbitrary origins with credentials, secrets loaded from the environment, not the repository.\n\nFor each finding give: `file:line`, the attack in one or two sentences, severity (critical, high, medium, low), how sure you are, and the fix. Where you can, prove it with a test or a request against a local instance; never against a deployed system. Mark guesses as guesses.\n\nFinish with a list of routes or handlers that have no authorisation check at all, and a short summary of what is done well.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "security",
+        "review",
+        "backend"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/security-audit-of-auth-flows.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "split-a-large-file-into-modules",
+      "kind": "prompt",
+      "title": "Split a large file into focused modules",
+      "summary": "Break the largest, most-changed file into cohesive modules without changing behaviour, moving code in mechanical steps that each keep the tests green.",
+      "title_tr": "Büyük bir dosyayı odaklı modüllere böl",
+      "summary_tr": "En büyük ve en sık değişen dosyayı davranışı değiştirmeden uyumlu modüllere ayırır; her adımda testlerin geçtiği mekanik taşımalar yapar.",
+      "text": "Split one oversized file in this project into smaller, focused modules without changing behaviour.\n\n1. Pick the file. If I did not name one, find files over about 800 lines and rank them by how often they change (`git log --format= --name-only | sort | uniq -c | sort -rn | head -30`). Pick the one that is both large and frequently changed, and say why.\n2. Run the build and tests and record the result. If the file has little test coverage, add characterisation tests for its public behaviour first, so the refactor has a safety net.\n3. Read the whole file and group its contents by responsibility: what changes together and what depends on what. Propose the new module layout (names, what goes where, what stays as the public entry point) in a short list before moving code.\n4. Move code in small mechanical steps: one group at a time, cut and paste with only the imports and visibility changes needed. Do not rename, rewrite or \"improve\" logic while moving it. Keep the original file's public API working by re-exporting from it, so callers do not need to change in this pass.\n5. After each step, build and run the tests. Commit-sized steps are fine but do not commit unless I ask.\n6. Check for circular imports and for anything that relied on file-level state.\n\nReport: the file and its size before, the new modules with their sizes and responsibilities, confirmation that the public API is unchanged, and the test results after each step. Suggest follow-up clean-ups separately; do not do them now.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "refactor"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/split-a-large-file-into-modules.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "turn-todos-into-issues",
+      "kind": "prompt",
+      "title": "Turn TODO comments into issues",
+      "summary": "Collect every TODO, FIXME and HACK comment, group and triage them, and draft issues you can file with one command after you review them.",
+      "title_tr": "TODO yorumlarını iş kayıtlarına dönüştür",
+      "summary_tr": "Tüm TODO, FIXME ve HACK yorumlarını toplar, gruplar ve önceliklendirir; gözden geçirdikten sonra tek komutla açabileceğin iş kayıtları taslağı hazırlar.",
+      "text": "Turn the TODO comments in this repository into well-written issue drafts. Do not create any issue and do not edit source files.\n\n1. Search tracked files for `TODO`, `FIXME`, `HACK`, `XXX` and `@todo` (for example `git grep -n -E \"TODO|FIXME|HACK|XXX\"`), skipping vendored and generated folders. For each hit, record the file, line, the comment, and `git blame` for its author and date.\n2. Read the code around each one so you understand what is actually missing. Drop comments that are already done (the code does what the TODO asks), and say which ones and why.\n3. Group TODOs that describe the same work into one issue. Check open issues (`gh issue list --state open --limit 200` if `gh` is available) and mark drafts that duplicate an existing issue instead of drafting them again.\n4. Write `TODO-ISSUES.md` with one section per draft issue:\n   - a title in sentence case that says the outcome;\n   - what is wrong or missing today, and why it matters, in two to four sentences;\n   - links to the exact lines (`path:line`);\n   - a suggested label (bug, enhancement, tech debt, docs) and a size (small, medium, large);\n   - what done looks like, as a checklist.\n5. At the end of the file, add a shell script block that would create each issue with `gh issue create --title ... --body-file ...`, so I can run it after reviewing. Do not run it.\n\nReport how many TODOs you found, how many were already done, how many drafts you wrote, and the five you think matter most.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "git",
+        "docs"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/turn-todos-into-issues.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "upgrade-a-dependency-safely",
+      "kind": "prompt",
+      "title": "Upgrade a dependency safely",
+      "summary": "Upgrade one dependency to its latest major version, read its changelog for breaking changes, adapt the code and prove nothing regressed.",
+      "title_tr": "Bir bağımlılığı güvenle yükselt",
+      "summary_tr": "Bir bağımlılığı son ana sürümüne yükseltir, kırıcı değişiklikler için sürüm notlarını okur, kodu uyarlar ve hiçbir şeyin bozulmadığını kanıtlar.",
+      "text": "Upgrade a dependency of this project safely. If I did not name one, list outdated dependencies (`npm outdated`, `pip list --outdated`, `cargo outdated`, `go list -m -u all`, `bundle outdated`, and so on), and pick the one that is most behind on a major version and most used in the code; tell me which and why before you change anything.\n\n1. Run the test suite and build first and record the result, so later failures are not blamed on the upgrade.\n2. Read the dependency's changelog, release notes and migration guide for every version between the current and the target. List each breaking change and whether this project is affected, with the file and line where it uses that API.\n3. Upgrade only this dependency (and peers it strictly requires). Update the lock file with the package manager, never by hand.\n4. Adapt the code for each breaking change that affects the project. Prefer the replacement the migration guide recommends. Do not refactor unrelated code.\n5. Verify: build, type-check, lint and run the full test suite. Then exercise the code that uses the dependency directly: run the app or a small script through the affected paths, since tests may not cover them. Check for new deprecation warnings in the output.\n6. Check what changed in the dependency tree (`git diff` of the lock file): note new transitive packages and any security advisories (`npm audit`, `pip-audit`, `cargo audit`).\n\nReport: from and to versions, the breaking changes and how each was handled, files changed, the verification commands with their results, new warnings, and anything you could not verify. If the upgrade is not safe yet, stop, revert, and explain what blocks it.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "dependencies",
+        "refactor"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/upgrade-a-dependency-safely.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "write-a-migration-with-rollback",
+      "kind": "prompt",
+      "title": "Write a database migration with a rollback",
+      "summary": "Write a schema or data migration that runs safely on a live database, with a tested rollback and a plan for existing rows.",
+      "title_tr": "Geri alınabilir bir veritabanı göçü yaz",
+      "summary_tr": "Canlı veritabanında güvenle çalışan, geri alma adımı test edilmiş ve mevcut satırlar için planı olan bir şema veya veri göçü yazar.",
+      "text": "Write a database migration for the change I describe, with a rollback, using the project's migration tool and conventions. If I have not described the change yet, ask for it before you start.\n\n1. Find the migration tool and how migrations are named, generated and run (for example Rails, Django, Alembic, Prisma, Knex, Flyway, golang-migrate, plain SQL files). Read the two most recent migrations and follow their style.\n2. Plan it for a live database with real data, and write the plan in the migration's comment header:\n   - What existing rows look like and how they are handled (defaults, backfill, nulls, duplicates that would break a new unique constraint).\n   - Locking: avoid long table locks. Add columns as nullable first, backfill in batches, then add the constraint; create indexes concurrently where the database supports it.\n   - Whether old and new code can run against the schema at the same time during a deploy. If not, split it into expand and contract steps.\n3. Write the `up` and the `down`. The rollback must restore the previous schema, and data where that is possible; if a step cannot be undone without losing data, say so in the code and in your report.\n4. Update models, types and queries that depend on the change. Add or update tests for the new behaviour.\n5. Verify on a local or test database: run up, check the schema, run down, check the schema is back to before, run up again. Do it against a copy with sample data that includes edge cases (nulls, duplicates, large rows). Run the test suite.\n\nNever run a migration against a production or shared database. Report: the files, the plan, the exact commands you ran for up, down and up again with their output, and the risks for the real deploy (time, locks, order relative to the code deploy).",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "data",
+        "backend"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/write-a-migration-with-rollback.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "write-a-readme-that-matches-the-code",
+      "kind": "prompt",
+      "title": "Write a README that matches the code",
+      "summary": "Rewrite the README from what the code actually does, with install and usage steps you have run yourself.",
+      "title_tr": "Koda uyan bir README yaz",
+      "summary_tr": "README'yi kodun gerçekte yaptığına göre yeniden yazar; kurulum ve kullanım adımlarını bizzat çalıştırarak doğrular.",
+      "text": "Rewrite this project's `README.md` so that it is accurate, short and useful to someone who has never seen the project. Change only the README.\n\n1. Read the current README, then the code: entry points, CLI flags or public API, configuration and environment variables, build and test scripts, license. Make a list of every claim in the current README that is wrong, outdated or missing.\n2. Run the install and the main usage examples exactly as you will document them, in a clean way (for example a fresh clone in a temporary folder). Fix the steps until they work, and use the commands that worked.\n3. Structure:\n   - Name and one sentence on what it does and for whom.\n   - A minimal example that shows the main thing working, with its real output.\n   - Install, with prerequisites and versions.\n   - Usage: the common tasks, then a reference of options or configuration in a table (every environment variable the code reads, its default and what it does).\n   - Development: build, test, lint.\n   - License, and links to contributing and changelog if they exist.\n4. Style: plain sentences, no marketing words, no badges that do not work, no features that do not exist. Keep any section of the old README that is still correct and valuable.\n\nCheck every command, path, flag and link in the new README against the code or by running it. Report the list of corrections you made to the old README's claims, and anything you could not verify, marked in the README as well.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "docs",
+        "onboarding"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/write-a-readme-that-matches-the-code.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "test-untested-code-paths",
+      "kind": "prompt",
+      "title": "Write tests for untested code paths",
+      "summary": "Measure coverage, pick the riskiest untested branches, and cover them with tests whose assertions would actually catch a regression.",
+      "title_tr": "Test edilmemiş kod yollarına test yaz",
+      "summary_tr": "Kapsamı ölçer, en riskli test edilmemiş dalları seçer ve bir gerilemeyi gerçekten yakalayacak doğrulamalarla test yazar.",
+      "text": "Add tests for the code paths in this project that have none, choosing the ones where a bug would hurt most.\n\n1. Find how tests run and run them once; note what already fails. Then run coverage with the project's tool (for example `jest --coverage`, `vitest --coverage`, `pytest --cov`, `go test -cover`, `cargo llvm-cov`, `swift test --enable-code-coverage`). If no coverage tool is set up, say so and use reading instead: list public functions and branches with no test that calls them.\n2. Pick up to 10 untested paths, ranked by risk: money, permissions, data writes, parsing of outside input, error handling, and anything with many branches. Say why each one made the list.\n3. Write tests in the project's existing style, location and helpers. Each test must:\n   - call real code, not a mock of the thing under test;\n   - assert on the result or the side effect that matters (exact values, error types, what was written), never just \"does not throw\" or \"is defined\";\n   - cover the edge that makes the path interesting (empty input, boundary values, the error branch).\n4. Prove each test can fail: temporarily break the line it covers (flip a condition, change a constant), run the test, see it fail, then restore the code. A test that still passes against broken code gets rewritten.\n5. If a test exposes a real bug, do not fix it silently: leave the test marked as expected-to-fail or skipped with a clear reason, and report the bug.\n\nRun the whole suite at the end. Report: tests added (file and name), what each protects, coverage before and after, the mutation check for each, and any bugs found.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "testing"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/test-untested-code-paths.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "write-a-changelog-entry-since-the-last-tag",
+      "kind": "prompt",
+      "title": "Write the changelog entry since the last release",
+      "summary": "Read the commits and merged pull requests since the last tag and write a changelog entry that users can understand.",
+      "title_tr": "Son sürümden bu yana değişiklik günlüğünü yaz",
+      "summary_tr": "Son etiketten bu yana gelen commit'leri ve birleşen pull request'leri okur ve kullanıcıların anlayacağı bir değişiklik günlüğü girdisi yazar.",
+      "text": "Write the changelog entry for the next release of this project.\n\n1. Find the last release: `git describe --tags --abbrev=0`. List the changes since then with `git log <tag>..HEAD --no-merges --format=\"%h %s\"` and, if `gh` is available, the merged pull requests since the tag's date. Read the diff of any commit whose message does not make the change clear.\n2. Find the changelog format: an existing `CHANGELOG.md` (follow its style exactly), or Keep a Changelog if there is none. Work out the next version number from semantic versioning: breaking changes make a major, new features a minor, fixes only a patch. Say which and why.\n3. Write entries for users, not for developers: what they can now do, what works better, what was fixed and how they would have noticed it. Group under Added, Changed, Fixed, Removed, Security, and a clear **Breaking** note at the top with migration steps if anything breaks.\n4. Leave out internal changes that users cannot notice (refactors, test changes, CI), unless the project's changelog includes them. Merge several commits about the same thing into one entry. Credit outside contributors the way the project does.\n5. Every entry must be backed by a commit or PR; add the reference in the project's style.\n\nInsert the entry at the top of `CHANGELOG.md` under an \"Unreleased\" heading with the proposed version, and do not tag or bump the version. Report the commits you left out and why, and anything that looked like a breaking change but was not labelled as one.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini",
+        "opencode",
+        "copilot",
+        "cursor"
+      ],
+      "tags": [
+        "docs",
+        "git"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/write-a-changelog-entry-since-the-last-tag.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "race-cover-the-least-tested-module",
+      "kind": "race",
+      "title": "Cover the least-tested module with real tests",
+      "summary": "Race to raise test coverage of the least-tested important module with tests that fail when the code is broken.",
+      "title_tr": "En az test edilen modülü gerçek testlerle kapsa",
+      "summary_tr": "En az test edilen önemli modülün kapsamını, kod bozulduğunda gerçekten kalan testlerle artırma yarışı.",
+      "text": "Raise the test coverage of the least-tested important module in this repository, with tests that would catch real regressions.\n\n1. Run the test suite with coverage using the project's tool. If coverage is not set up, set it up with the standard tool for the stack, as a dev dependency or a flag, not as a required part of the default test command.\n2. Pick the module (a source file or a small package) with the lowest coverage among those that matter: business logic, parsing, money, permissions or data writes. Skip generated code, UI glue and trivial getters. Say which module you picked and its coverage.\n3. Write tests in the project's existing style and location. Every test must call real code and assert exact results or side effects; \"does not throw\" and \"is defined\" do not count. Cover error branches and boundary values, not only the happy path.\n4. Prove your tests have teeth: for at least five of them, break the line they cover (flip a condition, change a constant), run them, see them fail, and restore the code.\n5. Do not change production code. If you find a bug, write the test that shows it, mark it as an expected failure with the reason, and mention it.\n\nFinish with the full suite passing. In your final message, give the module, coverage before and after (lines and branches), the tests you added, the mutation checks and their results, and any bugs found. Then commit your work as the instructions below say.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "tags": [
+        "testing"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/race-cover-the-least-tested-module.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "race-csv-parser",
+      "kind": "race",
+      "title": "Kata: a correct CSV parser in JavaScript",
+      "summary": "Race to write an RFC 4180 CSV parser and writer that handles quotes, newlines in fields and clear errors, verified by a fixed acceptance test.",
+      "title_tr": "Kata: JavaScript ile doğru bir CSV ayrıştırıcı",
+      "summary_tr": "Tırnakları, alan içindeki satır sonlarını ve anlaşılır hataları ele alan, sabit bir kabul testiyle doğrulanan RFC 4180 CSV ayrıştırıcı ve yazıcı yarışı.",
+      "text": "Write a CSV parser and writer as a standalone JavaScript module. This task is self-contained: it works in any git repository, an empty one included, and needs only Node.js 20 or later.\n\nCreate `kata/csv/csv.mjs` exporting two functions, with no dependencies:\n\n- `parseCSV(text, { delimiter = \",\", header = false } = {})` follows RFC 4180:\n  - Rows end with `\\n`, `\\r\\n` or a lone `\\r`. A final line ending does not create an extra row; an empty string gives `[]`. An empty line in the middle is a row with one empty field.\n  - Fields may be quoted with `\"`. Inside quotes, `\"\"` is a literal quote, and delimiters and line endings are data.\n  - Whitespace is kept as data. A leading byte order mark is dropped.\n  - Errors are `SyntaxError`s whose message names the line number (1-based, counting physical lines): an unterminated quote names the line where the quoted field started; a quote inside an unquoted field and characters after a closing quote are errors too.\n  - Without `header`, return an array of arrays of strings. With `header: true`, use the first row as keys and return an array of objects; a row with a different number of fields is a `SyntaxError` that names its line.\n  - It must run in linear time: no re-scanning, no quadratic string building.\n- `stringifyCSV(rows, { delimiter = \",\" } = {})` writes rows of values, ending every row with `\\r\\n`. `null` and `undefined` become empty fields; other values go through `String`. Quote a field only when it contains the delimiter, a quote, `\\r` or `\\n`, doubling the quotes inside.\n\nCreate `kata/csv/acceptance.test.mjs` with exactly the content below and do not change it. You may add more tests in other files in the same folder, for example `kata/csv/extra.test.mjs`.\n\n```js\nimport { test } from \"node:test\";\nimport assert from \"node:assert/strict\";\nimport { parseCSV, stringifyCSV } from \"./csv.mjs\";\n\ntest(\"plain rows\", () => {\n  assert.deepEqual(parseCSV(\"a,b,c\\n1,2,3\"), [[\"a\", \"b\", \"c\"], [\"1\", \"2\", \"3\"]]);\n});\n\ntest(\"a trailing newline does not add a row; an empty input has no rows\", () => {\n  assert.deepEqual(parseCSV(\"a,b\\n1,2\\n\"), [[\"a\", \"b\"], [\"1\", \"2\"]]);\n  assert.deepEqual(parseCSV(\"\"), []);\n});\n\ntest(\"CRLF and lone CR line endings\", () => {\n  assert.deepEqual(parseCSV(\"a,b\\r\\n1,2\\r\\n\"), [[\"a\", \"b\"], [\"1\", \"2\"]]);\n  assert.deepEqual(parseCSV(\"a,b\\r1,2\"), [[\"a\", \"b\"], [\"1\", \"2\"]]);\n});\n\ntest(\"empty fields are kept\", () => {\n  assert.deepEqual(parseCSV(\",a,,\\n\"), [[\"\", \"a\", \"\", \"\"]]);\n  assert.deepEqual(parseCSV(\"a\\n\\nb\"), [[\"a\"], [\"\"], [\"b\"]]);\n});\n\ntest(\"quoted fields with delimiters, doubled quotes and newlines\", () => {\n  const text = 'name,quote\\n\"Smith, J.\",\"He said \"\"hi\"\"\"\\n\"multi\\nline\",x\\n';\n  assert.deepEqual(parseCSV(text), [\n    [\"name\", \"quote\"],\n    [\"Smith, J.\", 'He said \"hi\"'],\n    [\"multi\\nline\", \"x\"],\n  ]);\n});\n\ntest(\"whitespace is data, not trimmed\", () => {\n  assert.deepEqual(parseCSV(\" a , b \"), [[\" a \", \" b \"]]);\n});\n\ntest(\"custom delimiter\", () => {\n  assert.deepEqual(parseCSV('a;\"b;c\"\\n1;2', { delimiter: \";\" }), [[\"a\", \"b;c\"], [\"1\", \"2\"]]);\n  assert.deepEqual(parseCSV(\"a\\tb\", { delimiter: \"\\t\" }), [[\"a\", \"b\"]]);\n});\n\ntest(\"header mode returns objects\", () => {\n  assert.deepEqual(parseCSV(\"id,name\\n1,Ada\\n2,Linus\\n\", { header: true }), [\n    { id: \"1\", name: \"Ada\" },\n    { id: \"2\", name: \"Linus\" },\n  ]);\n});\n\ntest(\"header mode rejects rows with the wrong number of fields\", () => {\n  assert.throws(() => parseCSV(\"id,name\\n1\\n\", { header: true }), (err) => err instanceof SyntaxError && /line 2/.test(err.message));\n});\n\ntest(\"an unterminated quote is a SyntaxError that names the line it started on\", () => {\n  assert.throws(() => parseCSV('a,b\\n1,\"oops\\n2,3\\n'), (err) => err instanceof SyntaxError && /line 2/.test(err.message));\n});\n\ntest(\"a quote in the middle of an unquoted field is a SyntaxError\", () => {\n  assert.throws(() => parseCSV('a,b\"c\\n'), SyntaxError);\n});\n\ntest(\"characters after a closing quote are a SyntaxError\", () => {\n  assert.throws(() => parseCSV('\"a\"b,c\\n'), SyntaxError);\n});\n\ntest(\"unicode is preserved\", () => {\n  assert.deepEqual(parseCSV(\"şehir,emoji\\nİstanbul,🚀\"), [[\"şehir\", \"emoji\"], [\"İstanbul\", \"🚀\"]]);\n});\n\ntest(\"a byte order mark at the start is dropped\", () => {\n  assert.deepEqual(parseCSV(\"﻿a,b\"), [[\"a\", \"b\"]]);\n});\n\ntest(\"stringify quotes only when needed and ends every row with CRLF\", () => {\n  assert.equal(stringifyCSV([[\"a\", \"b,c\"], ['say \"hi\"', \"line\\nbreak\"], [\"\", \"plain\"]]), 'a,\"b,c\"\\r\\n\"say \"\"hi\"\"\",\"line\\nbreak\"\\r\\n,plain\\r\\n');\n});\n\ntest(\"stringify accepts numbers, booleans and null\", () => {\n  assert.equal(stringifyCSV([[1, true, null, undefined, 2.5]]), \"1,true,,,2.5\\r\\n\");\n});\n\ntest(\"round trip\", () => {\n  const rows = [[\"id\", \"note\"], [\"1\", 'a \"quoted\", multi\\r\\nline value'], [\"2\", \"\"], [\"3\", \" spaced \"]];\n  assert.deepEqual(parseCSV(stringifyCSV(rows)), rows);\n  assert.deepEqual(parseCSV(stringifyCSV(rows, { delimiter: \";\" }), { delimiter: \";\" }), rows);\n});\n\ntest(\"parses a large file in linear time\", () => {\n  const line = '1,\"two, with comma\",three,\"four \"\"quoted\"\"\"\\n';\n  const text = line.repeat(100_000);\n  const start = performance.now();\n  const rows = parseCSV(text);\n  assert.equal(rows.length, 100_000);\n  assert.deepEqual(rows[99_999], [\"1\", \"two, with comma\", \"three\", 'four \"quoted\"']);\n  assert.ok(performance.now() - start < 3000, \"100k rows should parse well under 3 seconds\");\n});\n```\n\nDone means `node --test kata/csv/*.test.mjs` passes. Run it, and include the output summary in your final message together with any edge case you handled beyond the tests. Then commit your work as the instructions below say.",
+      "test": "node --test kata/csv/*.test.mjs",
+      "programs": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "tags": [
+        "data",
+        "testing"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/race-csv-parser.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "race-token-bucket-rate-limiter",
+      "kind": "race",
+      "title": "Kata: a token bucket rate limiter in Python",
+      "summary": "Race to build a token bucket and a per-key limiter with an injectable clock and bounded memory, verified by a fixed pytest suite.",
+      "title_tr": "Kata: Python ile token bucket hız sınırlayıcı",
+      "summary_tr": "Saati dışarıdan verilebilen ve belleği sınırlı, anahtar başına çalışan bir token bucket hız sınırlayıcıyı sabit bir pytest paketiyle doğrulanacak şekilde yazma yarışı.",
+      "text": "Build a token bucket rate limiter as a standalone Python module. This task is self-contained: it works in any git repository, an empty one included, and needs Python 3.9 or later with pytest. If `python3 -m pytest` does not work, use a virtual environment for yourself, but do not install anything globally.\n\nCreate `kata/token_bucket/token_bucket.py` (and no `__init__.py`), using only the standard library:\n\n- `TokenBucket(capacity, refill_per_second, clock=time.monotonic)`. Both numbers must be positive, otherwise raise `ValueError`. The bucket starts full, refills continuously at `refill_per_second` tokens per second up to `capacity`, and reads time only through `clock()`. If the clock goes backwards, no tokens are added or removed, and refilling resumes from the new reading.\n  - `available()` returns the current number of tokens as a float.\n  - `try_acquire(tokens=1)` takes the tokens and returns `True` if they are all there, otherwise takes nothing and returns `False`.\n  - `wait_time(tokens=1)` returns how many seconds until `try_acquire(tokens)` would succeed, `0` if it would now.\n  - Asking for `tokens` below 1 or above `capacity` raises `ValueError` in both methods, since it can never succeed.\n  - Avoid floating point surprises: after exactly enough refill time, the acquire must succeed.\n- `KeyedLimiter(capacity, refill_per_second, clock=time.monotonic, max_keys=10000)` keeps one bucket per key.\n  - `try_acquire(key, tokens=1)` works like the bucket's method, creating a full bucket for a new key.\n  - `len(limiter)` is the number of buckets held.\n  - Memory is bounded: when adding a new key would exceed `max_keys`, drop buckets that are full again (they are the same as new ones), oldest use first. Never drop a bucket that is not full, since that would hand out extra tokens; in that case it may go over `max_keys`.\n\nCreate `kata/token_bucket/test_acceptance.py` with exactly the content below and do not change it. You may add more tests in other files in the same folder, for example `kata/token_bucket/test_extra.py`.\n\n```python\nimport os\nimport sys\n\nimport pytest\n\nsys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))\n\nfrom token_bucket import KeyedLimiter, TokenBucket  # noqa: E402\n\n\nclass FakeClock:\n    def __init__(self, t=1000.0):\n        self.t = t\n\n    def __call__(self):\n        return self.t\n\n    def advance(self, seconds):\n        self.t += seconds\n\n\n@pytest.mark.parametrize(\"capacity,rate\", [(0, 1), (-1, 1), (1, 0), (1, -2)])\ndef test_rejects_bad_arguments(capacity, rate):\n    with pytest.raises(ValueError):\n        TokenBucket(capacity=capacity, refill_per_second=rate)\n\n\ndef test_starts_full_and_spends_tokens():\n    clock = FakeClock()\n    b = TokenBucket(capacity=3, refill_per_second=1, clock=clock)\n    assert b.available() == pytest.approx(3)\n    assert [b.try_acquire() for _ in range(4)] == [True, True, True, False]\n    assert b.available() == pytest.approx(0)\n\n\ndef test_refills_over_time_up_to_capacity():\n    clock = FakeClock()\n    b = TokenBucket(capacity=2, refill_per_second=4, clock=clock)\n    assert b.try_acquire(2)\n    clock.advance(0.25)\n    assert b.available() == pytest.approx(1)\n    clock.advance(10)\n    assert b.available() == pytest.approx(2)\n\n\ndef test_acquiring_several_tokens_is_all_or_nothing():\n    clock = FakeClock()\n    b = TokenBucket(capacity=5, refill_per_second=1, clock=clock)\n    assert b.try_acquire(4)\n    assert not b.try_acquire(2)\n    assert b.available() == pytest.approx(1)\n\n\ndef test_fractional_refill_accumulates():\n    clock = FakeClock()\n    b = TokenBucket(capacity=1, refill_per_second=0.5, clock=clock)\n    assert b.try_acquire()\n    for _ in range(3):\n        clock.advance(0.5)\n        assert not b.try_acquire()\n    clock.advance(0.5)\n    assert b.try_acquire()\n\n\ndef test_wait_time():\n    clock = FakeClock()\n    b = TokenBucket(capacity=4, refill_per_second=2, clock=clock)\n    assert b.wait_time(1) == 0\n    assert b.try_acquire(4)\n    assert b.wait_time(1) == pytest.approx(0.5)\n    assert b.wait_time(3) == pytest.approx(1.5)\n    clock.advance(0.5)\n    assert b.wait_time(1) == pytest.approx(0)\n\n\ndef test_more_than_capacity_is_an_error_not_a_wait():\n    b = TokenBucket(capacity=2, refill_per_second=1, clock=FakeClock())\n    with pytest.raises(ValueError):\n        b.try_acquire(3)\n    with pytest.raises(ValueError):\n        b.wait_time(3)\n    with pytest.raises(ValueError):\n        b.try_acquire(0)\n\n\ndef test_clock_going_backwards_does_not_add_or_remove_tokens():\n    clock = FakeClock()\n    b = TokenBucket(capacity=2, refill_per_second=1, clock=clock)\n    b.try_acquire(2)\n    clock.advance(-100)\n    assert b.available() == pytest.approx(0)\n    clock.advance(1)\n    assert b.available() == pytest.approx(1)\n\n\ndef test_keyed_limiter_keeps_one_bucket_per_key():\n    clock = FakeClock()\n    limiter = KeyedLimiter(capacity=1, refill_per_second=1, clock=clock)\n    assert limiter.try_acquire(\"alice\")\n    assert not limiter.try_acquire(\"alice\")\n    assert limiter.try_acquire(\"bob\")\n    clock.advance(1)\n    assert limiter.try_acquire(\"alice\")\n\n\ndef test_keyed_limiter_forgets_full_idle_buckets():\n    clock = FakeClock()\n    limiter = KeyedLimiter(capacity=2, refill_per_second=1, clock=clock, max_keys=100)\n    for i in range(1000):\n        limiter.try_acquire(f\"user-{i}\")\n        clock.advance(0.02)\n    assert len(limiter) <= 100\n    clock.advance(10)\n    limiter.try_acquire(\"late\")\n    assert len(limiter) <= 100\n\n\ndef test_keyed_limiter_never_forgets_a_bucket_that_is_not_full():\n    clock = FakeClock()\n    limiter = KeyedLimiter(capacity=2, refill_per_second=0.001, clock=clock, max_keys=2)\n    assert limiter.try_acquire(\"a\", 2)\n    assert limiter.try_acquire(\"b\")\n    assert limiter.try_acquire(\"c\")\n    assert not limiter.try_acquire(\"a\")\n```\n\nDone means `python3 -m pytest -q kata/token_bucket` passes. Run it, and include the output in your final message together with how you handled floating point and memory. Then commit your work as the instructions below say.",
+      "test": "python3 -m pytest -q kata/token_bucket",
+      "programs": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "tags": [
+        "backend",
+        "testing"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/race-token-bucket-rate-limiter.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "race-lru-cache-with-ttl",
+      "kind": "race",
+      "title": "Kata: an LRU cache with expiry in JavaScript",
+      "summary": "Race to implement a fast, dependency-free LRU cache with per-entry expiry that passes a fixed acceptance test.",
+      "title_tr": "Kata: JavaScript ile süre aşımlı LRU önbellek",
+      "summary_tr": "Sabit bir kabul testini geçen, hızlı ve bağımlılıksız, kayıt başına süre aşımı olan bir LRU önbellek yazma yarışı.",
+      "text": "Implement an LRU cache with expiry as a standalone JavaScript module. This task is self-contained: it works in any git repository, an empty one included, and needs only Node.js 20 or later.\n\nCreate `kata/lru-cache/lru-cache.mjs` exporting `class LRUCache`:\n\n- `new LRUCache({ max, ttlMs = 0, now = Date.now, onEvict })`. `max` must be a positive integer, otherwise throw a `RangeError`. `ttlMs` is the default time to live in milliseconds; `0` means entries never expire. `now` is the clock, so tests can control time. `onEvict(key, value)` is optional.\n- `get(key)` returns the value or `undefined`, and marks the entry as most recently used. It does not extend the expiry.\n- `set(key, value, { ttlMs } = {})` stores the value as most recently used, with a per-entry ttl that overrides the default (`0` means never expire), and restarts the expiry. Setting an existing key replaces it without growing the cache. When the cache is over `max`, first drop expired entries, then evict least recently used entries; call `onEvict` only for these capacity evictions, not for `delete`, overwrites or expiry.\n- `has(key)` says whether a live entry exists, without changing recency.\n- `delete(key)` returns whether something was removed; `clear()` empties the cache.\n- `size` (a getter) and `keys()` (most recently used first) count only live entries.\n- `get`, `set`, `has` and `delete` must be O(1) on average. No dependencies.\n\nCreate `kata/lru-cache/acceptance.test.mjs` with exactly the content below and do not change it. You may add more tests in other files in the same folder, for example `kata/lru-cache/extra.test.mjs`.\n\n```js\nimport { test } from \"node:test\";\nimport assert from \"node:assert/strict\";\nimport { LRUCache } from \"./lru-cache.mjs\";\n\nfunction clock(start = 0) {\n  let t = start;\n  const now = () => t;\n  now.advance = (ms) => { t += ms; };\n  return now;\n}\n\ntest(\"rejects a capacity that is not a positive integer\", () => {\n  for (const max of [0, -1, 1.5, NaN, \"3\", undefined]) {\n    assert.throws(() => new LRUCache({ max }), RangeError);\n  }\n});\n\ntest(\"evicts the least recently used entry\", () => {\n  const c = new LRUCache({ max: 2 });\n  c.set(\"a\", 1);\n  c.set(\"b\", 2);\n  c.set(\"c\", 3);\n  assert.equal(c.get(\"a\"), undefined);\n  assert.equal(c.get(\"b\"), 2);\n  assert.equal(c.get(\"c\"), 3);\n  assert.equal(c.size, 2);\n});\n\ntest(\"get refreshes recency, has does not\", () => {\n  const c = new LRUCache({ max: 2 });\n  c.set(\"a\", 1);\n  c.set(\"b\", 2);\n  c.get(\"a\");\n  c.set(\"c\", 3);\n  assert.equal(c.has(\"a\"), true);\n  assert.equal(c.has(\"b\"), false);\n  c.has(\"a\");\n  c.set(\"d\", 4);\n  assert.equal(c.has(\"a\"), false);\n  assert.equal(c.has(\"c\"), true);\n});\n\ntest(\"set on an existing key updates the value and recency without growing\", () => {\n  const c = new LRUCache({ max: 2 });\n  c.set(\"a\", 1);\n  c.set(\"b\", 2);\n  c.set(\"a\", 10);\n  c.set(\"c\", 3);\n  assert.equal(c.size, 2);\n  assert.equal(c.get(\"a\"), 10);\n  assert.equal(c.get(\"b\"), undefined);\n});\n\ntest(\"keys() lists most recently used first\", () => {\n  const c = new LRUCache({ max: 3 });\n  c.set(\"a\", 1);\n  c.set(\"b\", 2);\n  c.set(\"c\", 3);\n  c.get(\"a\");\n  assert.deepEqual([...c.keys()], [\"a\", \"c\", \"b\"]);\n});\n\ntest(\"stores falsy values and distinguishes them from missing keys\", () => {\n  const c = new LRUCache({ max: 5 });\n  c.set(\"zero\", 0);\n  c.set(\"empty\", \"\");\n  c.set(\"nothing\", null);\n  assert.equal(c.get(\"zero\"), 0);\n  assert.equal(c.get(\"empty\"), \"\");\n  assert.equal(c.get(\"nothing\"), null);\n  assert.equal(c.has(\"nothing\"), true);\n  assert.equal(c.has(\"missing\"), false);\n});\n\ntest(\"delete and clear\", () => {\n  const c = new LRUCache({ max: 3 });\n  c.set(\"a\", 1);\n  c.set(\"b\", 2);\n  assert.equal(c.delete(\"a\"), true);\n  assert.equal(c.delete(\"a\"), false);\n  assert.equal(c.size, 1);\n  c.clear();\n  assert.equal(c.size, 0);\n  assert.deepEqual([...c.keys()], []);\n});\n\ntest(\"entries expire after the default ttl\", () => {\n  const now = clock();\n  const c = new LRUCache({ max: 3, ttlMs: 100, now });\n  c.set(\"a\", 1);\n  now.advance(99);\n  assert.equal(c.get(\"a\"), 1);\n  now.advance(1);\n  assert.equal(c.get(\"a\"), undefined);\n  assert.equal(c.has(\"a\"), false);\n  assert.equal(c.size, 0);\n});\n\ntest(\"a per-entry ttl overrides the default, and 0 means no expiry\", () => {\n  const now = clock();\n  const c = new LRUCache({ max: 3, ttlMs: 100, now });\n  c.set(\"short\", 1, { ttlMs: 10 });\n  c.set(\"forever\", 2, { ttlMs: 0 });\n  c.set(\"default\", 3);\n  now.advance(50);\n  assert.deepEqual([...c.keys()].sort(), [\"default\", \"forever\"]);\n  now.advance(1000);\n  assert.deepEqual([...c.keys()], [\"forever\"]);\n  assert.equal(c.size, 1);\n});\n\ntest(\"get does not extend the ttl, set does\", () => {\n  const now = clock();\n  const c = new LRUCache({ max: 3, ttlMs: 100, now });\n  c.set(\"a\", 1);\n  now.advance(60);\n  c.get(\"a\");\n  now.advance(60);\n  assert.equal(c.get(\"a\"), undefined);\n  c.set(\"b\", 1);\n  now.advance(60);\n  c.set(\"b\", 2);\n  now.advance(60);\n  assert.equal(c.get(\"b\"), 2);\n});\n\ntest(\"expired entries do not cause live ones to be evicted\", () => {\n  const now = clock();\n  const c = new LRUCache({ max: 2, ttlMs: 0, now });\n  c.set(\"old\", 1, { ttlMs: 10 });\n  c.set(\"live\", 2);\n  now.advance(20);\n  c.set(\"new\", 3);\n  assert.equal(c.get(\"live\"), 2);\n  assert.equal(c.get(\"new\"), 3);\n});\n\ntest(\"onEvict is called for capacity evictions but not for delete or overwrite\", () => {\n  const evicted = [];\n  const c = new LRUCache({ max: 1, onEvict: (key, value) => evicted.push([key, value]) });\n  c.set(\"a\", 1);\n  c.set(\"a\", 2);\n  c.delete(\"a\");\n  c.set(\"b\", 3);\n  c.set(\"c\", 4);\n  assert.deepEqual(evicted, [[\"b\", 3]]);\n});\n\ntest(\"handles many operations quickly\", () => {\n  const c = new LRUCache({ max: 1000 });\n  const start = performance.now();\n  for (let i = 0; i < 200_000; i++) {\n    c.set(i % 5000, i);\n    c.get((i * 7) % 5000);\n  }\n  assert.equal(c.size, 1000);\n  assert.ok(performance.now() - start < 2000, \"200k set+get pairs should take well under 2 seconds\");\n});\n```\n\nDone means `node --test kata/lru-cache/*.test.mjs` passes. Run it, and include the output summary in your final message together with a short note on the data structure you chose and why. Then commit your work as the instructions below say.",
+      "test": "node --test kata/lru-cache/*.test.mjs",
+      "programs": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "tags": [
+        "testing",
+        "performance"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/race-lru-cache-with-ttl.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "race-make-the-failing-tests-pass",
+      "kind": "race",
+      "title": "Make the failing tests pass",
+      "summary": "Race to turn a red test suite green by fixing the code under test, never by weakening, skipping or deleting tests.",
+      "title_tr": "Kalan testleri geçir",
+      "summary_tr": "Kırmızı bir test paketini, testleri zayıflatmadan, atlamadan veya silmeden, test edilen kodu düzelterek yeşile çevirme yarışı.",
+      "text": "The test suite in this repository has failing tests. Make the whole suite pass by fixing the code under test.\n\nRules:\n- Do not edit, skip, delete or weaken any existing test, assertion, fixture or snapshot, and do not change test configuration to exclude tests. If you are convinced a test itself is wrong, leave it failing and explain why in your final message.\n- Do not special-case test inputs in production code.\n- Keep changes as small as the causes allow; do not refactor unrelated code.\n\nSteps:\n1. Find the test command (README, package scripts, Makefile, CI config) and run the full suite. List every failing test with its error.\n2. Group failures by likely shared cause. For each cause, read the code, state the cause in one sentence, and fix it.\n3. Run the full suite after each fix to make sure you did not break anything else.\n4. Finish when the full suite passes, or when the only failures left are tests you believe are wrong.\n\nIn your final message, list each cause, the fix (file and line), and the final test command with its pass count. Then commit your work as the instructions below say.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "tags": [
+        "testing",
+        "debugging"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/race-make-the-failing-tests-pass.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "race-refactor-without-behaviour-change",
+      "kind": "race",
+      "title": "Refactor a module without changing behaviour",
+      "summary": "Race to make one tangled module easier to read and change while every existing test keeps passing and the public API stays the same.",
+      "title_tr": "Bir modülü davranışını değiştirmeden yeniden düzenle",
+      "summary_tr": "Tüm mevcut testler geçmeye ve genel API aynı kalmaya devam ederken karmaşık bir modülü okunur ve değiştirilebilir hale getirme yarışı.",
+      "text": "Refactor the most tangled module in this repository so that it is easier to read and change, without changing its behaviour. If I named a module, use that one. Otherwise pick the source file with the highest combination of length, nesting depth and change frequency (`git log --format= --name-only | sort | uniq -c | sort -rn | head -20`), and say which one you picked and why in your final message.\n\nRules:\n- Behaviour must not change: same inputs, same outputs, same side effects, same errors. The module's public API (exported names, signatures, return types) stays exactly as it is.\n- Every existing test must still pass, and you must not edit existing tests.\n- No new dependencies.\n\nSteps:\n1. Run the full test suite and record the result. If the module has weak coverage, first add characterisation tests that pin down its current behaviour, including edge cases and error paths, and make sure they pass before you refactor.\n2. Improve the structure: smaller functions with clear names, early returns instead of deep nesting, duplicated logic extracted once, magic values named, dead branches removed (with proof that they are dead). Prefer several small, safe steps over one rewrite.\n3. Run the full test suite after each step.\n\nFinish with the full suite passing. In your final message, give the module, a before and after summary (lines, longest function, deepest nesting), the tests you added, and the final test command with its result. Then commit your work as the instructions below say.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "tags": [
+        "refactor",
+        "testing"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/race-refactor-without-behaviour-change.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "race-speed-up-the-test-suite",
+      "kind": "race",
+      "title": "Speed up the test suite",
+      "summary": "Race to cut the test suite's wall-clock time the most, with the same tests passing and no test removed or skipped.",
+      "title_tr": "Test paketini hızlandır",
+      "summary_tr": "Aynı testler geçmeye devam ederken ve hiçbir test silinmeden veya atlanmadan test paketinin süresini en çok kısaltma yarışı.",
+      "text": "Make this repository's full test suite run faster, measured by wall-clock time.\n\nRules:\n- The same set of tests must run and pass: do not delete, skip, merge away or weaken tests or assertions.\n- Do not change production behaviour to make tests faster, unless it is a real performance fix that you explain.\n- Do not depend on caches that only exist on your machine; the speed-up must hold on a clean checkout.\n\nSteps:\n1. Find the test command and run the full suite 3 times. Record the number of tests and the median time. This is the baseline.\n2. Find where the time goes: per-test durations (for example `--durations=20`, `--reporter=verbose`, `-v` with timings), setup and teardown, and the runner's startup.\n3. Fix the biggest costs first. Typical wins: real sleeps and timeouts replaced by fake timers or a fake clock, expensive setup done once per file instead of once per test, database reset by transaction rollback instead of re-creation, network calls replaced by local fakes where tests should not hit the network anyway, parallel workers if tests are isolated, and transforms or compilation steps that run more than needed.\n4. After each change, run the full suite and check the test count is unchanged and everything passes.\n\nFinish by running the full suite 3 times again. In your final message, give the test count and median time before and after, the speed-up ratio, and each change with the time it saved. Then commit your work as the instructions below say.",
+      "test": null,
+      "programs": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "tags": [
+        "testing",
+        "performance"
+      ],
+      "author": "enmerasoftware",
+      "path": "prompts/race-speed-up-the-test-suite.md",
+      "skill": null,
+      "votes": 0
+    },
+    {
+      "id": "ai-design-check",
+      "kind": "skill",
+      "title": "AI design check",
+      "summary": "Find and fix what makes an AI-built interface look generated: 147 rules, a checker and a fix skill.",
+      "title_tr": "AI design check",
+      "summary_tr": "Yapay zekâyla yapılmış bir arayüzü üretilmiş gösteren şeyleri bulur ve düzeltir: 147 kural, bir denetleyici ve bir düzeltme becerisi.",
+      "text": null,
+      "test": null,
+      "programs": [
+        "claude",
+        "codex"
+      ],
+      "tags": [
+        "design",
+        "frontend",
+        "mobile"
+      ],
+      "author": "enmerasoftware",
+      "path": null,
+      "skill": {
+        "repo": "enmerasoftware/ai-design-check",
+        "path": "plugin",
+        "ref": "main"
+      },
+      "votes": 0
+    },
+    {
+      "id": "enterm-image",
+      "kind": "skill",
+      "title": "Image skills",
+      "summary": "Five skills for image work on a Mac: every app icon size, store screenshots, web image optimisation, screenshot diffs and SVG clean-up.",
+      "title_tr": "Görsel becerileri",
+      "summary_tr": "Mac'te görsel işleri için beş beceri: tüm uygulama simgesi boyutları, mağaza ekran görüntüleri, web için görsel küçültme, ekran görüntüsü farkı ve SVG temizliği.",
+      "text": null,
+      "test": null,
+      "programs": [
+        "claude"
+      ],
+      "tags": [
+        "image",
+        "mobile",
+        "frontend"
+      ],
+      "author": "enmerasoftware",
+      "path": null,
+      "skill": {
+        "repo": "enmerasoftware/enterm",
+        "path": "skills/image",
+        "ref": "main"
+      },
+      "votes": 0
+    },
+    {
+      "id": "enterm-code",
+      "kind": "skill",
+      "title": "Software skills",
+      "summary": "Six skills for everyday engineering: test-first work, root-cause debugging, code review, commit messages, release checks and a security scan.",
+      "title_tr": "Yazılım becerileri",
+      "summary_tr": "Günlük mühendislik için altı beceri: önce test, kök neden odaklı hata ayıklama, kod incelemesi, commit mesajı, sürüm kontrolü ve güvenlik taraması.",
+      "text": null,
+      "test": null,
+      "programs": [
+        "claude"
+      ],
+      "tags": [
+        "testing",
+        "debugging",
+        "review",
+        "security"
+      ],
+      "author": "enmerasoftware",
+      "path": null,
+      "skill": {
+        "repo": "enmerasoftware/enterm",
+        "path": "skills/code",
+        "ref": "main"
+      },
+      "votes": 0
+    },
+    {
+      "id": "enterm-video",
+      "kind": "skill",
+      "title": "Video skills",
+      "summary": "Five skills built on ffmpeg and whisper.cpp: cut and join clips, subtitles, social media formats, compression and a pre-publish check.",
+      "title_tr": "Video becerileri",
+      "summary_tr": "ffmpeg ve whisper.cpp üzerine beş beceri: klip kesme ve birleştirme, altyazı, sosyal medya biçimleri, sıkıştırma ve yayın öncesi kontrol.",
+      "text": null,
+      "test": null,
+      "programs": [
+        "claude"
+      ],
+      "tags": [
+        "video"
+      ],
+      "author": "enmerasoftware",
+      "path": null,
+      "skill": {
+        "repo": "enmerasoftware/enterm",
+        "path": "skills/video",
+        "ref": "main"
+      },
+      "votes": 0
+    }
+  ]
+}

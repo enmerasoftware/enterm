@@ -38,7 +38,7 @@ final class LibraryTests: XCTestCase {
         shelf.toggle("a"); shelf.toggle("b"); shelf.toggle("a")
         XCTAssertEqual(shelf.saved, ["b"])
         let url = try XCTUnwrap(LibraryShare.issueURL(title: "T", summary: "S", text: "do it", kind: .prompt, programs: ["claude"]))
-        XCTAssertTrue(url.absoluteString.hasPrefix("https://github.com/enmerasoftware/enterm-library/issues/new?"))
+        XCTAssertTrue(url.absoluteString.hasPrefix("https://github.com/enmerasoftware/enterm/issues/new?"))
         XCTAssertTrue(url.absoluteString.contains("template=submit-prompt.yml"))
         XCTAssertTrue(url.absoluteString.contains("prompt=do%20it"))
         let item = LibraryEntry(id: "../evil name", kind: .skill, title: "x", summary: "", text: nil)

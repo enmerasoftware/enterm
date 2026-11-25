@@ -96,7 +96,7 @@ Open it from a box's menu, the details pane, the command palette, or **Replay th
 
 ### Library
 
-Prompts, race tasks and skill packs shared by the community in [enmerasoftware/enterm-library](https://github.com/enmerasoftware/enterm-library). Search and save them, **Run** a prompt in a new session with one click, **Race It** across agents, or review a skill pack's files and add it to new Claude Code sessions. **Share a Prompt** sends yours as a prefilled GitHub issue for review. Nothing runs by itself: you read it first. Details: [docs/library.md](docs/library.md).
+Prompts, race tasks and skill packs shared by the community in [`library/`](library). Search and save them, **Run** a prompt in a new session with one click, **Race It** across agents, or review a skill pack's files and add it to new Claude Code sessions. **Share a Prompt** sends yours as a prefilled GitHub issue for review. Nothing runs by itself: you read it first. Details: [docs/library.md](docs/library.md).
 
 ### Design check
 

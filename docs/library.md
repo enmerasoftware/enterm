@@ -1,6 +1,6 @@
 # Library
 
-Prompts, race tasks and skill packs that people share, in one public repository: [enmerasoftware/enterm-library](https://github.com/enmerasoftware/enterm-library). Enterm reads its `index.json` and shows it on the **Library** page (⋯ menu, command palette, or the canvas menu → *Work Together*).
+Prompts, race tasks and skill packs that people share, in the [`library/`](../library) folder of this repository. Enterm reads its `index.json` and shows it on the **Library** page (⋯ menu, command palette, or the canvas menu → *Work Together*).
 
 **On this page:** [Using an item](#using-an-item) · [Skill packs](#skill-packs) · [Sharing](#sharing) · [Safety](#safety) · [Files](#files)
 
@@ -22,7 +22,7 @@ A skill pack is a folder in Claude Code plugin form (`.claude-plugin/plugin.json
 
 ## Sharing
 
-**Share a Prompt** on the Library page opens a prefilled GitHub issue in the Library repository (title, summary, kind, programs, text). You read it on GitHub before sending; maintainers review it before it joins the index. You can also open a pull request with a new file directly; see the repository's CONTRIBUTING.
+**Share a Prompt** on the Library page opens a prefilled GitHub issue in this repository (title, summary, kind, programs, text). You read it on GitHub before sending; maintainers review it before it joins the index. You can also open a pull request with a new file directly; see the repository's CONTRIBUTING.
 
 ## Safety
 

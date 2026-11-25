@@ -1,0 +1,93 @@
+name: Submit a prompt or race task
+description: Propose a prompt or race task for the library. A maintainer reviews it and turns it into a file.
+title: "Prompt: "
+labels: ["submission", "prompt"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing. Read the [style guide and review checklist](https://github.com/enmerasoftware/enterm/blob/main/library/CONTRIBUTING.md) first; entries that follow them get merged fastest.
+        If you came here from Enterm's Share button, the fields are filled in for you. Check them before you submit.
+  - type: input
+    id: title
+    attributes:
+      label: Title
+      description: Sentence case, 60 characters at most, no full stop. Say what the prompt does.
+      placeholder: Find and fix flaky tests
+    validations:
+      required: true
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: One sentence ending with a full stop.
+      placeholder: Run the suite repeatedly to catch flaky tests, find why each one is flaky, and fix the cause.
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      description: A race task is meant for several agents at once; it must be self-contained, fair and verifiable.
+      options:
+        - prompt
+        - race
+    validations:
+      required: true
+  - type: input
+    id: test
+    attributes:
+      label: Test command (race tasks only, optional)
+      description: The command that tells whether a racer's result works. Leave empty to let Enterm detect it.
+      placeholder: npm test
+  - type: checkboxes
+    id: programs
+    attributes:
+      label: Programs it works well with
+      description: Race tasks can only run with Claude Code, Codex and Gemini.
+      options:
+        - label: Claude Code (claude)
+        - label: Codex (codex)
+        - label: Gemini (gemini)
+        - label: opencode (opencode)
+        - label: GitHub Copilot (copilot)
+        - label: Cursor (cursor)
+  - type: input
+    id: tags
+    attributes:
+      label: Tags
+      description: One to four, comma separated, from [TAGS.md](https://github.com/enmerasoftware/enterm/blob/main/library/TAGS.md).
+      placeholder: testing, debugging
+    validations:
+      required: true
+  - type: textarea
+    id: prompt
+    attributes:
+      label: Prompt text
+      description: The exact text the agent receives. Say what done looks like and how the agent should verify its work.
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: Which agents did you try it with, and how did it go?
+      description: Programs and models, the kind of project, and what the agent produced. Links to a replay or a pull request help.
+    validations:
+      required: true
+  - type: input
+    id: turkish
+    attributes:
+      label: Turkish title and summary (optional)
+      description: If you can, give a Turkish title and summary, separated by " | ".
+  - type: checkboxes
+    id: affirm
+    attributes:
+      label: Before you submit
+      options:
+        - label: The prompt contains no secrets, tokens, internal URLs or personal data.
+          required: true
+        - label: It does not ask an agent to do anything destructive or harmful, to send data anywhere, or to ignore its instructions or permission checks.
+          required: true
+        - label: I agree to license this submission under CC BY 4.0, as described in the README.
+          required: true

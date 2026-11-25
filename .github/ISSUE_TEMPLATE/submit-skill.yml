@@ -1,0 +1,78 @@
+name: Submit a skill pack
+description: Propose a skill pack (a Claude Code plugin in its own repository) for the library.
+title: "Skill: "
+labels: ["submission", "skill"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The library lists skill packs by reference; the code stays in your repository. Read [skills/README.md](https://github.com/enmerasoftware/enterm/blob/main/library/skills/README.md) for the format and [the review checklist](https://github.com/enmerasoftware/enterm/blob/main/library/CONTRIBUTING.md#review-checklist).
+  - type: input
+    id: repo
+    attributes:
+      label: Repository
+      description: owner/name on GitHub. It must be public.
+      placeholder: enmerasoftware/ai-design-check
+    validations:
+      required: true
+  - type: input
+    id: path
+    attributes:
+      label: Path to the plugin folder
+      description: The folder that holds `.claude-plugin/plugin.json` and `skills/`. Use `.` for the repository root.
+      placeholder: plugin
+    validations:
+      required: true
+  - type: input
+    id: ref
+    attributes:
+      label: Ref
+      description: A tag or commit is safer than a branch.
+      placeholder: v1.2.0
+    validations:
+      required: true
+  - type: input
+    id: title
+    attributes:
+      label: Title
+      description: Sentence case, 60 characters at most.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What it does
+      description: One sentence for the summary, then the skills it contains and what each one is for.
+    validations:
+      required: true
+  - type: input
+    id: tags
+    attributes:
+      label: Tags
+      description: One to four, comma separated, from [TAGS.md](https://github.com/enmerasoftware/enterm/blob/main/library/TAGS.md).
+    validations:
+      required: true
+  - type: input
+    id: license
+    attributes:
+      label: License
+      description: An OSI-approved permissive license (for example MIT, Apache-2.0, BSD) in the repository.
+      placeholder: MIT
+    validations:
+      required: true
+  - type: textarea
+    id: network
+    attributes:
+      label: Scripts and network access
+      description: List every script the skills run, and every network request they make and why. Write "none" if there are none.
+    validations:
+      required: true
+  - type: checkboxes
+    id: affirm
+    attributes:
+      label: Before you submit
+      options:
+        - label: All source is readable in the repository; nothing is minified, obfuscated or downloaded at run time without saying so.
+          required: true
+        - label: The skills contain no secrets and do not ask an agent to send data anywhere, to ignore its instructions, or to turn off permission checks.
+          required: true

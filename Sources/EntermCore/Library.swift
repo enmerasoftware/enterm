@@ -1,7 +1,7 @@
 import Foundation
 
 // The Library: prompts, race tasks and skill packs people share, kept in one public repository
-// (enmerasoftware/enterm-library) whose index.json the app reads. Nothing in it runs by itself:
+// (the library/ folder of enmerasoftware/enterm) whose index.json the app reads. Nothing in it runs by itself:
 // a prompt is shown before it starts a session, a skill pack's files before they are added.
 
 public struct LibraryEntry: Codable, Equatable, Identifiable, Hashable {
@@ -89,7 +89,7 @@ public struct LibraryEntry: Codable, Equatable, Identifiable, Hashable {
     public var webURL: URL? {
         if let skill { return URL(string: "https://github.com/\(skill.repo)/tree/\(skill.ref)/\(skill.path)") }
         guard let path else { return nil }
-        return URL(string: "\(LibraryIndex.repositoryURL)/blob/main/\(path)")
+        return URL(string: "\(LibraryIndex.repositoryURL)/blob/main/library/\(path)")
     }
 }
 
@@ -98,9 +98,9 @@ public struct LibraryIndex: Codable, Equatable {
     public var generated: String?
     public var items: [LibraryEntry]
 
-    public static let repository = "enmerasoftware/enterm-library"
+    public static let repository = "enmerasoftware/enterm"
     public static let repositoryURL = "https://github.com/\(repository)"
-    public static let indexURL = URL(string: "https://raw.githubusercontent.com/\(repository)/main/index.json")!
+    public static let indexURL = URL(string: "https://raw.githubusercontent.com/\(repository)/main/library/index.json")!
     /// The last index read, so the Library opens at once and works offline.
     public static var cacheFile: URL { EntermPaths.support.appendingPathComponent("library.json") }
 

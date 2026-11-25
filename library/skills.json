@@ -1,0 +1,78 @@
+[
+  {
+    "id": "ai-design-check",
+    "title": "AI design check",
+    "summary": "Find and fix what makes an AI-built interface look generated: 147 rules, a checker and a fix skill.",
+    "repo": "enmerasoftware/ai-design-check",
+    "path": "plugin",
+    "ref": "main",
+    "programs": [
+      "claude",
+      "codex"
+    ],
+    "tags": [
+      "design",
+      "frontend",
+      "mobile"
+    ],
+    "author": "enmerasoftware",
+    "title_tr": "AI design check",
+    "summary_tr": "Yapay zekâyla yapılmış bir arayüzü üretilmiş gösteren şeyleri bulur ve düzeltir: 147 kural, bir denetleyici ve bir düzeltme becerisi."
+  },
+  {
+    "id": "enterm-code",
+    "title": "Software skills",
+    "summary": "Six skills for everyday engineering: test-first work, root-cause debugging, code review, commit messages, release checks and a security scan.",
+    "repo": "enmerasoftware/enterm",
+    "path": "skills/code",
+    "ref": "main",
+    "programs": [
+      "claude"
+    ],
+    "tags": [
+      "testing",
+      "debugging",
+      "review",
+      "security"
+    ],
+    "author": "enmerasoftware",
+    "title_tr": "Yazılım becerileri",
+    "summary_tr": "Günlük mühendislik için altı beceri: önce test, kök neden odaklı hata ayıklama, kod incelemesi, commit mesajı, sürüm kontrolü ve güvenlik taraması."
+  },
+  {
+    "id": "enterm-image",
+    "title": "Image skills",
+    "summary": "Five skills for image work on a Mac: every app icon size, store screenshots, web image optimisation, screenshot diffs and SVG clean-up.",
+    "repo": "enmerasoftware/enterm",
+    "path": "skills/image",
+    "ref": "main",
+    "programs": [
+      "claude"
+    ],
+    "tags": [
+      "image",
+      "mobile",
+      "frontend"
+    ],
+    "author": "enmerasoftware",
+    "title_tr": "Görsel becerileri",
+    "summary_tr": "Mac'te görsel işleri için beş beceri: tüm uygulama simgesi boyutları, mağaza ekran görüntüleri, web için görsel küçültme, ekran görüntüsü farkı ve SVG temizliği."
+  },
+  {
+    "id": "enterm-video",
+    "title": "Video skills",
+    "summary": "Five skills built on ffmpeg and whisper.cpp: cut and join clips, subtitles, social media formats, compression and a pre-publish check.",
+    "repo": "enmerasoftware/enterm",
+    "path": "skills/video",
+    "ref": "main",
+    "programs": [
+      "claude"
+    ],
+    "tags": [
+      "video"
+    ],
+    "author": "enmerasoftware",
+    "title_tr": "Video becerileri",
+    "summary_tr": "ffmpeg ve whisper.cpp üzerine beş beceri: klip kesme ve birleştirme, altyazı, sosyal medya biçimleri, sıkıştırma ve yayın öncesi kontrol."
+  }
+]

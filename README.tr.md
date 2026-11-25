@@ -96,7 +96,7 @@ Bir kutunun menüsünden, ayrıntılar bölmesinden, komut paletinden ya da **Ya
 
 ### Kütüphane
 
-Topluluğun [enmerasoftware/enterm-library](https://github.com/enmerasoftware/enterm-library) deposunda paylaştığı istemler, yarış görevleri ve beceri paketleri. Arayın ve kaydedin; bir istemi **Çalıştır** ile tek tıkla yeni bir oturumda başlatın, **Yarıştır** ile ajanlara aynı anda verin, ya da bir beceri paketinin dosyalarına bakıp yeni Claude Code oturumlarına ekleyin. **İstem Paylaş** sizinkini incelenmek üzere önceden doldurulmuş bir GitHub önerisi olarak gönderir. Hiçbir şey kendiliğinden çalışmaz: önce okursunuz. Ayrıntı: [docs/library.md](docs/library.md).
+Topluluğun [`library/`](library) klasöründe paylaştığı istemler, yarış görevleri ve beceri paketleri. Arayın ve kaydedin; bir istemi **Çalıştır** ile tek tıkla yeni bir oturumda başlatın, **Yarıştır** ile ajanlara aynı anda verin, ya da bir beceri paketinin dosyalarına bakıp yeni Claude Code oturumlarına ekleyin. **İstem Paylaş** sizinkini incelenmek üzere önceden doldurulmuş bir GitHub önerisi olarak gönderir. Hiçbir şey kendiliğinden çalışmaz: önce okursunuz. Ayrıntı: [docs/library.md](docs/library.md).
 
 ### Tasarım kontrolü
 

@@ -1,0 +1,27 @@
+name: Library
+
+on:
+  push:
+    branches: [main]
+    paths: ["library/**", ".github/workflows/library.yml"]
+  pull_request:
+    paths: ["library/**", ".github/workflows/library.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: library-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Validate entries and index
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node library/scripts/build-index.mjs --check
